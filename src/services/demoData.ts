@@ -247,3 +247,4 @@ export const DEMO_OCCURRENCES: SourceOccurrence[] = DEMO_PEOPLE.map((p, idx) => 
   status: p.status === 'verified' ? 'linked' : 'needs_review',
   notes: 'Demonstration occurrence',
 }));
+

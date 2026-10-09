@@ -108,3 +108,4 @@ interface AuditEvent {
 
 3. **Non-Destructive Deduplication:**
    If a user suspects two occurrences represent the same individual, they are linked or noted in the reviewer audit trail rather than silently merged.
+

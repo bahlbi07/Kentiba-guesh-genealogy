@@ -106,3 +106,4 @@ CREATE POLICY "Allow authenticated read and write on occurrences" ON source_occu
 CREATE POLICY "Allow authenticated read and write on audit" ON audit_events
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 `;
+

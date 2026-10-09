@@ -107,3 +107,4 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ auditEvents }) =
     </div>
   );
 };
+

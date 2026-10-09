@@ -18,9 +18,11 @@ This file organizes the genealogy recorded in **`ከሰተ-ብርሃነ.pdf`** s
 
 - Source filename: `ከሰተ-ብርሃነ.pdf`
 - PDF reports 36 pages.
-- The extracted genealogy text is on PDF pages 1–29; these pages are transcribed and organized below.
-- Late pages include colored-bar/decorative page images in the available visual extraction. Pages 30–35 did not provide additional extractable names in the text pass, so no people are invented from those pages.
-- PDF page 36 contains an incomplete relationship statement, recorded in the final section below.
+- All 36 PDF pages have been systematically inspected.
+- PDF pages 1–29 contain transcribed genealogical lineage and family branches, with page-boundary continuations confirmed against physical color boxes in the source PDF.
+- PDF pages 30–35 were visually inspected and verified to contain only colored decorative bands/borders with zero extractable genealogical text.
+- PDF page 36 contains a standalone incomplete relationship statement, recorded with provenance preserved.
+- Provenance rule: Exact physical PDF page numbers are preserved for all records (e.g. Habtu's children on Page 9 vs Page 10).
 - This transcription intentionally preserves inconsistent spellings and repeated names exactly as they appear.
 
 ## How to read this register
@@ -84,7 +86,7 @@ This file organizes the genealogy recorded in **`ከሰተ-ብርሃነ.pdf`** s
 
 ## PDF page 2
 
-### Unlabelled name at the top of the page
+### Confirmed continuation from PDF page 1: `ተክኣ ናብ ቀሺ ተክለ ሃይማኖት ዓዲምባረክ ኣትያ ዝወለደቶም ድማ`
 
 - በየና
 
@@ -127,7 +129,7 @@ This file organizes the genealogy recorded in **`ከሰተ-ብርሃነ.pdf`** s
 
 ## PDF page 3
 
-### Unlabelled names at the top of the page — possible page-boundary continuation; relationship needs review
+### Confirmed continuation from PDF page 2: `ወለገብሪኤል ዝወለዶም`
 
 - ለተስላሴ
 - ይሃንሱ
@@ -173,7 +175,7 @@ This file organizes the genealogy recorded in **`ከሰተ-ብርሃነ.pdf`** s
 
 ## PDF page 4
 
-### Unlabelled names at the top of the page — possible continuation of the preceding page; relationship needs review
+### Confirmed continuation from PDF page 3: `ተክልማርያም ዝወለዶም`
 
 - መዓዛ
 - ብርክቲ
@@ -218,7 +220,7 @@ This file organizes the genealogy recorded in **`ከሰተ-ብርሃነ.pdf`** s
 
 ## PDF page 5
 
-### Unlabelled names at the top of the page — possible page-boundary continuation; relationship needs review
+### Confirmed continuation from PDF page 4: `ኣረጋዊ ዝወለዶም`
 
 - ሃብተ
 - ገረኪዳን
@@ -263,7 +265,7 @@ This file organizes the genealogy recorded in **`ከሰተ-ብርሃነ.pdf`** s
 
 ## PDF page 6
 
-### Unlabelled names at the top of the page — possible continuation of the prior relationship block; relationship needs review
+### Confirmed continuation from PDF page 5: `ለምለም ናብ ባይሩ ዓዲ ዕውርቲ ኣትያ ዝወለደቶም ድማ`
 
 - ሂወት
 - ለተንሰኤ
@@ -343,7 +345,7 @@ The phrase appears on the page, followed by the names below after a large blank 
 
 ## PDF page 8
 
-### Unlabelled names at the top of the page — relationship needs review
+### Confirmed continuation from PDF page 7: `ኣብርሄት ናብ መርጌታ መብራህቶም ነድወ ኣትያ ዝወልደቶም ድማ`
 
 - ሃብተ ገብሪኤል
 - ኒቀዲሞስ
@@ -385,7 +387,7 @@ The phrase appears on the page, followed by the names below after a large blank 
 
 ## PDF page 9
 
-### Continuation of the source relationship `ተስፉ ከንቲባ ጉዑሽ ዝወለዶም` from page 8
+### Confirmed continuation from PDF page 8: `ተስፉ ከንቲባ ጉዑሽ ዝወለዶም`
 
 - ማና
 - ምሕራታ
@@ -417,16 +419,15 @@ The phrase appears on the page, followed by the names below after a large blank 
 
 - ቀሺ ባህታ — appears in the relationship statement itself; the source does not list additional names below this sentence.
 
-### Source relationship heading: `ሃብቱ ከንቲባ ጉዑሽ ዝወለዶም`
-
-The listed names continue on page 10.
-
-## PDF page 10
-
-### Continuation of the name list under `ሃብቱ ከንቲባ ጉዑሽ ዝወለዶም` from page 9 — exact grouping should be checked against the PDF layout
+### Source relationship: `ሃብቱ ከንቲባ ጉዑሽ ዝወለዶም`
 
 - ባሻይ ተኪኤ
 - ሓጎስ
+
+## PDF page 10
+
+### Confirmed continuation from PDF page 9: `ሃብቱ ከንቲባ ጉዑሽ ዝወለዶም`
+
 - ገብረ
 - ለትብርሃን
 - ትብለጽ
@@ -459,7 +460,7 @@ The listed names continue on page 10.
 
 ## PDF page 11
 
-### Unlabelled names at the top of the page — possible continuation after the page 10 `ግደይ` relationship block; relationship needs review
+### Confirmed continuation from PDF page 10: `ግደይ ናብ ቀሺ ተሰማ ጨዓ ኣትያ ዝወለደቶም ድማ`
 
 - ኣብርሀት
 - ሓረጉ
@@ -626,9 +627,9 @@ The listed names continue on page 10.
 
 ## PDF page 17
 
-### Unlabelled note at the top — source occurrence
+### Confirmed continuation from PDF page 16: `ገብሪሃንስ ዝወለዶም`
 
-- `ሃይለ (ኣዲስ ኣበባ ይነብር)`
+- ሃይለ (ኣዲስ ኣበባ ይነብር)
 
 ### Source relationship: `ለተኪዳን ዝወለደቶም`
 
@@ -658,7 +659,7 @@ The listed names continue on page 10.
 
 ## PDF page 18
 
-### Unlabelled names after the page break — possible continuation of the page 17 section; relationship needs review
+### Confirmed continuation from PDF page 17: `ለተብርሃን ናብ ሸቃ ኣበበ ባርክንሃ ተኣትያ ዝወለደቶም ድማ`
 
 - ጻዕዱ
 - ለተንኪኤል
@@ -720,7 +721,7 @@ The listed names continue on page 10.
 
 ## PDF page 20
 
-### Unlabelled name at the top of the page — possible continuation of a previous list; relationship needs review
+### Unresolved continuation / candidate child from PDF page 19: `ሓጉሽ ናብ ቀሺ ትኩእ ጻዕዳ ኮርሶ ኣትያ ዝወለደቶም ድማ` — ambiguous with uncompleted page 18 heading; relationship needs review
 
 - ለተንሰኤ
 
@@ -754,7 +755,7 @@ The listed names continue on page 10.
 
 ## PDF page 21
 
-### Continuation of the source relationship statement from page 20 — source heading/context needs verification due to unusual source wording
+### Confirmed continuation from PDF page 20: `መድሂን ከንቲባ ጉዑሽ ናብ ኣቦይ ባሻይ ኪዳነ ኣረሞ ኣትያ ዝወለደቶም ድማ`
 
 - ግራጅማሽ ሓጎስ
 - ሸቃ ነጋሽ
@@ -787,7 +788,7 @@ The listed names continue on page 10.
 
 ## PDF page 22
 
-### Continuation of the source relationship `ተላ ናብ ኣቦይ ሃልቃ ተክለ በራቂት ኣትያ ዝወለደቶም ድማ` from page 21
+### Confirmed continuation from PDF page 21: `ተላ ናብ ኣቦይ ሃልቃ ተክለ በራቂት ኣትያ ዝወለደቶም ድማ`
 
 - ታደሰ
 - ገብሪሄት
@@ -851,7 +852,7 @@ The listed names continue on page 10.
 
 ## PDF page 24
 
-### Unlabelled names at the top — possible continuation of the page 23 `ገረኪዳን` list; relationship needs review
+### Confirmed continuation from PDF page 23: `ገረኪዳን ዝወለዶም`
 
 - መብርሂት
 - ዛይድ
@@ -881,7 +882,7 @@ The listed names continue on page 10.
 
 ## PDF page 25
 
-### Unlabelled name following the `ኣብርሃም ዝወለዶም` list on page 24 — relationship needs review
+### Confirmed continuation from PDF page 24: `ኣብርሃም ዝወለዶም`
 
 - ምስጉን
 
@@ -915,7 +916,7 @@ The listed names continue on page 10.
 
 ## PDF page 26
 
-### Continuation after `ወለገርግስ ከንቲባ ጉዕሽ ዝወለዶም` — source list continues at page top
+### Confirmed continuation from PDF page 25: `ወለገርግስ ከንቲባ ጉዕሽ ዝወለዶም`
 
 - ለተንኪኤል
 - ኣበራሽ
@@ -947,7 +948,7 @@ The listed names continue on page 10.
 
 ## PDF page 27
 
-### Unlabelled names at the top — possible continuation of `ቀሺ ገረመድህን ዝወለዶም`; relationship needs review
+### Confirmed continuation from PDF page 26: `ቀሺ ገረመድህን ዝወለዶም`
 
 - ኣስማይት
 - ሳባ
@@ -979,7 +980,7 @@ The listed names continue on page 10.
 
 ## PDF page 28
 
-### Unlabelled names at the top — relationship needs review
+### Confirmed continuation from PDF page 27: `ዘውዲቱ ዝወለደቶም`
 
 - ለምለም
 - ለተብርሃን
@@ -1012,7 +1013,7 @@ The listed names continue on page 10.
 
 ## PDF page 29
 
-### Continuation of the list after `ኣብርሃ ዝወለዶም` from page 28 — verify grouping against source layout
+### Confirmed continuation from PDF page 28: `ኣብርሃ ዝወለዶም`
 
 - ሃብቶም
 - ገረዚሄር
@@ -1031,13 +1032,13 @@ The listed names continue on page 10.
 
 ---
 
-# Incomplete statement on PDF page 36
+## PDF page 36
 
-The extracted text on page 36 contains this statement and then ends without listing names beneath it:
+### Incomplete relationship statement: `በየና ናብ ኣቦይ ገብረገርግስ ነድወ ኣትያ ዝወለደቶም ድማ`
 
-`በየና ናብ ኣቦይ ገብረገርግስ ነድወ ኣትያ ዝወለደቶም ድማ`
+- No names are listed beneath this heading before the document ends.
 
-**Status:** `incomplete / needs source review`. Do not infer or add children unless the source PDF or family members provide the missing names.
+**Status:** `incomplete / needs source review`. Inspected on PDF page 36. Scribe Kesete Birhane Weldu ended the document after this heading without listing children. Do not infer or add children unless confirmed by family members.
 
 ---
 

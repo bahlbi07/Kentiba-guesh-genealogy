@@ -5,3 +5,4 @@ import '@testing-library/jest-dom';
 if (typeof globalThis.structuredClone === 'undefined') {
   globalThis.structuredClone = (val: any) => JSON.parse(JSON.stringify(val));
 }
+

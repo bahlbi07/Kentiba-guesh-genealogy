@@ -104,3 +104,4 @@ If you decide to enable cross-device synchronization or collaborative editing:
 - **Steps:**
   1. Configure `vite.config.ts` `base: '/Kinteba_Guush_Family_Genealogy/'`.
   2. Deploy via GitHub Actions using the official Vite static deployment workflow.
+

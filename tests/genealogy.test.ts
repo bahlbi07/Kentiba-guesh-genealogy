@@ -444,4 +444,143 @@ describe('Kinteba Guush Family Genealogy Test Suite', () => {
     const cycle = validateParentChildCycle([], 'pers_1', 'pers_2');
     expect(cycle.isValid).toBe(true);
   });
+
+  // Test 13: Page-boundary continuations link children to parents across page breaks without duplication
+  it('Requirement 13: Page-boundary continuations link children to parents across page breaks', async () => {
+    const fs = await import('fs');
+    const md = fs.readFileSync('./source/family_genealogy_register.md', 'utf-8');
+    const result = parseRegisterMarkdown(md);
+
+    // Beyena on Page 2 continues Tek'a's union from Page 1
+    const beyena = result.stagedPeople.find(
+      (p) => p.canonicalName === 'በየና' && p.sourcePage === 2
+    );
+    expect(beyena).toBeDefined();
+    expect(beyena?.sourcePage).toBe(2);
+
+    const tekA = result.stagedPeople.find((p) => p.canonicalName === 'ተክኣ' && p.sourcePage === 1);
+    expect(tekA).toBeDefined();
+
+    const beyenaRel = result.stagedRelationships.find(
+      (r) => r.fromPersonId === tekA?.id && r.toPersonId === beyena?.id
+    );
+    expect(beyenaRel).toBeDefined();
+    expect(beyenaRel?.type).toBe('parent_child');
+
+    // Letesilase on Page 3 continues Welegebriel from Page 2
+    const letesilase = result.stagedPeople.find(
+      (p) => p.canonicalName === 'ለተስላሴ' && p.sourcePage === 3
+    );
+    expect(letesilase).toBeDefined();
+
+    const welegebriel = result.stagedPeople.find(
+      (p) => p.canonicalName === 'ወለገብሪአል' || p.canonicalName === 'ወለገብሪኤል'
+    );
+    expect(welegebriel).toBeDefined();
+
+    const letesilaseRel = result.stagedRelationships.find(
+      (r) => r.toPersonId === letesilase?.id
+    );
+    expect(letesilaseRel).toBeDefined();
+    expect(letesilaseRel?.type).toBe('parent_child');
+  });
+
+  // Test 14: Accurate physical PDF page references are preserved across continuations
+  it('Requirement 14: Accurate physical PDF page references are preserved across continuations', async () => {
+    const fs = await import('fs');
+    const md = fs.readFileSync('./source/family_genealogy_register.md', 'utf-8');
+    const result = parseRegisterMarkdown(md);
+
+    // Habtu's children: Bashay Tekie & Hagos on Page 9; Gebre, Letebirhan, Tiblekts on Page 10
+    const bashayTekie = result.stagedPeople.find(
+      (p) => p.canonicalName === 'ባሻይ ተኪኤ' && p.sourcePage === 9
+    );
+    const hagosPage9 = result.stagedPeople.find(
+      (p) => p.canonicalName === 'ሓጎስ' && p.sourcePage === 9
+    );
+    const gebrePage10 = result.stagedPeople.find(
+      (p) => p.canonicalName === 'ገብረ' && p.sourcePage === 10
+    );
+
+    expect(bashayTekie).toBeDefined();
+    expect(bashayTekie?.sourcePage).toBe(9);
+    expect(hagosPage9).toBeDefined();
+    expect(hagosPage9?.sourcePage).toBe(9);
+    expect(gebrePage10).toBeDefined();
+    expect(gebrePage10?.sourcePage).toBe(10);
+  });
+
+  // Test 15: Zero duplicate relationship IDs exist across the parsed register
+  it('Requirement 15: Zero duplicate relationship IDs exist and referential integrity is preserved', async () => {
+    const fs = await import('fs');
+    const md = fs.readFileSync('./source/family_genealogy_register.md', 'utf-8');
+    const result = parseRegisterMarkdown(md);
+
+    const relIds = result.stagedRelationships.map((r) => r.id);
+    const uniqueRelIds = new Set(relIds);
+    expect(uniqueRelIds.size).toBe(relIds.length);
+
+    const personIds = new Set(result.stagedPeople.map((p) => p.id));
+    for (const rel of result.stagedRelationships) {
+      expect(personIds.has(rel.fromPersonId)).toBe(true);
+      expect(personIds.has(rel.toPersonId)).toBe(true);
+    }
+  });
+
+  // Test 16: Parser is deterministic and produces identical IDs and structures across repeated runs
+  it('Requirement 16: Parser is deterministic across repeated runs', async () => {
+    const fs = await import('fs');
+    const md = fs.readFileSync('./source/family_genealogy_register.md', 'utf-8');
+    const run1 = parseRegisterMarkdown(md);
+    const run2 = parseRegisterMarkdown(md);
+
+    expect(run1.stagedPeople.length).toBe(run2.stagedPeople.length);
+    expect(run1.stagedRelationships.length).toBe(run2.stagedRelationships.length);
+    expect(run1.occurrences.length).toBe(run2.occurrences.length);
+
+    for (let i = 0; i < run1.stagedPeople.length; i++) {
+      expect(run1.stagedPeople[i].id).toBe(run2.stagedPeople[i].id);
+      expect(run1.stagedPeople[i].canonicalName).toBe(run2.stagedPeople[i].canonicalName);
+    }
+
+    for (let i = 0; i < run1.stagedRelationships.length; i++) {
+      expect(run1.stagedRelationships[i].id).toBe(run2.stagedRelationships[i].id);
+    }
+  });
+
+  // Test 17: Genuine ambiguities remain flagged as needs_review
+  it('Requirement 17: Genuine ambiguities remain flagged as needs_review', async () => {
+    const fs = await import('fs');
+    const md = fs.readFileSync('./source/family_genealogy_register.md', 'utf-8');
+    const result = parseRegisterMarkdown(md);
+
+    expect(result.uncertainRecords.length).toBe(6);
+
+    // Letensae on page 20 must remain flagged
+    const letensaePage20 = result.stagedPeople.find(
+      (p) => p.canonicalName === 'ለተንሰኤ' && p.sourcePage === 20
+    );
+    expect(letensaePage20).toBeDefined();
+    expect(letensaePage20?.status).toBe('needs_review');
+
+    // Incomplete statements must be in uncertain records
+    const page36Entry = result.uncertainRecords.find((u) => u.page === 36);
+    expect(page36Entry).toBeDefined();
+
+    const page25Entry = result.uncertainRecords.find((u) => u.page === 25);
+    expect(page25Entry).toBeDefined();
+  });
+
+  // Test 18: Inspection of all 36 PDF pages is properly tracked in preview metrics
+  it('Requirement 18: Inspection of all 36 PDF pages is properly tracked in preview metrics', async () => {
+    const fs = await import('fs');
+    const md = fs.readFileSync('./source/family_genealogy_register.md', 'utf-8');
+    const result = parseRegisterMarkdown(md);
+
+    expect(result.stats.pagesInspectedCount).toBe(36);
+    expect(result.stats.pagesTranscribedCount).toBe(29);
+    expect(result.stats.confirmedContinuationsCount).toBe(19);
+    expect(result.stats.duplicateNameOccurrences.length).toBe(92);
+  });
 });
+

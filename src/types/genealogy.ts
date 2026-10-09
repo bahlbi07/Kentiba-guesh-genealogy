@@ -86,6 +86,17 @@ export interface ImportPreviewStats {
   unlabelledOrUncertainBlocks: number;
   proposedRelationshipsCount: number;
   pageBreakdown: { page: number; count: number; blocksCount: number }[];
+  distinctPersonRecordsCount?: number;
+  nameOccurrencesCount?: number;
+  relationshipsByType?: {
+    parentChild: number;
+    partnerOrUnion: number;
+    otherSourceStatement: number;
+  };
+  confirmedContinuationsCount?: number;
+  unresolvedOrIncompleteCount?: number;
+  pagesTranscribedCount?: number;
+  pagesInspectedCount?: number;
 }
 
 export interface BackupData {
@@ -102,3 +113,4 @@ export interface BackupData {
   sourceOccurrences: SourceOccurrence[];
   auditEvents: AuditEvent[];
 }
+

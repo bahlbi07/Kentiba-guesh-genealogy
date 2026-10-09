@@ -498,3 +498,4 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
     </div>
   );
 };
+

@@ -4,13 +4,14 @@ mod routes;
 
 use auth::{LoginRateLimiter, SessionStore};
 use axum::{
+    http::{header, HeaderValue, Method},
     routing::{get, post},
     Router,
 };
 use db::Database;
 use routes::AppState;
 use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,15 +27,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rate_limiter: LoginRateLimiter::new(),
     };
 
-    // Configure secure CORS
+    // Configure Origin Allowlist (Section 2.3)
+    // Supports explicit environment list or defaults to local development & Netlify
+    let allowed_origins_env = std::env::var("ALLOWED_ORIGINS").unwrap_or_else(|_| {
+        "http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,https://kinteba-guush-genealogy.netlify.app".to_string()
+    });
+
+    let allowed_origins: Vec<HeaderValue> = allowed_origins_env
+        .split(',')
+        .filter_map(|s| s.trim().parse::<HeaderValue>().ok())
+        .collect();
+
+    println!("Allowed CORS Origins: {:?}", allowed_origins_env);
+
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(allowed_origins)
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT]);
 
     // Build router
     let app = Router::new()
         .route("/health", get(routes::health_check))
+        .route("/api/health", get(routes::health_check))
         .route("/api/stats", get(routes::get_stats))
         .route("/api/people", get(routes::list_people))
         .route("/api/search", get(routes::search_people))
@@ -57,4 +71,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

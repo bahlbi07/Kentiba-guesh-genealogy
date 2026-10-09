@@ -27,6 +27,7 @@ import { UncertainRecordsView } from './UncertainRecordsView';
 import { ImportModal } from './ImportModal';
 import { ExportModal } from './ExportModal';
 import { AuditLogViewer } from './AuditLogViewer';
+import { apiLogin, isBackendConfigured } from '../services/apiClient';
 
 interface AdminPanelProps {
   people: Person[];
@@ -86,24 +87,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setIsLoggingIn(true);
 
     try {
-      // Check if API base URL is configured
-      const apiUrl = (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env.VITE_API_BASE_URL;
-
-      if (apiUrl) {
-        // Authenticate with Rust Axum backend API
-        const res = await fetch(`${apiUrl}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          onLogin(data.token, username);
+      if (isBackendConfigured()) {
+        const result = await apiLogin(username, password);
+        if (result.success && result.token) {
+          onLogin(result.token, username);
           return;
         } else {
           setLoginAttempts((prev) => prev + 1);
-          setLoginError('መእተዊ ሓበሬታ ትክክል ኣይኮነን። (Invalid archivist credentials)');
+          setLoginError(result.error || 'መእተዊ ሓበሬታ ትክክል ኣይኮነን። (Invalid archivist credentials)');
           return;
         }
       } else {

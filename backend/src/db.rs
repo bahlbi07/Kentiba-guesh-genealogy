@@ -53,8 +53,7 @@ pub struct Database {
 impl Database {
     pub fn open(path: &str) -> Result<Self> {
         let conn = Connection::open(path)?;
-        conn.execute("PRAGMA foreign_keys = ON;", [])?;
-        conn.execute("PRAGMA journal_mode = WAL;", [])?;
+        conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")?;
 
         // Initialize schema
         conn.execute_batch(

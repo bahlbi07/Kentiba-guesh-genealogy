@@ -1,41 +1,67 @@
-# Setup, Local Operation, Backup & Deployment Guide
+# Setup, Local Operation, Rust Backend, Backup & Deployment Guide
 
-## 1. Prerequisites
-
-- **Operating System:** Windows 10/11 (or macOS / Linux)
-- **Node.js:** v18.0.0 or later (Tested on Node v24.13.1)
-- **Package Manager:** npm v9.0.0 or later (Tested on npm 11.8.0)
-- **Git:** Git 2.30+ (Tested on Git 2.53.0)
+**Project:** Kinteba Guush Family Genealogy Platform (`ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ`)  
+**Workspace:** `C:\Users\Bale\My_ALL_PROJECTS\1\Kinteba_Guush_Family_Genealogy`  
+**Revision:** 2.0 (Production Architecture & PWA)  
 
 ---
 
-## 2. Local Setup and Running
+## 1. System Requirements
 
-1. **Open Terminal / PowerShell** in the project folder:
+- **Operating System:** Windows 10/11, macOS, or Linux
+- **Node.js:** v18.0.0 or later (Tested on Node v24.13.1)
+- **Rust Toolchain:** 1.75+ (for building the backend in `backend/`)
+- **Package Manager:** npm v9.0.0 or later (Tested on npm 11.8.0)
+- **Git:** Git 2.30+
+
+---
+
+## 2. Local Setup & Running on Windows
+
+### A. Running the React PWA Frontend
+1. Open PowerShell in the project directory:
    ```powershell
    cd C:\Users\Bale\My_ALL_PROJECTS\1\Kinteba_Guush_Family_Genealogy
    ```
-
-2. **Install Dependencies:**
+2. Install npm dependencies:
    ```powershell
    npm install
    ```
-
-3. **Start Local Development Server:**
+3. Start the local development server:
    ```powershell
    npm run dev
    ```
    Open your browser to: **`http://localhost:5173`**
 
-4. **Run Automated Test Suite:**
+4. Run the automated test suite:
    ```powershell
    npm test
    ```
 
-5. **Typecheck & Production Build:**
+5. Typecheck and build the production bundle:
    ```powershell
    npm run lint
    npm run build
+   ```
+
+### B. Running the Rust Security API Backend (Optional Local Server)
+1. Open a second PowerShell terminal in the `backend/` directory:
+   ```powershell
+   cd C:\Users\Bale\My_ALL_PROJECTS\1\Kinteba_Guush_Family_Genealogy\backend
+   ```
+2. Create the first administrator account securely:
+   ```powershell
+   cargo run --bin init_admin -- --username archivist --password "YourStrongPasswordHere"
+   ```
+3. Start the Rust Axum API server:
+   ```powershell
+   cargo run --bin server
+   ```
+   The backend will listen on: **`http://127.0.0.1:3001`**
+
+4. In the root directory, point the frontend to the backend by creating `.env`:
+   ```env
+   VITE_API_BASE_URL=http://localhost:3001
    ```
 
 ---
@@ -43,65 +69,59 @@
 ## 3. Local-First Privacy Architecture
 
 - **Default Storage:** Browser **IndexedDB** (`KintebaGuushGenealogyDB`).
-- **Zero Cloud Requirement:** The application runs 100% offline and locally without creating an account or paying for hosting.
-- **Data Persistence:** Your records persist across browser reloads, system restarts, and offline sessions.
+- **Zero Cloud Requirement:** The application runs 100% offline and locally without paying for cloud hosting.
+- **Data Persistence:** Records persist across browser reloads, system restarts, and offline sessions.
 - **Safe Isolation:** Demo data and real family records are cleanly separated.
 
 ---
 
-## 4. Backup & Disaster Recovery Procedures
+## 4. Progressive Web App (PWA) Mobile Installation
 
-### Creating a Backup
-1. Navigate to the **Backup & Export** tab in the navigation bar.
+### Android (Chrome / Edge / Firefox)
+1. Navigate to the website in Chrome on Android.
+2. An installation banner appears: **"ኣብ ሞባይልኩም ኣእትዉ (Install App)"**.
+3. Tap **Install**. The golden **ጉ** icon will be added to your home screen.
+
+### iPhone & iPad (Safari)
+1. Open the website in **Safari**.
+2. Tap the **Share** icon (square with upward arrow).
+3. Select **"Add to Home Screen"** (`ናብ ዋና ገጽ ወስኽ`).
+4. Tap **Add**. The app opens in full-screen standalone mode.
+
+*(See [`docs/PWA_INSTALLATION.md`](file:///c:/Users/Bale/My_ALL_PROJECTS/1/Kinteba_Guush_Family_Genealogy/docs/PWA_INSTALLATION.md) for full instructions).*
+
+---
+
+## 5. Deployment Options (Zero-Budget / Free Tiers)
+
+### Option A: Netlify Static Frontend (Recommended — $0/Month)
+- **Features:** 100% free static hosting, automated Git deployments, free SSL/HTTPS, global CDN, custom domains.
+- **Build Configuration:**
+  - Build Command: `npm run build`
+  - Publish Directory: `dist`
+  - Pre-configured with [`netlify.toml`](file:///c:/Users/Bale/My_ALL_PROJECTS/1/Kinteba_Guush_Family_Genealogy/netlify.toml) including CSP, security headers, and PWA routing.
+- **Deployment Safety:** Adding the `backend/` directory does not interfere with the Netlify build.
+
+### Option B: Render Free Tier for Rust Backend ($0/Month)
+- **Features:** Free Web Service tier capable of building and hosting Docker/Rust applications.
+- **Setup:**
+  1. Create a free account at [render.com](https://render.com).
+  2. Create a **New Web Service** pointing to your Git repository with Root Directory `backend`.
+  3. Environment: `Docker` (using [`backend/Dockerfile`](file:///c:/Users/Bale/My_ALL_PROJECTS/1/Kinteba_Guush_Family_Genealogy/backend/Dockerfile)).
+  4. Note on Free Tier Limitation: Render free instances spin down after 15 minutes of inactivity; initial wakeup takes ~50 seconds.
+  5. In Netlify's environment variables, set `VITE_API_BASE_URL` to your Render service URL.
+
+---
+
+## 6. Backup & Disaster Recovery Procedures
+
+### Taking a Regular Backup
+1. In the **Admin Area** (`ኣካያዲ`), navigate to **"ባክኣፕን ኤክስፖርትን"**.
 2. Click **Download JSON**.
-3. Save the resulting file (`kinteba_guush_genealogy_backup_YYYY-MM-DD.json`) to a secure location (e.g. external drive, encrypted folder).
-4. You can also export **People Directory (CSV)** and **Relationships with Evidence (CSV)** for viewing in Excel or Google Sheets.
+3. Save the resulting backup file (`kinteba_guush_genealogy_backup_YYYY-MM-DD.json`) to external encrypted storage.
 
 ### Restoring from a Backup
-1. In the **Backup & Export** tab, locate the **Restore from JSON Backup** section.
-2. Click **Choose File** and select your `.json` backup file.
-3. Review the preview and click **Restore Backup to Database**.
-4. The system validates referential integrity and restores all people, relationships, and source occurrences.
-
----
-
-## 5. Optional Free Cloud Setup (Supabase)
-
-If you decide to enable cross-device synchronization or collaborative editing:
-
-1. Create a free account at **[supabase.com](https://supabase.com)** (Free Tier).
-2. Create a new free project.
-3. Open the **SQL Editor** in the Supabase dashboard.
-4. Copy the SQL migration script from the **Settings** tab in the app or run `src/services/supabaseClient.ts` migration script:
-   - Sets up `people`, `relationships`, `source_occurrences`, and `audit_events` tables.
-   - Enforces PostgreSQL Row Level Security (RLS).
-5. In your project root, create a `.env` file from `.env.example`:
-   ```bash
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-public-key
-   ```
-6. Restart Vite (`npm run dev`). The status badge will update to **Cloud Connected**.
-7. **Security Warning:** Never expose the `service_role` secret key. Only use the public `anon` key in browser applications.
-
----
-
-## 6. Deployment Options (Free Tiers)
-
-> [!NOTE]
-> Do not publish private genealogy data publicly without explicit family consent. By default, Cloudflare Pages and GitHub Pages deployments can be kept in private repositories or protected behind access authentication.
-
-### Option A: Cloudflare Pages (Recommended Free Tier)
-- **Free Tier Features:** Unlimited bandwidth, 500 builds/month, global CDN, custom domain support.
-- **Steps:**
-  1. Push the project repository to GitHub or GitLab.
-  2. Connect your repository to **Cloudflare Pages**.
-  3. Set Build Command: `npm run build`
-  4. Set Build Output Directory: `dist`
-  5. Deploy.
-
-### Option B: GitHub Pages
-- **Free Tier Features:** Free static hosting directly from a GitHub repository.
-- **Steps:**
-  1. Configure `vite.config.ts` `base: '/Kinteba_Guush_Family_Genealogy/'`.
-  2. Deploy via GitHub Actions using the official Vite static deployment workflow.
-
+1. Navigate to **"Restore from JSON Backup"**.
+2. Select your validated `.json` backup file.
+3. Review the preview and click **"Restore Backup to Database"**.
+4. The system validates referential integrity and restores all records with an audit log entry.

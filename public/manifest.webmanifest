@@ -1,0 +1,23 @@
+{
+  "name": "ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ (Kinteba Guush Family Genealogy)",
+  "short_name": "Kinteba Guush",
+  "description": "Historical genealogy archive and progressive family tree explorer of Kinteba Guush Hagos.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1c1917",
+  "theme_color": "#b45309",
+  "lang": "ti",
+  "dir": "ltr",
+  "categories": ["education", "reference", "books"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

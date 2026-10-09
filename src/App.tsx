@@ -3,8 +3,7 @@ import {
   Person,
   Relationship,
   SourceOccurrence,
-  AuditEvent,
-  Source
+  AuditEvent
 } from './types/genealogy';
 import {
   getAllPeople,
@@ -21,21 +20,20 @@ import {
 import { isCloudConfigured } from './services/supabaseClient';
 import { DEMO_PEOPLE, DEMO_RELATIONSHIPS, DEMO_OCCURRENCES } from './services/demoData';
 
-import { Navbar } from './components/Navbar';
-import { TreeViewer } from './components/TreeViewer';
+import { Navbar, AppDestination } from './components/Navbar';
+import { FamilyExplorer } from './components/FamilyExplorer';
 import { Directory } from './components/Directory';
-import { UncertainRecordsView } from './components/UncertainRecordsView';
-import { ImportModal } from './components/ImportModal';
-import { ExportModal } from './components/ExportModal';
-import { AuditLogViewer } from './components/AuditLogViewer';
-import { StorageSettingsModal } from './components/StorageSettingsModal';
+import { FamilyInformationView } from './components/FamilyInformationView';
+import { AboutArchive } from './components/AboutArchive';
+import { AdminPanel } from './components/AdminPanel';
 import { PersonDetailModal } from './components/PersonDetailModal';
 import { RelationshipModal } from './components/RelationshipModal';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 
-import { AlertTriangle, Sparkles, Plus, RefreshCw, BookOpen } from 'lucide-react';
+import { AlertTriangle, BookOpen } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'tree' | 'directory' | 'uncertain' | 'audit' | 'import' | 'export' | 'settings'>('tree');
+  const [activeTab, setActiveTab] = useState<AppDestination>('tree');
   const [people, setPeople] = useState<Person[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [occurrences, setOccurrences] = useState<SourceOccurrence[]>([]);
@@ -43,13 +41,19 @@ export const App: React.FC = () => {
   const [datasetMode, setDatasetMode] = useState<'real' | 'demo' | 'empty'>('empty');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modals state
+  // Modals and selection state
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [showPersonModal, setShowPersonModal] = useState(false);
   const [showRelationshipModal, setShowRelationshipModal] = useState(false);
   const [initialRelFromId, setInitialRelFromId] = useState<string | undefined>(undefined);
   const [showAddPersonModal, setShowAddPersonModal] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [newPersonBranch, setNewPersonBranch] = useState('');
+
+  // Admin authentication state
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('kinteba_admin_auth') === 'true';
+  });
 
   // Reload all data from local IndexedDB
   const reloadData = useCallback(async () => {
@@ -67,12 +71,20 @@ export const App: React.FC = () => {
       setOccurrences(storedOccs);
       setAuditEvents(storedAudits);
       setDatasetMode(mode);
+
+      // Auto-select root or first person if none selected
+      if (!selectedPerson && storedPeople.length > 0) {
+        const root = storedPeople.find(
+          (p) => p.canonicalName.includes('ከንቲባ ጉዑሽ') || p.id === 'pers_p1_0_0'
+        );
+        setSelectedPerson(root || storedPeople[0]);
+      }
     } catch (err) {
       console.error('Failed to load database:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedPerson]);
 
   useEffect(() => {
     reloadData();
@@ -80,15 +92,17 @@ export const App: React.FC = () => {
 
   // Handle Person CRUD
   const handleUpdatePerson = async (updated: Person) => {
-    await savePerson(updated, 'User');
+    await savePerson(updated, 'Admin');
     await reloadData();
     setSelectedPerson(updated);
   };
 
   const handleDeletePerson = async (id: string) => {
-    await deletePerson(id, 'User');
+    await deletePerson(id, 'Admin');
     await reloadData();
-    setSelectedPerson(null);
+    if (selectedPerson?.id === id) {
+      setSelectedPerson(null);
+    }
   };
 
   const handleCreateNewPerson = async (e: React.FormEvent) => {
@@ -101,12 +115,12 @@ export const App: React.FC = () => {
       branch: newPersonBranch.trim() || undefined,
       status: 'unverified',
       isArchived: false,
-      notes: 'Manually created record.',
+      notes: 'Manually entered record.',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    await savePerson(newPerson, 'User');
+    await savePerson(newPerson, 'Admin');
     setNewPersonName('');
     setNewPersonBranch('');
     setShowAddPersonModal(false);
@@ -116,7 +130,7 @@ export const App: React.FC = () => {
 
   // Handle Relationship CRUD
   const handleSaveRelationship = async (rel: Relationship) => {
-    const result = await saveRelationship(rel, 'User');
+    const result = await saveRelationship(rel, 'Admin');
     if (result.success) {
       await reloadData();
     }
@@ -124,7 +138,7 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteRelationship = async (relId: string) => {
-    await deleteRelationship(relId, 'User');
+    await deleteRelationship(relId, 'Admin');
     await reloadData();
   };
 
@@ -133,15 +147,28 @@ export const App: React.FC = () => {
     setShowRelationshipModal(true);
   };
 
-  // Counts for badge
-  const needsReviewCount = people.filter((p) => p.status === 'needs_review').length;
+  const handleAdminLogin = (token: string, username: string) => {
+    sessionStorage.setItem('kinteba_admin_auth', 'true');
+    sessionStorage.setItem('kinteba_admin_user', username);
+    sessionStorage.setItem('kinteba_admin_token', token);
+    setIsAdminAuthenticated(true);
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('kinteba_admin_auth');
+    sessionStorage.removeItem('kinteba_admin_user');
+    sessionStorage.removeItem('kinteba_admin_token');
+    setIsAdminAuthenticated(false);
+  };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-stone-700 font-medium font-ethiopic text-lg">ሓረግ ወለዶ ከንቲባ ጉዑሽ ይዳሎ ኣሎ...</p>
+          <p className="text-stone-700 font-medium font-ethiopic text-lg">
+            ሓረግ ወለዶ ከንቲባ ጉዑሽ ይዳሎ ኣሎ...
+          </p>
           <p className="text-stone-400 text-xs">Initializing local-first IndexedDB archive...</p>
         </div>
       </div>
@@ -156,8 +183,9 @@ export const App: React.FC = () => {
         setActiveTab={setActiveTab}
         datasetMode={datasetMode}
         isCloudConnected={isCloudConfigured()}
-        needsReviewCount={needsReviewCount}
         totalPeopleCount={people.length}
+        hasSelectedPerson={!!selectedPerson}
+        isAdminAuthenticated={isAdminAuthenticated}
       />
 
       {/* Notice Banner when Dataset is Demo or Empty */}
@@ -171,10 +199,10 @@ export const App: React.FC = () => {
             </span>
           </div>
           <button
-            onClick={() => setActiveTab('import')}
+            onClick={() => setActiveTab('admin')}
             className="px-2.5 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded font-medium text-[11px] transition-colors"
           >
-            Go to Staged Import &rarr;
+            Go to Admin &rarr;
           </button>
         </aside>
       )}
@@ -190,22 +218,25 @@ export const App: React.FC = () => {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => {
-                bulkLoadData({
-                  people: DEMO_PEOPLE,
-                  relationships: DEMO_RELATIONSHIPS,
-                  occurrences: DEMO_OCCURRENCES,
-                  mode: 'demo',
-                }, 'Demo Initializer').then(reloadData);
+                bulkLoadData(
+                  {
+                    people: DEMO_PEOPLE,
+                    relationships: DEMO_RELATIONSHIPS,
+                    occurrences: DEMO_OCCURRENCES,
+                    mode: 'demo',
+                  },
+                  'Demo Initializer'
+                ).then(reloadData);
               }}
               className="px-2.5 py-1 bg-white border border-stone-300 hover:bg-stone-50 rounded text-stone-800 font-medium text-[11px]"
             >
               Load Demo Data
             </button>
             <button
-              onClick={() => setActiveTab('import')}
+              onClick={() => setActiveTab('admin')}
               className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium text-[11px]"
             >
-              Start Staged Import &rarr;
+              Open Admin Import &rarr;
             </button>
           </div>
         </aside>
@@ -213,155 +244,168 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        {/* Destination 1: Progressive Family Explorer */}
         {activeTab === 'tree' && (
-          <TreeViewer
+          <FamilyExplorer
             people={people}
             relationships={relationships}
-            onSelectPerson={setSelectedPerson}
-            onAddRelationship={() => handleOpenAddRelationship()}
-            onAddPerson={() => setShowAddPersonModal(true)}
+            onSelectPerson={(p) => {
+              setSelectedPerson(p);
+            }}
+            onOpenDetails={(p) => {
+              setSelectedPerson(p);
+              setShowPersonModal(true);
+            }}
           />
         )}
 
+        {/* Destination 2: People Directory & Search */}
         {activeTab === 'directory' && (
           <Directory
             people={people}
             relationships={relationships}
-            onSelectPerson={setSelectedPerson}
-            onAddNewPerson={() => setShowAddPersonModal(true)}
+            onSelectPerson={(p) => {
+              setSelectedPerson(p);
+              setActiveTab('details');
+            }}
+            onAddNewPerson={() => {
+              if (isAdminAuthenticated) {
+                setShowAddPersonModal(true);
+              } else {
+                setActiveTab('admin');
+              }
+            }}
           />
         )}
 
-        {activeTab === 'uncertain' && (
-          <UncertainRecordsView
+        {/* Destination 3: Family Information & Details View */}
+        {activeTab === 'details' && (
+          <FamilyInformationView
+            person={selectedPerson}
             people={people}
             relationships={relationships}
-            onSelectPerson={setSelectedPerson}
-            onUpdatePerson={handleUpdatePerson}
-            onUpdateRelationship={handleSaveRelationship}
+            onSelectPerson={(p) => setSelectedPerson(p)}
+            onExploreInTree={(p) => {
+              setSelectedPerson(p);
+              setActiveTab('tree');
+            }}
           />
         )}
 
-        {activeTab === 'import' && (
-          <ImportModal onImportCommitted={reloadData} />
+        {/* Destination 4: About This Archive */}
+        {activeTab === 'about' && (
+          <AboutArchive />
         )}
 
-        {activeTab === 'export' && (
-          <ExportModal
+        {/* Destination 5: Protected Administrator Area */}
+        {activeTab === 'admin' && (
+          <AdminPanel
             people={people}
             relationships={relationships}
-            sources={[]}
             occurrences={occurrences}
             auditEvents={auditEvents}
-            datasetMode={datasetMode}
-            onRestored={reloadData}
-          />
-        )}
-
-        {activeTab === 'audit' && (
-          <AuditLogViewer auditEvents={auditEvents} />
-        )}
-
-        {activeTab === 'settings' && (
-          <StorageSettingsModal
-            datasetMode={datasetMode}
-            totalPeople={people.length}
-            totalRelationships={relationships.length}
-            onDataReset={reloadData}
+            isAuthenticated={isAdminAuthenticated}
+            onLogin={handleAdminLogin}
+            onLogout={handleAdminLogout}
+            onSelectPerson={(p) => {
+              setSelectedPerson(p);
+              setShowPersonModal(true);
+            }}
+            onUpdatePerson={handleUpdatePerson}
+            onDeletePerson={handleDeletePerson}
+            onSaveRelationship={handleSaveRelationship}
+            onDeleteRelationship={handleDeleteRelationship}
+            onAddNewPerson={() => setShowAddPersonModal(true)}
+            onAddNewRelationship={() => handleOpenAddRelationship()}
+            onImportCommitted={reloadData}
           />
         )}
       </main>
 
-      {/* Person Detail & Review Modal */}
-      {selectedPerson && (
+      {/* PWA Mobile Installation Prompt Banner */}
+      <PwaInstallPrompt />
+
+      {/* Person Detail & Edit Modal */}
+      {selectedPerson && showPersonModal && (
         <PersonDetailModal
           person={selectedPerson}
           people={people}
           relationships={relationships}
-          onClose={() => setSelectedPerson(null)}
+          onClose={() => setShowPersonModal(false)}
           onUpdatePerson={handleUpdatePerson}
           onDeletePerson={handleDeletePerson}
-          onAddRelationship={handleOpenAddRelationship}
+          onAddRelationship={(fromId: string) => handleOpenAddRelationship(fromId)}
           onDeleteRelationship={handleDeleteRelationship}
         />
       )}
 
-      {/* Create Relationship Modal */}
+      {/* Relationship Modal */}
       {showRelationshipModal && (
         <RelationshipModal
-          initialFromPersonId={initialRelFromId}
           people={people}
           relationships={relationships}
+          initialFromPersonId={initialRelFromId}
           onClose={() => setShowRelationshipModal(false)}
           onSaveRelationship={handleSaveRelationship}
         />
       )}
 
-      {/* Quick Add Person Modal */}
+      {/* Add Person Modal (Protected) */}
       {showAddPersonModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4">
-            <h3 className="font-bold text-base text-stone-900">Add New Person Record</h3>
-            <form onSubmit={handleCreateNewPerson} className="space-y-3 text-xs">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200">
+            <h3 className="text-lg font-bold text-stone-900 font-ethiopic mb-4">
+              ሓድሽ ሰብ መዝግብ (Register New Person)
+            </h3>
+            <form onSubmit={handleCreateNewPerson} className="space-y-4">
               <div>
-                <label className="block font-medium text-stone-700 mb-1">
-                  Canonical Name (Tigrinya/Ge'ez) *
+                <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1">
+                  ትክክለኛ ስም (Tigrinya Name) *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. ተክለ"
                   value={newPersonName}
                   onChange={(e) => setNewPersonName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-stone-300 font-ethiopic text-sm"
+                  placeholder="ንኣብነት: ጎብሩ"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 font-ethiopic"
                 />
               </div>
+
               <div>
-                <label className="block font-medium text-stone-700 mb-1">
-                  Branch / Context (Optional)
+                <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1">
+                  ጨንፈር (Branch)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. ጎብሩ"
                   value={newPersonBranch}
                   onChange={(e) => setNewPersonBranch(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-stone-300 font-ethiopic text-sm"
+                  placeholder="ንኣብነት: ጎብሩ"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 font-ethiopic"
                 />
               </div>
+
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowAddPersonModal(false)}
-                  className="px-3 py-1.5 border border-stone-300 rounded-lg text-stone-700 hover:bg-stone-100"
+                  className="px-3.5 py-2 text-xs font-medium text-stone-600 hover:bg-stone-100 rounded-lg"
                 >
-                  Cancel
+                  ሰርዝ (Cancel)
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium"
+                  className="px-4 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm"
                 >
-                  Create Person
+                  ኣጽድቕ (Save)
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="bg-stone-900 border-t border-stone-800 text-stone-400 text-xs py-4 px-4 sm:px-6 lg:px-8 mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>
-            Kinteba Guush Family Genealogy &middot; ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ &middot; ጸሓፊ ከሰተ ብርሃነ ወልዱ
-          </p>
-          <p className="text-stone-500 font-mono">
-            Local-First IndexedDB Archive &middot; Private & Offline Capable
-          </p>
-        </div>
-      </footer>
     </div>
   );
 };
 
 export default App;
-

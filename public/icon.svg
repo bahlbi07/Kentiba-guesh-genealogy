@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1917" />
+      <stop offset="100%" stop-color="#292524" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+  <!-- Background Rounded Rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-opacity="0.4" />
+  <!-- Inner Circle Shield -->
+  <circle cx="256" cy="256" r="180" fill="#292524" stroke="url(#goldGrad)" stroke-width="8" filter="url(#shadow)" />
+  <!-- Traditional Branch Connector Motif -->
+  <path d="M 256 120 L 256 180 M 180 200 L 256 180 L 332 200" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.6" />
+  <!-- Ge'ez Character: ጉ (Gu) -->
+  <text x="256" y="320" font-family="'Noto Sans Ethiopic', 'Abyssinica SIL', sans-serif" font-size="160" font-weight="bold" fill="url(#goldGrad)" text-anchor="middle" filter="url(#shadow)">ጉ</text>
+  <text x="256" y="400" font-family="'Inter', sans-serif" font-size="24" font-weight="600" fill="#fef3c7" text-anchor="middle" letter-spacing="4">KINTEBA GUUSH</text>
+</svg>
+

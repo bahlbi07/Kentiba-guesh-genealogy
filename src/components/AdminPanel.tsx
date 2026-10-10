@@ -338,7 +338,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {/* Quick Management Instructions */}
           <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-xs space-y-3">
             <h3 className="font-bold text-stone-900 font-ethiopic text-lg">
-              መመሪያታት ኣካያዲ
+              ኣካይዳ መምርሒ
             </h3>
             <ul className="space-y-2 text-xs sm:text-sm text-stone-700 font-ethiopic list-disc list-inside leading-relaxed">
               <li>
@@ -351,7 +351,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <strong>ምድምሳስ ሰብ:</strong> ሰብ ቅድሚ ምድምሳስኩም፡ ተተሓሓዝቲ ዝምድናታትን ውሉዳትን ከይጉድኡ ብጥንቃቐ መርምሩ።
               </li>
               <li>
-                <strong>ባክኣፕ ምውሳድ:</strong> ድሕሪ ዝኾነ ዓቢ ለውጢ ምግባርኩም፡ ወትሩ ባክኣፕ ፋይል ኣውሪድኩም ኣቐምጡ።
+                <strong>ናይ ወለዶ ሰነድ (PDF):</strong> ድሕሪ ዝኾነ ለውጢ ምግባርኩም፡ ካብቲ &ldquo;ናይ ወለዶ ሰነድ&rdquo; ዝብል ምሉእ መዝገብ ወለዶ ብሕትመት ወይ ብሰነድ (PDF) ኣውሪድኩም ክትዕቅቡ ትኽእሉ ኢኹም።
               </li>
             </ul>
           </div>

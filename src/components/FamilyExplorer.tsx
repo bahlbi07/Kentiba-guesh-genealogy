@@ -26,7 +26,6 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   people,
   relationships,
   onSelectPerson,
-  onOpenDetails,
 }) => {
   // Fast map of people by ID
   const peopleMap = useMemo(() => {
@@ -355,17 +354,6 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                       </div>
                     </div>
                   </button>
-                  <button
-                    onClick={() => {
-                      onSelectPerson(parent);
-                      if (onOpenDetails) onOpenDetails(parent);
-                    }}
-                    className="p-2.5 text-stone-400 hover:text-amber-700 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-stone-100"
-                    title="ዝርዝር መረዳእታ"
-                    aria-label={`View details for ${parent.canonicalName}`}
-                  >
-                    <FileText className="w-5 h-5" />
-                  </button>
                 </div>
               );
             })}
@@ -430,18 +418,6 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
               )}
             </div>
           </div>
-
-          {/* View Full Details Button */}
-          <button
-            onClick={() => {
-              onSelectPerson(focusedPerson);
-              if (onOpenDetails) onOpenDetails(focusedPerson);
-            }}
-            className="px-5 py-3 min-h-[48px] bg-amber-700 hover:bg-amber-800 text-white rounded-xl font-bold font-ethiopic text-base shadow-sm flex items-center justify-center gap-2 transition-colors self-start md:self-center focus:ring-2 focus:ring-amber-500"
-          >
-            <FileText className="w-5 h-5" />
-            <span>ዝርዝር መረዳእታ</span>
-          </button>
         </div>
 
         {/* Documented Spouse / Unions if any */}
@@ -612,19 +588,6 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                         )}
                       </button>
                     )}
-
-                    {/* Separate details action */}
-                    <button
-                      onClick={() => {
-                        onSelectPerson(p);
-                        if (onOpenDetails) onOpenDetails(p);
-                      }}
-                      className="p-2.5 text-stone-400 hover:text-amber-700 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-stone-200"
-                      title="ዝርዝር መረዳእታ"
-                      aria-label={`View details for ${p.canonicalName}`}
-                    >
-                      <FileText className="w-5 h-5" />
-                    </button>
                   </div>
                 </div>
 

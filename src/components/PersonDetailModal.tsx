@@ -282,7 +282,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                 </span>
               </div>
 
-              {person.notes && (
+              {person.notes && !person.notes.includes('PDF') && !person.notes.includes('source title') && (
                 <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">
                   <span className="text-xs text-stone-400 block mb-1">መተሓሳሰቢ</span>
                   <p className="text-xs text-stone-700 whitespace-pre-line">
@@ -300,13 +300,15 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                 <GitCommit className="w-4 h-4 text-amber-600" />
                 <span>ዝተመዝገቡ ዝምድናታት</span>
               </h3>
-              <button
-                onClick={() => onAddRelationship(person.id)}
-                className="px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg font-medium flex items-center space-x-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>ዝምድና ኣራኽብ</span>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => onAddRelationship(person.id)}
+                  className="px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg font-medium flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>ዝምድና ኣራኽብ</span>
+                </button>
+              )}
             </div>
 
             {/* Parents List */}

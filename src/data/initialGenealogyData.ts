@@ -9,7 +9,7 @@ export const INITIAL_PEOPLE: Person[] = [
     "displayName": "Kinteba Guush Hagos (ከንቲባ ጉዑሽ ሓጎስ)",
     "branch": "Main Ancestor",
     "status": "verified",
-    "notes": "Patriarch named in source title: ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ (PDF page 1)",
+    "notes": "ቀንዲ መበቆል ኣቦ ስድራቤት",
     "sourcePage": 1,
     "sourceHeading": "ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ",
     "isArchived": false,

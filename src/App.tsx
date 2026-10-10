@@ -197,10 +197,6 @@ export const App: React.FC = () => {
             onSelectPerson={(p) => {
               setSelectedPerson(p);
             }}
-            onOpenDetails={(p) => {
-              setSelectedPerson(p);
-              setShowPersonModal(true);
-            }}
           />
         )}
 
@@ -211,7 +207,11 @@ export const App: React.FC = () => {
             relationships={relationships}
             onSelectPerson={(p) => {
               setSelectedPerson(p);
-              setShowPersonModal(true);
+              if (isAdminAuthenticated) {
+                setShowPersonModal(true);
+              } else {
+                setActiveTab('tree');
+              }
             }}
             onAddNewPerson={() => {
               if (isAdminAuthenticated) {

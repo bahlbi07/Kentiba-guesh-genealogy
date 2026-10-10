@@ -263,6 +263,7 @@ export const App: React.FC = () => {
           person={selectedPerson}
           people={people}
           relationships={relationships}
+          isAdmin={isAdminAuthenticated}
           onClose={() => setShowPersonModal(false)}
           onUpdatePerson={handleUpdatePerson}
           onDeletePerson={handleDeletePerson}

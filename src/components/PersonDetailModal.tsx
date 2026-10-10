@@ -19,6 +19,7 @@ interface PersonDetailModalProps {
   person: Person | null;
   people: Person[];
   relationships: Relationship[];
+  isAdmin?: boolean;
   onClose: () => void;
   onUpdatePerson: (updated: Person) => Promise<void>;
   onDeletePerson: (id: string) => Promise<void>;
@@ -30,6 +31,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
   person,
   people,
   relationships,
+  isAdmin = false,
   onClose,
   onUpdatePerson,
   onDeletePerson,
@@ -145,42 +147,44 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-stone-800">
-          {/* Quick Review Status Strip */}
-          <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-2 font-ethiopic">
-              <span className="text-xs font-semibold text-stone-600">ኩነታት:</span>
-              {status === 'verified' && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  <CheckCircle className="w-3.5 h-3.5 mr-1" /> ዝተረጋገጸ
-                </span>
-              )}
-              {status === 'needs_review' && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
-                  <AlertTriangle className="w-3.5 h-3.5 mr-1" /> ምምርማር ዘድልዮ
-                </span>
-              )}
-              {status === 'unverified' && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-stone-200 text-stone-700">
-                  ዘይተረጋገጸ
-                </span>
-              )}
-            </div>
+          {/* Quick Review Status Strip (Admin only) */}
+          {isAdmin && (
+            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center space-x-2 font-ethiopic">
+                <span className="text-xs font-semibold text-stone-600">ኩነታት:</span>
+                {status === 'verified' && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <CheckCircle className="w-3.5 h-3.5 mr-1" /> ዝተረጋገጸ
+                  </span>
+                )}
+                {status === 'needs_review' && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                    <AlertTriangle className="w-3.5 h-3.5 mr-1" /> ምምርማር ዘድልዮ
+                  </span>
+                )}
+                {status === 'unverified' && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-stone-200 text-stone-700">
+                    ዘይተረጋገጸ
+                  </span>
+                )}
+              </div>
 
-            <div className="flex items-center space-x-2 text-xs font-ethiopic">
-              <button
-                onClick={() => handleQuickStatusChange('verified')}
-                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow-sm transition-colors"
-              >
-                ኣረጋግጽ
-              </button>
-              <button
-                onClick={() => handleQuickStatusChange('needs_review')}
-                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-sm transition-colors"
-              >
-                ንመመርመሪ ምልክት ግበር
-              </button>
+              <div className="flex items-center space-x-2 text-xs font-ethiopic">
+                <button
+                  onClick={() => handleQuickStatusChange('verified')}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                >
+                  ኣረጋግጽ
+                </button>
+                <button
+                  onClick={() => handleQuickStatusChange('needs_review')}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                >
+                  ንመመርመሪ ምልክት ግበር
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Person Metadata Fields (Edit Mode or Read Mode) */}
           {isEditing ? (
@@ -329,13 +333,15 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                           </span>
                         )}
                       </div>
-                      <button
-                        onClick={() => onDeleteRelationship(rel.id)}
-                        className="text-stone-400 hover:text-rose-600 p-1 rounded"
-                        title="ዝምድና ደምስስ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => onDeleteRelationship(rel.id)}
+                          className="text-stone-400 hover:text-rose-600 p-1 rounded"
+                          title="ዝምድና ደምስስ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -364,13 +370,15 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                           </span>
                         )}
                       </div>
-                      <button
-                        onClick={() => onDeleteRelationship(rel.id)}
-                        className="text-stone-400 hover:text-rose-600 p-1 rounded"
-                        title="መጻምድቲ ደምስስ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => onDeleteRelationship(rel.id)}
+                          className="text-stone-400 hover:text-rose-600 p-1 rounded"
+                          title="መጻምድቲ ደምስስ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -401,13 +409,15 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                           </span>
                         )}
                       </div>
-                      <button
-                        onClick={() => onDeleteRelationship(rel.id)}
-                        className="text-stone-400 hover:text-rose-600 p-1 rounded"
-                        title="ዝምድና ደምስስ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => onDeleteRelationship(rel.id)}
+                          className="text-stone-400 hover:text-rose-600 p-1 rounded"
+                          title="ዝምድና ደምስስ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -450,17 +460,19 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs font-ethiopic">
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-rose-600 hover:text-rose-800 font-medium flex items-center space-x-1"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>ካብ መዝገብ ደምስስ...</span>
-          </button>
+        <div className={`px-6 py-3 bg-stone-50 border-t border-stone-200 flex items-center ${isAdmin ? 'justify-between' : 'justify-end'} text-xs font-ethiopic`}>
+          {isAdmin && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-rose-600 hover:text-rose-800 font-medium flex items-center space-x-1"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>ካብ መዝገብ ደምስስ...</span>
+            </button>
+          )}
 
           <div className="flex items-center space-x-2">
-            {!isEditing && (
+            {isAdmin && !isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
                 className="px-3 py-1.5 border border-stone-300 bg-white rounded-lg hover:bg-stone-100 text-stone-700 font-medium flex items-center space-x-1"

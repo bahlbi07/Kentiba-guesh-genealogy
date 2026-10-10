@@ -453,7 +453,13 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                     key={node.person.id}
                     transform={`translate(${node.x}, ${node.y})`}
                     className="cursor-pointer group"
-                    onClick={() => onSelectPerson(node.person)}
+                    onClick={(e) => {
+                      if (hasChildren) {
+                        toggleCollapse(node.person.id, e);
+                      } else {
+                        onSelectPerson(node.person);
+                      }
+                    }}
                   >
                     <foreignObject width={node.width} height={node.height}>
                       <div
@@ -461,11 +467,22 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                           isSelectedRoot ? 'border-amber-600 ring-2 ring-amber-400/50 shadow-md' : borderColor
                         } ${bgColor} shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between text-left`}
                       >
-                        {/* Header: Status and Page */}
+                        {/* Header: Status and Details */}
                         <div className="flex items-center justify-between text-[11px] text-stone-500">
                           <div className="flex items-center space-x-1">
                             {statusBadge}
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectPerson(node.person);
+                            }}
+                            className="p-1 rounded hover:bg-stone-200 text-stone-400 hover:text-stone-700 transition-colors"
+                            title="ዝርዝር መረዳእታ"
+                            aria-label={`View details for ${node.person.canonicalName}`}
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
                         </div>
 
                         {/* Name (Ethiopic) */}

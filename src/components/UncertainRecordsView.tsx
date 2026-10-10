@@ -39,32 +39,31 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-2">
+      <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-2 font-ethiopic">
         <div className="flex items-center space-x-2 text-amber-700 font-semibold text-xs uppercase tracking-wider">
           <AlertTriangle className="w-4 h-4 text-amber-600" />
-          <span>Human Verification & Review Queue</span>
+          <span>ምሕደራ መዛግብቲ</span>
         </div>
         <h2 className="text-xl font-bold text-stone-900">
-          Uncertain Records & Ambiguous Relationships
+          ምምርማር ዘድልዮም መዛግብቲ
         </h2>
         <p className="text-xs sm:text-sm text-stone-600 max-w-3xl">
-          These records were flagged during transcription or staging due to missing parent headings, continuation across PDF page boundaries, or incomplete statements (e.g. Page 36).
-          They are visually distinguished to ensure no unconfirmed assumptions are displayed as facts.
+          እዚ ክፍሊ ብኣካያዲ መዝገብ ተወሳኺ መረጋገጺ ዝደልዩ ውሑዳት መዛግብቲ ንምርኣይን ንምጽዳቕን ዝጠቅም ናይ ምሕደራ ሰሌዳ እዩ።
         </p>
       </div>
 
       {/* Uncertain People Table */}
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden font-ethiopic">
         <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between">
           <h3 className="font-bold text-stone-900 text-sm">
-            People Requiring Review ({uncertainPeople.length})
+            ምምርማር ዘድልዮም ኣባላት ({uncertainPeople.length})
           </h3>
         </div>
 
         {uncertainPeople.length === 0 ? (
           <div className="p-8 text-center text-xs text-stone-500">
             <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-            <p className="font-medium text-stone-700">All person records are verified!</p>
+            <p className="font-medium text-stone-700 font-ethiopic">ኩሎም ኣባላት ዝተረጋገጹ እዮም!</p>
           </div>
         ) : (
           <div className="overflow-x-auto font-ethiopic">

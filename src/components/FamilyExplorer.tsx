@@ -529,128 +529,134 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
           )}
         </div>
 
-        {childrenIds.length === 0 ? (
-          <div className="p-8 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-500 text-base font-ethiopic">
-            ኣብዚ መዝገብ ዝተመዝገቡ ውሉዳት የለዉን።
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {childrenIds.map((childId) => {
-              const child = peopleMap.get(childId);
-              if (!child) return null;
-              const grandchildren = parentToChildrenMap.get(child.id) || [];
-              const isExpanded = expandedChildIds.has(child.id);
+        {/* Recursive multi-generational branch node renderer */}
+        {(() => {
+          const renderBranchNode = (personId: string, depth = 1): React.ReactNode => {
+            const p = peopleMap.get(personId);
+            if (!p) return null;
+            const kids = parentToChildrenMap.get(personId) || [];
+            const hasKids = kids.length > 0;
+            const isExpanded = expandedChildIds.has(personId);
 
-              return (
-                <div
-                  key={child.id}
-                  className="bg-stone-50/90 hover:bg-stone-50 rounded-2xl border border-stone-200 p-4 transition-all space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    {/* Focus on this child */}
-                    <button
-                      onClick={() => handleFocusPerson(child.id)}
-                      className="text-left flex items-center gap-3.5 min-h-[48px] flex-1 group"
-                      title="Focus on this branch"
+            return (
+              <div
+                key={personId}
+                className={`rounded-2xl border transition-all ${
+                  depth === 1
+                    ? 'bg-stone-50/90 hover:bg-stone-50 border-stone-200 p-4 space-y-3'
+                    : 'bg-white hover:bg-amber-50/20 border-stone-200 p-3.5 space-y-2.5 shadow-2xs'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  {/* Clicking name/card toggles expand/collapse in-place */}
+                  <button
+                    onClick={() => {
+                      if (hasKids) {
+                        toggleChildExpansion(personId);
+                      }
+                    }}
+                    className="text-left flex items-center gap-3.5 min-h-[48px] flex-1 group"
+                    title={hasKids ? (isExpanded ? 'ጨንፈር ዓጽፍ' : 'ጨንፈር ዘርግሕ') : p.canonicalName}
+                  >
+                    <div
+                      className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold shrink-0 transition-colors ${
+                        depth === 1
+                          ? 'bg-amber-100 text-amber-800 group-hover:bg-amber-200'
+                          : 'bg-stone-100 text-stone-700 group-hover:bg-amber-100 group-hover:text-amber-800'
+                      }`}
                     >
-                      <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-800 font-bold shrink-0 group-hover:bg-amber-200 transition-colors">
-                        <User className="w-6 h-6" />
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-stone-900 font-ethiopic text-base sm:text-lg group-hover:text-amber-800 transition-colors flex items-center gap-2">
+                        <span>{p.canonicalName}</span>
                       </div>
-                      <div>
-                        <div className="font-bold text-stone-900 font-ethiopic text-lg sm:text-xl group-hover:text-amber-800 transition-colors flex items-center gap-2">
-                          <span>{child.canonicalName}</span>
-                        </div>
-                        <div className="text-xs text-stone-600 font-ethiopic flex items-center gap-2 mt-0.5">
-                          {child.spouseNote && (
-                            <span className="text-amber-900 truncate max-w-[200px]">
-                              {child.spouseNote}
-                            </span>
-                          )}
-                          {grandchildren.length > 0 && (
-                            <span className="text-amber-700 font-bold">
-                              {grandchildren.length} ውሉዳት
-                            </span>
-                          )}
-                        </div>
+                      <div className="text-xs text-stone-600 font-ethiopic flex items-center gap-2 mt-0.5">
+                        {p.spouseNote && (
+                          <span className="text-amber-900 truncate max-w-[200px]">
+                            {p.spouseNote}
+                          </span>
+                        )}
+                        {hasKids && (
+                          <span className="text-amber-700 font-bold">
+                            {kids.length} ውሉዳት
+                          </span>
+                        )}
                       </div>
-                    </button>
+                    </div>
+                  </button>
 
-                    <div className="flex items-center gap-1.5">
-                      {/* In-place expand/collapse descendants if they have children */}
-                      {grandchildren.length > 0 && (
-                        <button
-                          onClick={() => toggleChildExpansion(child.id)}
-                          className="px-3 py-2 min-h-[44px] rounded-xl text-sm font-ethiopic font-bold text-stone-700 hover:bg-stone-200 flex items-center gap-1 transition-colors"
-                          title={isExpanded ? 'Collapse branch' : 'Expand branch'}
-                          aria-label={
-                            isExpanded
-                              ? `Collapse branch for ${child.canonicalName}`
-                              : `Expand branch for ${child.canonicalName}`
-                          }
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronDown className="w-5 h-5 text-amber-700" />
-                              <span className="hidden sm:inline">ዕጾ</span>
-                            </>
-                          ) : (
-                            <>
-                              <ChevronRight className="w-5 h-5 text-stone-600" />
-                              <span className="hidden sm:inline">ክፈት</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-
+                  <div className="flex items-center gap-1.5">
+                    {/* Dedicated in-place expand/collapse button */}
+                    {hasKids && (
                       <button
-                        onClick={() => {
-                          onSelectPerson(child);
-                          if (onOpenDetails) onOpenDetails(child);
-                        }}
-                        className="p-2.5 text-stone-400 hover:text-amber-700 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-stone-200"
-                        title="ዝርዝር መረዳእታ"
-                        aria-label={`View details for ${child.canonicalName}`}
+                        onClick={() => toggleChildExpansion(personId)}
+                        className="px-3 py-2 min-h-[44px] rounded-xl text-sm font-ethiopic font-bold text-stone-700 hover:bg-stone-200 flex items-center gap-1 transition-colors"
+                        title={isExpanded ? 'Collapse branch' : 'Expand branch'}
+                        aria-label={
+                          isExpanded
+                            ? `Collapse branch for ${p.canonicalName}`
+                            : `Expand branch for ${p.canonicalName}`
+                        }
                       >
-                        <FileText className="w-5 h-5" />
+                        {isExpanded ? (
+                          <>
+                            <ChevronDown className="w-5 h-5 text-amber-700" />
+                            <span className="hidden sm:inline">ዕጾ</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronRight className="w-5 h-5 text-stone-600" />
+                            <span className="hidden sm:inline">ክፈት</span>
+                          </>
+                        )}
                       </button>
+                    )}
+
+                    {/* Separate details action */}
+                    <button
+                      onClick={() => {
+                        onSelectPerson(p);
+                        if (onOpenDetails) onOpenDetails(p);
+                      }}
+                      className="p-2.5 text-stone-400 hover:text-amber-700 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-stone-200"
+                      title="ዝርዝር መረዳእታ"
+                      aria-label={`View details for ${p.canonicalName}`}
+                    >
+                      <FileText className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Multi-generational nested branches in-place */}
+                {isExpanded && hasKids && (
+                  <div className="pl-3 sm:pl-4 pt-3 border-l-2 border-amber-400 ml-4 sm:ml-5 space-y-2.5 font-ethiopic">
+                    <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
+                      ናይ {p.canonicalName} ውሉዳት ({kids.length}):
+                    </span>
+                    <div className="space-y-2.5">
+                      {kids.map((kidId) => renderBranchNode(kidId, depth + 1))}
                     </div>
                   </div>
+                )}
+              </div>
+            );
+          };
 
-                  {/* Nested Descendants (when expanded) */}
-                  {isExpanded && grandchildren.length > 0 && (
-                    <div className="pl-4 pt-3 border-l-2 border-amber-400 ml-6 space-y-2 font-ethiopic">
-                      <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
-                        ናይ {child.canonicalName} ውሉዳት:
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {grandchildren.map((gcId) => {
-                          const grandChild = peopleMap.get(gcId);
-                          if (!grandChild) return null;
-                          return (
-                            <button
-                              key={grandChild.id}
-                              onClick={() => handleFocusPerson(grandChild.id)}
-                              className="text-left p-3 rounded-xl bg-white border border-stone-200 hover:border-amber-400 text-sm flex items-center justify-between group transition-colors"
-                            >
-                              <span className="font-bold text-stone-900 group-hover:text-amber-800">
-                                {grandChild.canonicalName}
-                              </span>
-                              {grandChild.spouseNote && (
-                                <span className="text-[11px] text-amber-800 truncate max-w-[120px]">
-                                  {grandChild.spouseNote}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+          if (childrenIds.length === 0) {
+            return (
+              <div className="p-8 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-500 text-base font-ethiopic">
+                ኣብዚ መዝገብ ዝተመዝገቡ ውሉዳት የለዉን።
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-3">
+              {childrenIds.map((childId) => renderBranchNode(childId, 1))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

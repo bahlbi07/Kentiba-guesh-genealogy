@@ -113,18 +113,18 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(screen.getByText('ጎብሩ')).toBeDefined();
 
     // The child 'ጎብሩ' has a child ('ተላ'), so it should have an expand control
-    const expandBtn = screen.getByTitle('Expand branch');
-    expect(expandBtn).toBeDefined();
+    const expandBtns = screen.getAllByTitle(/ጨንፈር ዘርግሕ|Expand branch/);
+    expect(expandBtns.length).toBeGreaterThan(0);
 
     // Click expand
-    fireEvent.click(expandBtn);
+    fireEvent.click(expandBtns[0]);
 
     // Verify grandchild 'ተላ' is now revealed
     expect(screen.getByText('ተላ')).toBeDefined();
 
     // Click collapse
-    const collapseBtn = screen.getByTitle('Collapse branch');
-    fireEvent.click(collapseBtn);
+    const collapseBtns = screen.getAllByTitle(/ጨንፈር ዓጽፍ|Collapse branch/);
+    fireEvent.click(collapseBtns[0]);
 
     // Verify 'ተላ' is hidden
     expect(screen.queryByText('ናይ ጎብሩ ውሉዳት:')).toBeNull();

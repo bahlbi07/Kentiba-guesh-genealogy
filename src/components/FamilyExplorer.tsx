@@ -568,11 +568,11 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                       <button
                         onClick={() => toggleChildExpansion(personId)}
                         className="px-3 py-2 min-h-[44px] rounded-xl text-sm font-ethiopic font-bold text-stone-700 hover:bg-stone-200 flex items-center gap-1 transition-colors"
-                        title={isExpanded ? 'Collapse branch' : 'Expand branch'}
+                        title={isExpanded ? 'ጨንፈር ዓጽፍ' : 'ጨንፈር ዘርግሕ'}
                         aria-label={
                           isExpanded
-                            ? `Collapse branch for ${p.canonicalName}`
-                            : `Expand branch for ${p.canonicalName}`
+                            ? `ናይ ${p.canonicalName} ጨንፈር ዓጽፍ`
+                            : `ናይ ${p.canonicalName} ጨንፈር ዘርግሕ`
                         }
                       >
                         {isExpanded ? (

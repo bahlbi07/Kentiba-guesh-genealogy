@@ -128,7 +128,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
             </div>
             <div>
               <h2 className="text-xl font-bold font-ethiopic text-amber-100">
-                ናይ ወለዶ ሰነድ ምሕታምን ምውራድን (Print / Export PDF)
+                ናይ ወለዶ ሰነድ ምሕታምን ምውራድን
               </h2>
               <p className="text-xs text-stone-400 font-ethiopic">
                 ንሕትመት ዝተዳለወ ምሉእ መዝገብ ወለዶ ከንቲባ ጉዕሽ ሓጎስ
@@ -142,7 +142,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
               className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold font-ethiopic flex items-center gap-1.5 shadow-sm transition-colors"
             >
               <Printer className="w-4 h-4" />
-              <span>ሕተም / ኣውርድ (PDF)</span>
+              <span>ሕተም / ኣውርድ</span>
             </button>
             <button
               onClick={onClose}
@@ -176,7 +176,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
             {/* Patriarch Section */}
             <section className="bg-stone-50 print:bg-transparent p-5 rounded-2xl border border-stone-200 print:border-stone-400 space-y-2">
               <span className="text-xs uppercase tracking-wider text-amber-900 font-bold block">
-                ቀዳማይ ኣቦሓጎ (Patriarch)
+                ቀዳማይ ኣቦሓጎ
               </span>
               <h2 className="text-xl font-bold text-stone-950">
                 {rootAncestor?.canonicalName || 'ከንቲባ ጉዕሽ ሓጎስ'}

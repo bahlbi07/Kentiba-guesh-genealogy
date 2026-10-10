@@ -42,17 +42,17 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
     setSaveError(null);
 
     if (!fromPersonId || !toPersonId) {
-      setSaveError('Please select both people.');
+      setSaveError('ክልቲኦም ሰባት ምረጹ።');
       return;
     }
 
     if (fromPersonId === toPersonId) {
-      setSaveError('A person cannot have a relationship with themselves.');
+      setSaveError('ሰብ ምስ ርእሱ ዝምድና ክህልዎ ኣይኽእልን።');
       return;
     }
 
     if (!cycleValidation.isValid) {
-      setSaveError(cycleValidation.error || 'Invalid parent-child relationship: cycle detected.');
+      setSaveError('ዘይቅቡል ዝምድና፡ ዑደት ተረኺቡ ኣሎ።');
       return;
     }
 
@@ -75,7 +75,7 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
     if (result.success) {
       onClose();
     } else {
-      setSaveError(result.error || 'Failed to save relationship.');
+      setSaveError(result.error || 'ዝምድና ኣብ ምዕቃብ ጸገም ኣጋጢሙ።');
     }
   };
 

@@ -203,7 +203,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">
-                  ተወሳኺ ስም (Reviewed Name)
+                  ተወሳኺ ስም
                 </label>
                 <input
                   type="text"

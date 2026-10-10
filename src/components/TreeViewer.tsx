@@ -467,22 +467,11 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                           isSelectedRoot ? 'border-amber-600 ring-2 ring-amber-400/50 shadow-md' : borderColor
                         } ${bgColor} shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between text-left`}
                       >
-                        {/* Header: Status and Details */}
+                        {/* Header: Status */}
                         <div className="flex items-center justify-between text-[11px] text-stone-500">
                           <div className="flex items-center space-x-1">
                             {statusBadge}
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectPerson(node.person);
-                            }}
-                            className="p-1 rounded hover:bg-stone-200 text-stone-400 hover:text-stone-700 transition-colors"
-                            title="ዝርዝር መረዳእታ"
-                            aria-label={`View details for ${node.person.canonicalName}`}
-                          >
-                            <Info className="w-3.5 h-3.5" />
-                          </button>
                         </div>
 
                         {/* Name (Ethiopic) */}
@@ -532,23 +521,23 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
           </svg>
 
           {/* Visual Legend Overlay */}
-          <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm p-2.5 rounded-lg border border-stone-300 text-xs text-stone-700 shadow-sm max-w-xs">
-            <p className="font-semibold text-stone-900 mb-1.5 flex items-center">
-              <Info className="w-3.5 h-3.5 mr-1 text-amber-600" />
-              Relationship Legend
+          <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm p-2.5 rounded-xl border border-stone-300 text-xs text-stone-700 shadow-sm max-w-xs font-ethiopic">
+            <p className="font-bold text-stone-900 mb-1.5 flex items-center">
+              <Info className="w-3.5 h-3.5 mr-1 text-amber-700" />
+              <span>መረዳእታ መስመራት ወለዶ</span>
             </p>
             <div className="space-y-1 text-[11px]">
               <div className="flex items-center space-x-2">
                 <span className="w-5 h-0.5 bg-stone-800 inline-block"></span>
-                <span>Verified Biological Parent-Child</span>
+                <span>ዝተረጋገጸ ዝምድና ወላድን ውሉድን</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="w-5 h-0.5 border-t border-dashed border-amber-600 inline-block"></span>
-                <span className="text-amber-800">Needs Review / Unverified Link</span>
+                <span className="text-amber-800">ምምርማር ዘድልዮ ዝምድና</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="w-5 h-0.5 border-t border-dotted border-indigo-600 inline-block"></span>
-                <span className="text-indigo-800">Statement / Branch Context</span>
+                <span className="text-indigo-800">ናይ ጨንፈር ሓበሬታ</span>
               </div>
             </div>
           </div>

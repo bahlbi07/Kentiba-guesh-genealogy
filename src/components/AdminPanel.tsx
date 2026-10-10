@@ -82,7 +82,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setLoginError('');
 
     if (loginAttempts >= 5) {
-      setLoginError('ካብ መጠን ንላዕሊ ፈተነ ተገይሩ። በጃኹም ን5 ደቓይቕ ተጸበዩ። (Too many attempts. Rate limited.)');
+      setLoginError('ካብ መጠን ንላዕሊ ፈተነ ተገይሩ። በጃኹም ን5 ደቓይቕ ተጸበዩ።');
       return;
     }
 
@@ -110,7 +110,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           return;
         } else {
           setLoginAttempts((prev) => prev + 1);
-          setLoginError('መእተዊ ሓበሬታ ትክክል ኣይኮነን። (Invalid archivist credentials)');
+          setLoginError('መእተዊ ሓበሬታ ትክክል ኣይኮነን።');
         }
       }
     } catch {
@@ -131,8 +131,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <h2 className="text-2xl font-bold text-stone-950 font-ethiopic">
             ናይ መዛግብቲ ኣካያዲ መእተዊ
           </h2>
-          <p className="text-xs text-stone-500 font-sans">
-            Archivist Administration Access Control
+          <p className="text-xs text-stone-500 font-ethiopic">
+            ውሑስ ናይ ምሕደራ መእተዊ
           </p>
           <p className="text-xs text-stone-600 font-ethiopic leading-relaxed pt-1">
             እዚ ክፍሊ ንተፈቐደሎም ናይ ስድራቤት ታሪኽ ተሓለውቲ ጥራይ ዝተፈቐደ እዩ። ተራ በጻሕቲ ሰነዳት ክቕይሩ ኣይክእሉን።
@@ -181,13 +181,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             className="w-full py-3 min-h-[44px] bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-colors focus:ring-2 focus:ring-amber-500"
           >
             <KeyRound className="w-4 h-4 text-amber-400" />
-            <span>{isLoggingIn ? 'ይፍተሽ ኣሎ...' : 'ብደሓን እቶ (Log In)'}</span>
+            <span>{isLoggingIn ? 'ይፍተሽ ኣሎ...' : 'ብደሓን እቶ'}</span>
           </button>
         </form>
 
         <div className="pt-4 border-t border-stone-100 text-center">
-          <p className="text-[11px] text-stone-400">
-            Protected by Argon2id password hashing and server-side authorization.
+          <p className="text-[11px] text-stone-400 font-ethiopic">
+            ብውሑስ ናይ ሰርቨር ስርዓት ዝተሓለወ እዩ።
           </p>
         </div>
       </div>
@@ -198,7 +198,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const verifiedCount = people.filter((p) => p.status === 'verified').length;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto py-4">
+    <div className="space-y-6 max-w-7xl mx-auto py-4 font-ethiopic">
       {/* Admin Header Bar */}
       <div className="bg-stone-900 text-white p-5 sm:p-6 rounded-3xl border border-stone-800 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
@@ -208,14 +208,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold font-ethiopic text-amber-100">
-                መዛግብቲ ኣካያዲ (Archivist Administration)
+                ናይ መዛግብቲ ኣካያዲ
               </h2>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Authenticated
+                ዝተረጋገጸ
               </span>
             </div>
-            <p className="text-xs text-stone-400 mt-0.5">
-              Full control over genealogical records, relationship evidence, and audit logs.
+            <p className="text-xs text-stone-400 mt-0.5 font-ethiopic">
+              ምሉእ ምሕደራ መዛግብቲ ስድራቤት፣ ዝምድናታትን ኦዲትን
             </p>
           </div>
         </div>
@@ -224,17 +224,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {onOpenPdfExport && (
             <button
               onClick={onOpenPdfExport}
-              className="px-3 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-3 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="ናይ ወለዶ ሰነድ ሕተም / ኣውርድ"
             >
               <Printer className="w-4 h-4 text-amber-400" />
-              <span>ናይ ወለዶ ሰነድ (PDF)</span>
+              <span>ናይ ወለዶ ሰነድ (ሕትመት)</span>
             </button>
           )}
 
           <button
             onClick={onAddNewPerson}
-            className="px-3 py-2 min-h-[40px] bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-2 min-h-[40px] bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>ሓድሽ ሰብ ወስኽ</span>
@@ -242,7 +242,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <button
             onClick={onAddNewRelationship}
-            className="px-3 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <GitFork className="w-4 h-4 rotate-180" />
             <span>ዝምድና ወስኽ</span>
@@ -250,8 +250,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <button
             onClick={onLogout}
-            className="px-3 py-2 min-h-[40px] bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            title="Log out from archivist session"
+            className="px-3 py-2 min-h-[40px] bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="ካብዚ ውጻእ"
           >
             <LogOut className="w-4 h-4" />
             <span>ውጻእ</span>
@@ -263,18 +263,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="flex bg-white p-1.5 rounded-2xl border border-stone-200 shadow-xs overflow-x-auto gap-1">
         <button
           onClick={() => setAdminTab('overview')}
-          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer ${
             adminTab === 'overview'
               ? 'bg-stone-900 text-white shadow-xs'
               : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
           }`}
         >
-          ሓፈሻዊ ጸብጻብ (Overview)
+          ሓፈሻዊ ጸብጻብ
         </button>
 
         <button
           onClick={() => setAdminTab('uncertain')}
-          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
             adminTab === 'uncertain'
               ? 'bg-stone-900 text-white shadow-xs'
               : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
@@ -286,26 +286,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         <button
           onClick={() => setAdminTab('import')}
-          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
             adminTab === 'import'
               ? 'bg-stone-900 text-white shadow-xs'
               : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
           }`}
         >
           <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
-          <span>መዝገብ ምእታው (Staged Import)</span>
+          <span>መዝገብ ምእታው</span>
         </button>
 
         <button
           onClick={() => setAdminTab('audit')}
-          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
             adminTab === 'audit'
               ? 'bg-stone-900 text-white shadow-xs'
               : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
           }`}
         >
           <History className="w-3.5 h-3.5 text-stone-500" />
-          <span>ናይ ለውጢ ታሪኽ (Audit Trail)</span>
+          <span>ናይ ለውጢ ታሪኽ</span>
         </button>
       </div>
 
@@ -317,45 +317,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
               <span className="text-xs text-stone-500 font-medium">ጠቕላላ ሰባት</span>
               <div className="text-2xl font-bold text-stone-900 mt-1">{people.length}</div>
-              <span className="text-[11px] text-stone-400">Total People</span>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
               <span className="text-xs text-stone-500 font-medium">ጠቕላላ ዝምድናታት</span>
               <div className="text-2xl font-bold text-stone-900 mt-1">{relationships.length}</div>
-              <span className="text-[11px] text-stone-400">Relationships</span>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
               <span className="text-xs text-amber-800 font-medium">ምምርማር ዘድልዮም</span>
               <div className="text-2xl font-bold text-amber-700 mt-1">{needsReviewCount}</div>
-              <span className="text-[11px] text-amber-600">Needs Review</span>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
               <span className="text-xs text-emerald-800 font-medium">ዝተረጋገጹ</span>
               <div className="text-2xl font-bold text-emerald-700 mt-1">{verifiedCount}</div>
-              <span className="text-[11px] text-emerald-600">Verified</span>
             </div>
           </div>
 
           {/* Quick Management Instructions */}
           <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-xs space-y-3">
             <h3 className="font-bold text-stone-900 font-ethiopic text-lg">
-              መመሪያታት ኣካያዲ (Archivist Guidelines)
+              መመሪያታት ኣካያዲ
             </h3>
             <ul className="space-y-2 text-xs sm:text-sm text-stone-700 font-ethiopic list-disc list-inside leading-relaxed">
               <li>
-                <strong>ምድላው መዝገብ (Staged Import):</strong> እቲ ናይ መበቆል ሰነድ ዳታ ቅድሚ ምእታዉ፡ ኣብቲ &ldquo;መዝገብ ምእታው&rdquo; ዝብል ክፍሊ ብንጹር ተረጋጊጹ ብፍቓድካ ጥራይ ይኣቱ።
+                <strong>ምድላው መዝገብ:</strong> እቲ ናይ መበቆል ሰነድ ዳታ ቅድሚ ምእታዉ፡ ኣብቲ &ldquo;መዝገብ ምእታው&rdquo; ዝብል ክፍሊ ብንጹር ተረጋጊጹ ብፍቓድካ ጥራይ ይኣቱ።
               </li>
               <li>
-                <strong>ተመሳሰልቲ ኣስማት:</strong> ኣብ ስድራቤትና 92 ተመሳሰልቲ ኣስማት ስለዘለዉ፡ ብስም ጥራይ ኣይትድምስሱ ወይ ኣይተደባልቑ።
+                <strong>ተመሳሰልቲ ኣስማት:</strong> ኣብ ስድራቤትና ተመሳሰልቲ ኣስማት ስለዘለዉ፡ ብስም ጥራይ ኣይትድምስሱ ወይ ኣይተደባልቑ።
               </li>
               <li>
                 <strong>ምድምሳስ ሰብ:</strong> ሰብ ቅድሚ ምድምሳስኩም፡ ተተሓሓዝቲ ዝምድናታትን ውሉዳትን ከይጉድኡ ብጥንቃቐ መርምሩ።
               </li>
               <li>
-                <strong>ባክኣፕ ምውሳድ:</strong> ድሕሪ ዝኾነ ዓቢ ለውጢ ምግባርኩም፡ ወትሩ ካብቲ &ldquo;ባክኣፕን ኤክስፖርትን&rdquo; ዝብል JSON ፋይል ኣውሪድኩም ኣቐምጡ።
+                <strong>ባክኣፕ ምውሳድ:</strong> ድሕሪ ዝኾነ ዓቢ ለውጢ ምግባርኩም፡ ወትሩ ባክኣፕ ፋይል ኣውሪድኩም ኣቐምጡ።
               </li>
             </ul>
           </div>

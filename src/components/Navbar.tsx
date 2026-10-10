@@ -103,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={onOpenPdfExport}
                   className="px-3.5 py-2.5 rounded-xl text-base font-ethiopic font-semibold transition-colors flex items-center space-x-1.5 min-h-[44px] text-stone-300 hover:bg-stone-800 hover:text-white border border-stone-800"
-                  title="ናይ ወለዶ ሰነድ ሕተም / ኣውርድ (Print / Save as PDF)"
+                  title="ናይ ወለዶ ሰነድ ሕተም / ኣውርድ"
                 >
                   <Printer className="w-5 h-5 text-amber-400" />
                   <span className="hidden lg:inline">ሰነድ ሕተም</span>

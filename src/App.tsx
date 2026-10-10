@@ -88,22 +88,25 @@ export const App: React.FC = () => {
       setDatasetMode(mode);
 
       // Auto-select root ancestor if none selected
-      if (!selectedPerson && storedPeople.length > 0) {
-        const root = storedPeople.find(
-          (p) =>
-            p.id === 'pers_root_kinteba_guush' ||
-            p.canonicalName.includes('ከንቲባ ጉዑሽ') ||
-            p.canonicalName.includes('ከንቲባ ጉዕሽ') ||
-            p.id === 'pers_p1_0_0'
-        );
-        setSelectedPerson(root || storedPeople[0]);
-      }
+      setSelectedPerson((prev) => {
+        if (!prev && storedPeople.length > 0) {
+          const root = storedPeople.find(
+            (p) =>
+              p.id === 'pers_root_kinteba_guush' ||
+              p.canonicalName.includes('ከንቲባ ጉዑሽ') ||
+              p.canonicalName.includes('ከንቲባ ጉዕሽ') ||
+              p.id === 'pers_p1_0_0'
+          );
+          return root || storedPeople[0];
+        }
+        return prev;
+      });
     } catch (err) {
       console.error('Failed to load database:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPerson]);
+  }, []);
 
   useEffect(() => {
     reloadData();

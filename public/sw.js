@@ -37,8 +37,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Bypass non-GET requests and API calls
-  if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+  // Bypass non-GET requests, API calls, and local development server
+  if (
+    event.request.method !== 'GET' ||
+    url.pathname.startsWith('/api/') ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src/')
+  ) {
     return;
   }
 

@@ -26,14 +26,32 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration (Production Only, Clean on localhost) -->
     <script>
-      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
-            console.warn('Service worker registration note:', err);
+      if ('serviceWorker' in navigator) {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          // Unregister any leftover service worker on localhost that may cause white screens
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const registration of registrations) {
+              registration.unregister();
+            }
           });
-        });
+          if ('caches' in window) {
+            caches.keys().then((names) => {
+              for (const name of names) {
+                if (name.startsWith('kinteba-guush')) {
+                  caches.delete(name);
+                }
+              }
+            });
+          }
+        } else if (window.location.protocol.startsWith('http')) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch((err) => {
+              console.warn('Service worker registration note:', err);
+            });
+          });
+        }
       }
     </script>
   </body>

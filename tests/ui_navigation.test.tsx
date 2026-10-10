@@ -6,6 +6,7 @@ import { Directory } from '../src/components/Directory';
 import { FamilyInformationView } from '../src/components/FamilyInformationView';
 import { AboutArchive } from '../src/components/AboutArchive';
 import { AdminPanel } from '../src/components/AdminPanel';
+import App from '../src/App';
 import { Person, Relationship } from '../src/types/genealogy';
 
 // Sample verified test family fixture
@@ -230,6 +231,11 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     // Generic error message shown, login rejected
     expect(await screen.findByText(/መእተዊ ሓበሬታ ትክክል ኣይኮነን/)).toBeDefined();
     expect(handleLogin).not.toHaveBeenCalled();
+  });
+
+  it('6. App: renders complete application root without crashing', async () => {
+    render(<App />);
+    expect(await screen.findByText(/ተወለድ እንዳቦይ ከንትባ ጉዕሽ/)).toBeDefined();
   });
 });
 

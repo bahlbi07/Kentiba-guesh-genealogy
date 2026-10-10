@@ -83,28 +83,28 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-lg w-full overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 bg-stone-900 text-white flex items-center justify-between">
+        <div className="px-6 py-4 bg-stone-900 text-white flex items-center justify-between font-ethiopic">
           <div className="flex items-center space-x-2">
             <GitCommit className="w-5 h-5 text-amber-400" />
-            <h3 className="font-bold text-base text-amber-100">Document Relationship Link</h3>
+            <h3 className="font-bold text-base text-amber-100">ዝምድና መዝግብ</h3>
           </div>
           <button
             onClick={onClose}
             className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800"
-            aria-label="Close"
+            aria-label="ዕጾ"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs text-stone-700">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs text-stone-700 font-ethiopic">
           {/* Cycle / Error Warning Banner */}
           {!cycleValidation.isValid && (
             <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-rose-800 flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
               <div>
-                <p className="font-bold">Generational Cycle Detected!</p>
+                <p className="font-bold">ጌጋ ዑደት ወለዶ ተረኺቡ!</p>
                 <p className="mt-0.5">{cycleValidation.error}</p>
               </div>
             </div>
@@ -112,7 +112,7 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
 
           {saveError && (
             <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-rose-800">
-              <p className="font-bold">Error:</p>
+              <p className="font-bold">ጌጋ:</p>
               <p>{saveError}</p>
             </div>
           )}
@@ -121,7 +121,7 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-stone-800 mb-1">
-                Parent / From Person *
+                ወላዲ / ካብ ሰብ *
               </label>
               <select
                 value={fromPersonId}
@@ -131,7 +131,7 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
               >
                 {people.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.canonicalName} ({p.id.replace('pers_', '#')})
+                    {p.canonicalName} {p.branch ? `(${p.branch})` : ''}
                   </option>
                 ))}
               </select>
@@ -139,7 +139,7 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
 
             <div>
               <label className="block font-semibold text-stone-800 mb-1">
-                Child / To Person *
+                ውሉድ / ናብ ሰብ *
               </label>
               <select
                 value={toPersonId}
@@ -149,7 +149,7 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
               >
                 {people.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.canonicalName} ({p.id.replace('pers_', '#')})
+                    {p.canonicalName} {p.branch ? `(${p.branch})` : ''}
                   </option>
                 ))}
               </select>
@@ -159,76 +159,50 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
           {/* Type & Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-stone-800 mb-1">Relationship Type</label>
+              <label className="block font-semibold text-stone-800 mb-1">ዓይነት ዝምድና</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as RelationshipType)}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white"
+                className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white font-ethiopic"
               >
-                <option value="parent_child">Biological Parent-Child</option>
-                <option value="partner_or_union">Partner / Union Statement</option>
-                <option value="other_source_statement">Other Source Statement</option>
+                <option value="parent_child">ወላድን ውሉድን</option>
+                <option value="partner_or_union">መጻምድቲ / ሓዳር</option>
+                <option value="other_source_statement">ካልእ ዝምድና</option>
               </select>
             </div>
 
             <div>
-              <label className="block font-semibold text-stone-800 mb-1">Status</label>
+              <label className="block font-semibold text-stone-800 mb-1">ኩነታት</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as RecordStatus)}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white"
+                className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white font-ethiopic"
               >
-                <option value="unverified">Unverified</option>
-                <option value="needs_review">Needs Review</option>
-                <option value="verified">Verified</option>
-                <option value="rejected">Rejected</option>
+                <option value="unverified">ዘይተረጋገጸ</option>
+                <option value="needs_review">ምምርማር ዘድልዮ</option>
+                <option value="verified">ዝተረጋገጸ</option>
+                <option value="rejected">ዘይቅቡል</option>
               </select>
             </div>
           </div>
 
-          {/* Source Evidence */}
-          <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-3">
-            <span className="font-bold text-stone-900 block">Source Evidence & Provenance</span>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-stone-600 mb-1">Source File</label>
-                <input
-                  type="text"
-                  value={sourceFile}
-                  onChange={(e) => setSourceFile(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-stone-600 mb-1">PDF Page</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="36"
-                  value={sourcePage}
-                  onChange={(e) => setSourcePage(e.target.value ? parseInt(e.target.value, 10) : '')}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-stone-600 mb-1">
-                Exact Source Phrase / Heading (Tigrinya)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. ጎብሩ ከንቲባ ጉዕሽ ዝወለዶም"
-                value={sourceWording}
-                onChange={(e) => setSourceWording(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white font-ethiopic"
-              />
-            </div>
+          {/* Natural Relationship Note */}
+          <div>
+            <label className="block font-semibold text-stone-800 mb-1">
+              መግለጺ ወይ መተሓሳሰቢ ዝምድና
+            </label>
+            <input
+              type="text"
+              placeholder="ንኣብነት: ጎብሩ ከንቲባ ጉዕሽ ዝወለዶም"
+              value={sourceWording}
+              onChange={(e) => setSourceWording(e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white font-ethiopic"
+            />
           </div>
 
           {/* Biological Confirmation Checkbox */}
           {type === 'parent_child' && (
-            <label className="flex items-center space-x-2 cursor-pointer">
+            <label className="flex items-center space-x-2 cursor-pointer font-ethiopic">
               <input
                 type="checkbox"
                 checked={isBiologicalConfirmed}
@@ -236,30 +210,30 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
                 className="rounded border-stone-300 text-amber-600 focus:ring-amber-500"
               />
               <span className="text-stone-700">
-                Mark as direct biological parentage (uncheck if only cultural/household phrasing)
+                ቀጥታዊ ባዮሎጂካዊ ወላዲ ምዃኑ ኣረጋግጽ
               </span>
             </label>
           )}
 
           <div>
-            <label className="block font-semibold text-stone-800 mb-1">Reviewer Notes</label>
+            <label className="block font-semibold text-stone-800 mb-1">ተወሳኺ መተሓሳሰቢ</label>
             <textarea
               value={reviewerNotes}
               onChange={(e) => setReviewerNotes(e.target.value)}
               rows={2}
-              placeholder="Add verification notes or citation reasons..."
-              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white"
+              placeholder="ተወሳኺ መረዳእታ ወይ መተሓሳሰቢ ጽሓፍ..."
+              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white font-ethiopic"
             />
           </div>
 
           {/* Buttons */}
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-stone-200">
+          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-stone-200 font-ethiopic">
             <button
               type="button"
               onClick={onClose}
               className="px-3 py-1.5 border border-stone-300 rounded-lg hover:bg-stone-100 text-stone-700"
             >
-              Cancel
+              ሰርዝ
             </button>
             <button
               type="submit"
@@ -270,7 +244,7 @@ export const RelationshipModal: React.FC<RelationshipModalProps> = ({
                   : 'bg-amber-600 hover:bg-amber-700'
               }`}
             >
-              Save Relationship
+              ኣቐምጥ
             </button>
           </div>
         </form>

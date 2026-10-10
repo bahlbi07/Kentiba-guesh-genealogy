@@ -279,18 +279,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({ onImportCommitted }) =
                     <strong>Distinction of Biological Parentage vs Union Phrasing:</strong> Statements like <em>"ናብ ... ኣትያ ዝወለደቶም"</em> are categorized as union statements with biological confirmation preserved.
                   </li>
                   <li>
-                    <strong>Physical Page Provenance:</strong> PDF page numbers match the actual physical pages where names appear (e.g. Habtu's children on Page 9 vs Page 10).
+                    <strong>ሓበሬታ ወለዶ:</strong> ኩሎም ጨናፍርን ውሉዳትን ብትኽክል ምስ ወለዶም ተተሓሒዞም ይርከቡ።
                   </li>
                 </ul>
               </div>
 
-              <div className="border border-stone-200 rounded-xl p-4 space-y-2">
-                <h4 className="font-bold text-stone-900">Source Document Information</h4>
+              <div className="border border-stone-200 rounded-xl p-4 space-y-2 font-ethiopic">
+                <h4 className="font-bold text-stone-900">ሓበሬታ መዝገብ ወለዶ</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <p><strong>Primary PDF:</strong> <code>ከሰተ-ብርሃነ.pdf</code> (36 pages total, all 36 inspected)</p>
-                  <p><strong>Register File:</strong> <code>family_genealogy_register.md</code> (Transcribed pages 1–29 and page 36)</p>
-                  <p><strong>Patriarch Root:</strong> ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ</p>
-                  <p><strong>Transcriber Attribution:</strong> ጸሓፊ ከሰተ ብርሃነ ወልዱ ወዲ ጎብሩ ካብ ጁባ ደቡብ ሱዳን</p>
+                  <p><strong>መበገሲ ስድራቤት:</strong> ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ</p>
+                  <p><strong>ጸሓፊ እቲ ሰነድ:</strong> ጸሓፊ ከሰተ ብርሃነ ወልዱ ወዲ ጎብሩ</p>
                 </div>
               </div>
             </div>

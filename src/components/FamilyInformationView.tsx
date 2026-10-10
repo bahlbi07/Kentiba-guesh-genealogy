@@ -198,38 +198,24 @@ export const FamilyInformationView: React.FC<FamilyInformationViewProps> = ({
                 <h1 className="text-2xl sm:text-3xl font-bold text-stone-950 font-ethiopic tracking-tight">
                   {person.canonicalName}
                 </h1>
-                {isSharedName && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-300">
-                    <Tag className="w-3 h-3 text-amber-700" />
-                    ተደጋጋሚ ስም (92 Distinct Groups)
-                  </span>
-                )}
                 {person.status === 'verified' && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-100 text-emerald-900 px-2.5 py-0.5 rounded-full border border-emerald-300">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                    ዝተረጋገጸ (Verified)
+                    ዝተረጋገጸ
                   </span>
                 )}
                 {person.status === 'needs_review' && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-300">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
-                    ምምርማር ዘድልዮ (Needs Review)
+                    ምምርማር ዘድልዮ
                   </span>
                 )}
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs sm:text-sm text-stone-600">
-                <span className="font-mono bg-stone-100 px-2.5 py-1 rounded-md text-stone-700">
-                  ID: #{person.id.replace('pers_', '')}
-                </span>
                 {person.branch && (
                   <span className="font-ethiopic bg-stone-100 px-2.5 py-1 rounded-md text-stone-800">
-                    ጨንፈር: <strong>{person.branch}</strong>
-                  </span>
-                )}
-                {person.sourcePage && (
-                  <span className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-800">
-                    ምንጪ PDF: <strong>ገጽ {person.sourcePage}</strong>
+                    ጨንፈር / ሓረግ: <strong>{person.branch}</strong>
                   </span>
                 )}
               </div>
@@ -245,18 +231,6 @@ export const FamilyInformationView: React.FC<FamilyInformationViewProps> = ({
             <span>ኣብ ኦም ወለዶ ርአ</span>
           </button>
         </div>
-
-        {/* Source Statement / Quotation */}
-        {person.sourceHeading && (
-          <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-1">
-            <span className="text-[11px] font-semibold text-amber-900 uppercase tracking-wider block">
-              መበቆላዊ ናይ ምንጪ ጽሑፍ (Original Source Statement):
-            </span>
-            <p className="font-ethiopic text-stone-900 text-sm font-medium">
-              &ldquo;{person.sourceHeading}&rdquo;
-            </p>
-          </div>
-        )}
 
         {person.notes && (
           <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 text-xs sm:text-sm text-stone-600 font-ethiopic">
@@ -285,9 +259,6 @@ export const FamilyInformationView: React.FC<FamilyInformationViewProps> = ({
                 >
                   <span className="font-bold text-stone-900 font-ethiopic group-hover:text-amber-800">
                     {p.canonicalName}
-                  </span>
-                  <span className="text-xs text-stone-400">
-                    {p.sourcePage ? `ገጽ ${p.sourcePage}` : ''}
                   </span>
                 </button>
               ))}

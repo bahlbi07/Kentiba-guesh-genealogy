@@ -21,11 +21,11 @@ import {
   KeyRound,
   ShieldCheck,
   Settings,
-  Database
+  Database,
+  Printer
 } from 'lucide-react';
 import { UncertainRecordsView } from './UncertainRecordsView';
 import { ImportModal } from './ImportModal';
-import { ExportModal } from './ExportModal';
 import { AuditLogViewer } from './AuditLogViewer';
 import { apiLogin, isBackendConfigured } from '../services/apiClient';
 
@@ -45,6 +45,7 @@ interface AdminPanelProps {
   onAddNewPerson: () => void;
   onAddNewRelationship: () => void;
   onImportCommitted: () => Promise<void>;
+  onOpenPdfExport?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -63,6 +64,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddNewPerson,
   onAddNewRelationship,
   onImportCommitted,
+  onOpenPdfExport,
 }) => {
   // Login form state
   const [username, setUsername] = useState('');
@@ -72,7 +74,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Admin sub-view
-  const [adminTab, setAdminTab] = useState<'overview' | 'uncertain' | 'import' | 'export' | 'audit'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'uncertain' | 'import' | 'audit'>('overview');
 
   // Handle Login
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -94,13 +96,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           return;
         } else {
           setLoginAttempts((prev) => prev + 1);
-          setLoginError(result.error || 'መእተዊ ሓበሬታ ትክክል ኣይኮነን። (Invalid archivist credentials)');
+          setLoginError(result.error || 'መእተዊ ሓበሬታ ትክክል ኣይኮነን።');
           return;
         }
       } else {
-        // Local archivist authorization mode
-        if ((username === 'archivist' || username === 'admin') && password.length >= 6) {
-          onLogin('local-archivist-session-token', username);
+        // Authorized administrator credentials: kentibaguesh@gmail.com / Kentibaguesh0909
+        const normalizedUser = username.trim().toLowerCase();
+        const isOfficialAdmin = normalizedUser === 'kentibaguesh@gmail.com' && password === 'Kentibaguesh0909';
+        const isArchivistTest = (normalizedUser === 'archivist' || normalizedUser === 'admin') && password === 'Kentibaguesh0909';
+        
+        if (isOfficialAdmin || isArchivistTest) {
+          onLogin('official-admin-session-token', username);
           return;
         } else {
           setLoginAttempts((prev) => prev + 1);
@@ -215,6 +221,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenPdfExport && (
+            <button
+              onClick={onOpenPdfExport}
+              className="px-3 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              title="ናይ ወለዶ ሰነድ ሕተም / ኣውርድ"
+            >
+              <Printer className="w-4 h-4 text-amber-400" />
+              <span>ናይ ወለዶ ሰነድ (PDF)</span>
+            </button>
+          )}
+
           <button
             onClick={onAddNewPerson}
             className="px-3 py-2 min-h-[40px] bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
@@ -277,18 +294,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         >
           <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
           <span>መዝገብ ምእታው (Staged Import)</span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('export')}
-          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
-            adminTab === 'export'
-              ? 'bg-stone-900 text-white shadow-xs'
-              : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
-          }`}
-        >
-          <Download className="w-3.5 h-3.5 text-sky-500" />
-          <span>ባክኣፕን ኤክስፖርትን (Backup/Restore)</span>
         </button>
 
         <button
@@ -369,18 +374,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {adminTab === 'import' && (
         <ImportModal onImportCommitted={onImportCommitted} />
-      )}
-
-      {adminTab === 'export' && (
-        <ExportModal
-          people={people}
-          relationships={relationships}
-          sources={[]}
-          occurrences={occurrences}
-          auditEvents={auditEvents}
-          datasetMode="real"
-          onRestored={onImportCommitted}
-        />
       )}
 
       {adminTab === 'audit' && (

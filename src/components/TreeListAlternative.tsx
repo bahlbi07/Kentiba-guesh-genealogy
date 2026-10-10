@@ -103,29 +103,20 @@ export const TreeListAlternative: React.FC<TreeListAlternativeProps> = ({
                   ({person.displayName})
                 </span>
               )}
-              <span className="text-xs font-mono text-stone-400">
-                #{person.id.replace('pers_', '')}
-              </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            {person.sourcePage && (
-              <span className="px-2 py-0.5 rounded bg-stone-200 text-stone-700 text-xs">
-                Page {person.sourcePage}
-              </span>
-            )}
-
+          <div className="flex items-center space-x-2 font-ethiopic">
             {person.status === 'verified' && (
               <span className="inline-flex items-center text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                 <CheckCircle className="w-3 h-3 mr-1" />
-                Verified
+                ዝተረጋገጸ
               </span>
             )}
             {person.status === 'needs_review' && (
               <span className="inline-flex items-center text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-300">
                 <AlertTriangle className="w-3 h-3 mr-1" />
-                Needs Review
+                ምምርማር ዘድልዮ
               </span>
             )}
 

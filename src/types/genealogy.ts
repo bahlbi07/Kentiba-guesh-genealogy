@@ -8,6 +8,9 @@ export interface Person {
   displayName?: string; // Optional reviewed correction/variant
   gender?: 'male' | 'female' | 'unknown'; // Defaults to unknown unless verified
   branch?: string; // e.g., "ጎብሩ", "ሃብቱ", "ተስፉ", etc.
+  fatherName?: string; // Recorded father's name from genealogy
+  motherName?: string; // Recorded mother's name if documented
+  spouseNote?: string; // Natural Tigrinya note of marriage/family entry (e.g., "ናብ ቀሺ ተክለ ሃይማኖት ዓዲምባረክ ኣትያ ዝወለደቶም")
   notes?: string;
   sourcePage?: number;
   sourceHeading?: string;

@@ -1,7 +1,7 @@
 {
-  "name": "ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ (Kinteba Guush Family Genealogy)",
+  "name": "ተወለድ እንዳቦይ ከንትባ ጉዕሽ (ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ)",
   "short_name": "Kinteba Guush",
-  "description": "Historical genealogy archive and progressive family tree explorer of Kinteba Guush Hagos.",
+  "description": "ታሪኻዊ መዝገብ ወለዶ ተወለድ እንዳቦይ ከንትባ ጉዕሽ (ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ)",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -20,4 +20,3 @@
     }
   ]
 }
-

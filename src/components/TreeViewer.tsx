@@ -61,19 +61,6 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
     return map;
   }, [people]);
 
-  // Identify duplicate names to highlight distinction
-  const duplicateNameSet = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of people) {
-      counts.set(p.canonicalName, (counts.get(p.canonicalName) || 0) + 1);
-    }
-    const dups = new Set<string>();
-    for (const [name, count] of counts.entries()) {
-      if (count > 1) dups.add(name);
-    }
-    return dups;
-  }, [people]);
-
   // Map parents to children
   const parentToChildrenMap = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -438,7 +425,6 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
               {/* Render Tree Nodes */}
               {renderedNodes.map((node) => {
                 const isSelectedRoot = node.person.id === activeRootId;
-                const isDup = duplicateNameSet.has(node.person.canonicalName);
                 const hasChildren = (parentToChildrenMap.get(node.person.id) || []).length > 0;
                 const isCollapsed = collapsedNodeIds.has(node.person.id);
 
@@ -450,14 +436,14 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                   borderColor = 'border-amber-400';
                   bgColor = 'bg-amber-50/50';
                   statusBadge = (
-                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
-                      Needs Review
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 font-ethiopic">
+                      ምምርማር ዘድልዮ
                     </span>
                   );
                 } else if (node.person.status === 'verified') {
                   statusBadge = (
-                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      Verified
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 font-ethiopic">
+                      ዝተረጋገጸ
                     </span>
                   );
                 }
@@ -479,20 +465,7 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                         <div className="flex items-center justify-between text-[11px] text-stone-500">
                           <div className="flex items-center space-x-1">
                             {statusBadge}
-                            {isDup && (
-                              <span
-                                className="px-1 py-0.2 rounded text-[9px] bg-purple-100 text-purple-800 border border-purple-200"
-                                title="Duplicate name occurrence: this person is preserved as a separate distinct record."
-                              >
-                                Distinct Record
-                              </span>
-                            )}
                           </div>
-                          {node.person.sourcePage && (
-                            <span className="text-[10px] text-stone-500 font-medium">
-                              p. {node.person.sourcePage}
-                            </span>
-                          )}
                         </div>
 
                         {/* Name (Ethiopic) */}
@@ -500,34 +473,34 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                           <h4 className="font-bold text-sm sm:text-base text-stone-900 font-ethiopic leading-snug line-clamp-1">
                             {node.person.canonicalName}
                           </h4>
-                          {node.person.displayName && (
-                            <p className="text-[11px] text-stone-500 line-clamp-1 font-sans">
-                              {node.person.displayName}
+                          {node.person.branch && (
+                            <p className="text-[11px] text-stone-500 line-clamp-1 font-ethiopic">
+                              {node.person.branch}
                             </p>
                           )}
                         </div>
 
-                        {/* Footer: ID and collapse toggle */}
-                        <div className="flex items-center justify-between text-[10px] text-stone-400 pt-0.5 border-t border-stone-100">
-                          <span className="font-mono truncate max-w-[120px]" title={node.person.id}>
-                            #{node.person.id.replace('pers_', '')}
+                        {/* Footer: branch and collapse toggle */}
+                        <div className="flex items-center justify-between text-[10px] text-stone-400 pt-0.5 border-t border-stone-100 font-ethiopic">
+                          <span className="truncate max-w-[120px]">
+                            {node.children.length > 0 ? `${node.children.length} ውሉዳት` : ''}
                           </span>
 
                           {hasChildren && (
                             <button
                               onClick={(e) => toggleCollapse(node.person.id, e)}
                               className="px-1.5 py-0.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center space-x-0.5 text-[10px]"
-                              title={isCollapsed ? 'Expand Children' : 'Collapse Children'}
+                              title={isCollapsed ? 'ውሉዳት ኣርእይ' : 'ውሉዳት ሕባእ'}
                             >
                               {isCollapsed ? (
                                 <>
                                   <ChevronRight className="w-3 h-3" />
-                                  <span>Expand</span>
+                                  <span>ዘርግሕ</span>
                                 </>
                               ) : (
                                 <>
                                   <ChevronDown className="w-3 h-3" />
-                                  <span>Collapse</span>
+                                  <span>ዓጽፍ</span>
                                 </>
                               )}
                             </button>

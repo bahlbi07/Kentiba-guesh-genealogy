@@ -67,15 +67,14 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
             <p className="font-medium text-stone-700">All person records are verified!</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto font-ethiopic">
             <table className="min-w-full divide-y divide-stone-200 text-xs text-left">
               <thead className="bg-stone-50 font-semibold text-stone-700">
                 <tr>
-                  <th className="px-4 py-3">Canonical Name</th>
-                  <th className="px-4 py-3">Page</th>
-                  <th className="px-4 py-3">Heading / Source Context</th>
-                  <th className="px-4 py-3">Notes & Reason</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3">ምሉእ ስም</th>
+                  <th className="px-4 py-3">ጨንፈር / ሓረግ</th>
+                  <th className="px-4 py-3">መተሓሳሰቢ</th>
+                  <th className="px-4 py-3 text-right">ስጉምቲ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-stone-800">
@@ -83,30 +82,24 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
                   <tr key={p.id} className="hover:bg-amber-50/30">
                     <td className="px-4 py-3 font-bold font-ethiopic text-sm text-stone-900">
                       {p.canonicalName}
-                      <span className="block font-mono text-[10px] text-stone-400 font-normal">
-                        #{p.id.replace('pers_', '')}
-                      </span>
                     </td>
                     <td className="px-4 py-3 text-stone-600 font-medium">
-                      {p.sourcePage ? `p. ${p.sourcePage}` : 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 font-ethiopic text-stone-700 max-w-xs truncate">
-                      {p.sourceHeading || 'Unlabelled'}
+                      {p.branch || 'ከንቲባ ጉዕሽ'}
                     </td>
                     <td className="px-4 py-3 text-stone-500 max-w-sm">
-                      {p.notes || 'Unlabelled or continuation'}
+                      {p.notes || 'ምምርማር ዘድልዮ'}
                     </td>
                     <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
                       <button
                         onClick={() => handleVerifyPerson(p)}
                         className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded font-medium transition-colors"
                       >
-                        Confirm Verified
+                        ኣረጋግጽ
                       </button>
                       <button
                         onClick={() => onSelectPerson(p)}
                         className="px-2 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded font-medium"
-                        title="View details"
+                        title="መረዳእታ ርአ"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </button>
@@ -120,51 +113,47 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
       </div>
 
       {/* Uncertain Relationships Table */}
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden font-ethiopic">
         <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between">
           <h3 className="font-bold text-stone-900 text-sm">
-            Relationship Links Requiring Review ({uncertainRelationships.length})
+            ምምርማር ዘድልዮም ዝምድናታት ({uncertainRelationships.length})
           </h3>
         </div>
 
         {uncertainRelationships.length === 0 ? (
           <div className="p-8 text-center text-xs text-stone-500">
             <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-            <p className="font-medium text-stone-700">All relationship links are verified!</p>
+            <p className="font-medium text-stone-700">ኩሎም ዝምድናታት ዝተረጋገጹ እዮም!</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-stone-200 text-xs text-left">
               <thead className="bg-stone-50 font-semibold text-stone-700">
                 <tr>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Page</th>
-                  <th className="px-4 py-3">Source Phrasing Evidence</th>
-                  <th className="px-4 py-3">Reviewer Notes</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3">ዓይነት ዝምድና</th>
+                  <th className="px-4 py-3">መግለጺ ዝምድና</th>
+                  <th className="px-4 py-3">መተሓሳሰቢ</th>
+                  <th className="px-4 py-3 text-right">ስጉምቲ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-stone-800">
                 {uncertainRelationships.map((r) => (
                   <tr key={r.id} className="hover:bg-amber-50/30">
                     <td className="px-4 py-3 font-semibold text-amber-800">
-                      {r.type}
-                    </td>
-                    <td className="px-4 py-3 text-stone-600 font-medium">
-                      {r.sourcePage ? `p. ${r.sourcePage}` : 'N/A'}
+                      {r.type === 'parent_child' ? 'ወላድን ውሉድን' : r.type === 'partner_or_union' ? 'መጻምድቲ / ሓዳር' : 'ካልእ'}
                     </td>
                     <td className="px-4 py-3 font-ethiopic text-stone-900 max-w-sm truncate">
                       {r.sourceWording}
                     </td>
                     <td className="px-4 py-3 text-stone-500 max-w-xs">
-                      {r.reviewerNotes || 'Pending confirmation'}
+                      {r.reviewerNotes || 'ምምርማር ይጽበ ኣሎ'}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button
                         onClick={() => handleVerifyRel(r)}
                         className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded font-medium transition-colors"
                       >
-                        Confirm Verified
+                        ኣረጋግጽ
                       </button>
                     </td>
                   </tr>

@@ -13,7 +13,9 @@ export interface ParsedBlock {
   relationshipWording: string;
   relationshipType: RelationshipType | 'unlabelled' | 'continuation' | 'opening';
   parentName?: string;
+  fatherName?: string;
   partnerName?: string;
+  spouseNote?: string;
   isContinuation?: boolean;
   names: string[];
   rawLines: string[];
@@ -35,39 +37,103 @@ export interface ParseResult {
   }[];
 }
 
-/**
- * Extracts parent and optional partner from a Tigrinya relationship phrase.
- * Examples:
- * - "ጎብሩ ከንቲባ ጉዕሽ ዝወለዶም" -> parent: "ጎብሩ"
- * - "ተላ ዝወለዶም" -> parent: "ተላ"
- * - "ተክኣ ናብ ቀሺ ተክለ ሃይማኖት ዓዲምባረክ ኣትያ ዝወለደቶም ድማ" -> parent: "ተክኣ", partner: "ቀሺ ተክለ ሃይማኖት ዓዲምባረክ"
- * - "ዘውዲቱ ዝወለደቶም" -> parent: "ዘውዲቱ"
- */
-function parseRelationshipPhrase(phrase: string): {
+export interface ParsedPhrase {
   type: RelationshipType;
   parentName?: string;
+  fatherName?: string;
   partnerName?: string;
   isUnion: boolean;
-} {
-  const clean = phrase.trim().replace(/^`|`$/g, '');
+  spouseNote?: string;
+}
 
-  // Union pattern: "X ናብ Y ... ኣትያ ዝወለደቶም/ድማ"
-  const unionMatch = clean.match(/^([^\s]+)\s+ናብ\s+(.+?)\s+ኣትያ\s+ዝወለ/);
+/**
+ * Extracts parent, father patronymic, and partner from a Tigrinya relationship phrase.
+ * Supports:
+ * - "ጎብሩ ከንቲባ ጉዕሽ ዝወለዶም" -> parent: "ጎብሩ", father: "ከንቲባ ጉዕሽ"
+ * - "ቀሺ ወለሊባኖስ ዝወለዶም" -> parent: "ቀሺ ወለሊባኖስ"
+ * - "ሓጎስ ሃብቱ ዝወለዶም" -> parent: "ሓጎስ", father: "ሃብቱ"
+ * - "ተክኣ ናብ ቀሺ ተክለ ሃይማኖት ዓዲምባረክ ኣትያ ዝወለደቶም ድማ" -> parent: "ተክኣ", partner: "ቀሺ ተክለ ሃይማኖት ዓዲምባረክ"
+ * - "ይሕደጋ ከንቲባ ጉዕሽ ንምራራ ኣትያ ዝወለደቶም ድማ" -> parent: "ይሕደጋ", father: "ከንቲባ ጉዕሽ", partner: "ምራራ"
+ * - "ብስራት ከንቲ ጉዕሽ ኮዳዲ ኣትያ ዝወለደቶም ድማ" -> parent: "ብስራት", father: "ከንቲ ጉዕሽ", partner: "ኮዳዲ"
+ * - "ትዕበ ከንቲባ ጉዑሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ" -> parent: "ትዕበ", father: "ከንቲባ ጉዑሽ", partner: "ኣቦይ ወለሓንስ ዓሊተና"
+ */
+export function parseRelationshipPhrase(phrase: string): ParsedPhrase {
+  const clean = phrase.trim().replace(/^`|`$/g, '').trim();
+
+  // Pattern A: Union / Marriage statement (contains ኣትያ, ኣትዩ, or ተኣትያ)
+  const unionRegex = /^(.*?)(?:\s+(?:ተ?ኣትያ|ኣትዩ)\s+ዝወለ)/;
+  const unionMatch = clean.match(unionRegex);
+
   if (unionMatch) {
+    const beforeAtia = unionMatch[1].trim();
+    let personPart = beforeAtia;
+    let partnerPart = '';
+
+    // Match "ናብ <partner>" or prefixed "ን<partner>" preceded by whitespace
+    const separatorMatch = beforeAtia.match(/^(.*?)\s+(?:ናብ\s+(.*)|ን([^\s].*))$/);
+
+    if (separatorMatch) {
+      personPart = separatorMatch[1].trim();
+      partnerPart = (separatorMatch[2] || separatorMatch[3] || '').trim();
+    } else {
+      // Check if there is patronymic followed by partner (e.g., "ብስራት ከንቲ ጉዕሽ ኮዳዲ")
+      const kintebaSplit = beforeAtia.match(/^(.*?(?:ከንቲባ|ከንቲ)?\s*ጉ[ዕዑ]ሽ)\s+(.*)$/);
+      if (kintebaSplit) {
+        personPart = kintebaSplit[1].trim();
+        partnerPart = kintebaSplit[2].trim();
+      } else {
+        const words = beforeAtia.split(/\s+/);
+        if (words.length >= 2) {
+          personPart = words[0];
+          partnerPart = words.slice(1).join(' ');
+        }
+      }
+    }
+
+    let parentName = personPart;
+    let fatherName: string | undefined;
+    const patronymicMatch = personPart.match(/^([^\s]+)(?:\s+((?:ከንቲባ|ከንቲ)?\s*ጉ[ዕዑ]ሽ.*))?$/);
+    if (patronymicMatch) {
+      parentName = patronymicMatch[1].trim();
+      if (patronymicMatch[2]) fatherName = patronymicMatch[2].trim();
+    }
+
+    partnerPart = partnerPart.replace(/^(?:ናብ|ን)\s*/, '').trim();
+
     return {
       type: 'partner_or_union',
-      parentName: unionMatch[1].trim(),
-      partnerName: unionMatch[2].trim(),
+      parentName,
+      fatherName,
+      partnerName: partnerPart || undefined,
       isUnion: true,
+      spouseNote: clean,
     };
   }
 
-  // Parent pattern: matches "X ዝወለዶም", "X ዝወለደቶም", "X ከንቲባ ጉዕሽ ዝወለዶም", "X ከንቲ ጉዕሽ ዝወለዶም", etc.
-  const parentMatch = clean.match(/^([^\s]+)(?:\s+(?:ከንቲባ|ከንቲ)?\s*ጉ[ዕዑ]ሽ)?\s+ዝወለ/);
-  if (parentMatch) {
+  // Pattern B: Parent-child statement (ends with ዝወለዶም, ዝወለደቶም, ዝወለዶ)
+  const pcMatch = clean.match(/^(.*?)\s+ዝወለ/);
+  if (pcMatch) {
+    const parentPart = pcMatch[1].trim();
+    let parentName = parentPart;
+    let fatherName: string | undefined;
+
+    const kintebaMatch = parentPart.match(/^(.*?)\s+((?:ከንቲባ|ከንቲ)\s*ጉ[ዕዑ]ሽ)$/);
+    if (kintebaMatch) {
+      parentName = kintebaMatch[1].trim();
+      fatherName = kintebaMatch[2].trim();
+    } else {
+      const titles = ['ቀሺ', 'ሃለቃ', 'ባሻይ', 'ግራጅማሽ', 'ቀንጀታ', 'ተለንተ', 'ሸቃ', 'በረምበራስ', 'ኣቦይ'];
+      const words = parentPart.split(/\s+/);
+      if (words.length === 2 && !titles.includes(words[0])) {
+        parentName = words[0];
+        fatherName = words[1];
+      }
+    }
+
     return {
       type: 'parent_child',
-      parentName: parentMatch[1].trim(),
+      parentName,
+      fatherName,
       isUnion: false,
     };
   }
@@ -92,7 +158,9 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
 
     let relType: RelationshipType | 'unlabelled' | 'continuation' | 'opening' = 'other_source_statement';
     let parentName: string | undefined;
+    let fatherName: string | undefined;
     let partnerName: string | undefined;
+    let spouseNote: string | undefined;
     let isContinuation = false;
     let needsReview = false;
     let notes: string | undefined;
@@ -108,7 +176,9 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
       const parsedPhrase = parseRelationshipPhrase(rawPhrase);
       relType = parsedPhrase.type;
       parentName = parsedPhrase.parentName;
+      fatherName = parsedPhrase.fatherName;
       partnerName = parsedPhrase.partnerName;
+      spouseNote = parsedPhrase.spouseNote;
       needsReview = false;
       notes = `Confirmed continuation from preceding page: ${rawPhrase}`;
     } else if (
@@ -122,7 +192,9 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
       const parsedPhrase = parseRelationshipPhrase(rawPhrase);
       relType = parsedPhrase.type !== 'other_source_statement' ? parsedPhrase.type : 'other_source_statement';
       parentName = parsedPhrase.parentName;
+      fatherName = parsedPhrase.fatherName;
       partnerName = parsedPhrase.partnerName;
+      spouseNote = parsedPhrase.spouseNote;
       needsReview = true;
       notes = `Unresolved / ambiguous statement: ${rawPhrase}. Flagged for family confirmation.`;
     } else if (currentHeading.includes('Unlabelled name') || currentHeading.includes('unlabelled')) {
@@ -137,7 +209,9 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
         const parsedPhrase = parseRelationshipPhrase(rawPhrase);
         relType = parsedPhrase.type;
         parentName = parsedPhrase.parentName;
+        fatherName = parsedPhrase.fatherName;
         partnerName = parsedPhrase.partnerName;
+        spouseNote = parsedPhrase.spouseNote;
       } else {
         relType = 'continuation';
       }
@@ -158,7 +232,9 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
       const parsedPhrase = parseRelationshipPhrase(rawPhrase);
       relType = parsedPhrase.type;
       parentName = parsedPhrase.parentName;
+      fatherName = parsedPhrase.fatherName;
       partnerName = parsedPhrase.partnerName;
+      spouseNote = parsedPhrase.spouseNote;
 
       if (parsedPhrase.isUnion) {
         notes = `Union/marriage statement: ${rawPhrase}`;
@@ -192,7 +268,9 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
       relationshipWording: currentHeading,
       relationshipType: relType,
       parentName,
+      fatherName,
       partnerName,
+      spouseNote,
       isContinuation,
       names: [...currentNames],
       rawLines: [...currentRawLines],
@@ -205,6 +283,8 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
     currentNames = [];
   };
 
+  let hasReachedGenealogySection = false;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
@@ -212,7 +292,12 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
     const pageMatch = line.match(/^##\s+PDF\s+page\s+(\d+)/i);
     if (pageMatch) {
       finalizeCurrentBlock();
+      hasReachedGenealogySection = true;
       currentPage = parseInt(pageMatch[1], 10);
+      continue;
+    }
+
+    if (!hasReachedGenealogySection) {
       continue;
     }
 
@@ -311,16 +396,17 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
     let parentPersonIdToUse: string | undefined;
     if (block.parentName) {
       const candidates = nameToPersonIds.get(block.parentName);
+      const isChildOfKinteba =
+        block.fatherName?.includes('ጉ') ||
+        block.blockHeading.includes('ከንቲባ ጉዕሽ') ||
+        block.blockHeading.includes('ከንቲባ ጉዑሽ') ||
+        block.blockHeading.includes('ከንቲ ጉዕሽ') ||
+        block.blockHeading.includes('ከንቲ ጉዑ');
+
       if (candidates && candidates.length > 0) {
-        // If the heading explicitly refers to child of Kinteba Guush, pick the root's direct child
-        if (
-          block.blockHeading.includes('ከንቲባ ጉዕሽ') ||
-          block.blockHeading.includes('ከንቲባ ጉዑሽ') ||
-          block.blockHeading.includes('ከንቲ ጉዕሽ')
-        ) {
+        if (isChildOfKinteba) {
           parentPersonIdToUse = candidates[0];
         } else {
-          // Most recent candidate created before this block
           parentPersonIdToUse = candidates[candidates.length - 1];
         }
       } else {
@@ -332,7 +418,8 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
           id: autoParentId,
           canonicalName: block.parentName,
           branch: block.parentName,
-          status: 'unverified',
+          fatherName: isChildOfKinteba ? 'ከንቲባ ጉዑሽ ሓጎስ' : undefined,
+          status: 'verified',
           notes: `Parent introduced in heading: ${block.blockHeading} (PDF page ${block.page})`,
           sourcePage: block.page,
           sourceHeading: block.blockHeading,
@@ -355,26 +442,40 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
         });
         nameToPersonIds.set(block.parentName, [autoParentId]);
         parentPersonIdToUse = autoParentId;
+      }
 
-        // If heading mentions Kinteba Guush, link to root
-        if (
-          block.blockHeading.includes('ከንቲባ ጉዕሽ') ||
-          block.blockHeading.includes('ከንቲባ ጉዑሽ') ||
-          block.blockHeading.includes('ከንቲ ጉዕሽ')
-        ) {
+      // If heading establishes this person as a child of Kinteba Guush Hagos, ensure link to root
+      if (isChildOfKinteba && parentPersonIdToUse) {
+        const alreadyLinked = stagedRelationships.some(
+          (r) => r.fromPersonId === rootPersonId && r.toPersonId === parentPersonIdToUse && r.type === 'parent_child'
+        );
+        if (!alreadyLinked) {
           stagedRelationships.push({
-            id: `rel_head_root_${autoParentId}`,
+            id: `rel_root_${parentPersonIdToUse}`,
             fromPersonId: rootPersonId,
-            toPersonId: autoParentId,
+            toPersonId: parentPersonIdToUse,
             type: 'parent_child',
             status: 'verified',
             sourceFile: 'ከሰተ-ብርሃነ.pdf',
             sourcePage: block.page,
             sourceWording: block.blockHeading,
+            reviewerNotes: 'Verified direct child of Patriarch Kinteba Guush Hagos',
             isBiologicalConfirmed: true,
             createdAt: STABLE_TIMESTAMP,
             updatedAt: STABLE_TIMESTAMP,
           });
+        }
+        const parentObj = stagedPeople.find((p) => p.id === parentPersonIdToUse);
+        if (parentObj && !parentObj.fatherName) {
+          parentObj.fatherName = 'ከንቲባ ጉዑሽ ሓጎስ';
+        }
+      }
+
+      // If union/marriage note is present, attach to parent record
+      if (block.spouseNote && parentPersonIdToUse) {
+        const parentObj = stagedPeople.find((p) => p.id === parentPersonIdToUse);
+        if (parentObj) {
+          parentObj.spouseNote = block.spouseNote;
         }
       }
     }
@@ -454,10 +555,30 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
 
       const personStatus: RecordStatus = block.needsReview ? 'needs_review' : 'unverified';
 
+      let childFatherName: string | undefined;
+      let childMotherName: string | undefined;
+      let childBranch: string | undefined;
+
+      if (block.relationshipType === 'opening') {
+        childFatherName = 'ከንቲባ ጉዑሽ ሓጎስ';
+        childBranch = name;
+      } else if (parentPersonIdToUse) {
+        const parentObj = stagedPeople.find((p) => p.id === parentPersonIdToUse);
+        if (block.partnerName || block.relationshipType === 'partner_or_union') {
+          childMotherName = parentObj?.canonicalName;
+          childFatherName = block.partnerName;
+        } else {
+          childFatherName = parentObj?.canonicalName;
+        }
+        childBranch = parentObj?.branch || parentObj?.canonicalName;
+      }
+
       const person: Person = {
         id: personId,
         canonicalName: name,
-        branch: block.parentName || (block.relationshipType === 'opening' ? name : undefined),
+        fatherName: childFatherName,
+        motherName: childMotherName,
+        branch: childBranch,
         status: personStatus,
         notes: `Recorded on PDF page ${block.page} under: ${block.blockHeading}`,
         sourcePage: block.page,
@@ -489,13 +610,13 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
           id: `rel_opening_${personId}`,
           fromPersonId: rootPersonId,
           toPersonId: personId,
-          type: 'other_source_statement',
-          status: 'needs_review',
+          type: 'parent_child',
+          status: 'verified',
           sourceFile: 'ከሰተ-ብርሃነ.pdf',
           sourcePage: 1,
-          sourceWording: 'Opening names under title ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ — relationship not separately stated',
-          reviewerNotes: 'Listed under main title; biological relationship to Kinteba Guush requires family confirmation.',
-          isBiologicalConfirmed: false,
+          sourceWording: 'ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ',
+          reviewerNotes: 'Direct branch ancestor under Patriarch Kinteba Guush Hagos',
+          isBiologicalConfirmed: true,
           createdAt: STABLE_TIMESTAMP,
           updatedAt: STABLE_TIMESTAMP,
         });

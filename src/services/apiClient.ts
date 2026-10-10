@@ -1,23 +1,23 @@
-import { Person, Relationship, AuditEvent } from '../types/genealogy';
+import { AuditEvent } from '../types/genealogy';
 
 /**
- * Typed API Client for Kinteba Guush Rust Backend API
- * Connects to Axum server using VITE_API_BASE_URL (e.g. http://localhost:3001 or cloud URL)
+ * Typed API Client for Kinteba Guush Netlify / Serverless Backend API
+ * Connects to Netlify Functions via VITE_API_BASE_URL
  * Gracefully handles offline states, timeouts, and authorization.
  */
 
-const API_BASE_URL = (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env.VITE_API_BASE_URL || '';
+const API_BASE_URL = ((import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 export function isBackendConfigured(): boolean {
   return typeof API_BASE_URL === 'string' && API_BASE_URL.trim().length > 0;
 }
 
 export function getBackendBaseUrl(): string {
-  return API_BASE_URL.replace(/\/$/, '');
+  return API_BASE_URL;
 }
 
 /**
- * Check backend health endpoint (GET /api/health or /health)
+ * Check backend health endpoint (GET /api/auth/health or /api/health)
  */
 export async function checkBackendHealth(): Promise<{ healthy: boolean; status?: string; timestamp?: string }> {
   if (!isBackendConfigured()) {
@@ -28,7 +28,7 @@ export async function checkBackendHealth(): Promise<{ healthy: boolean; status?:
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-    const res = await fetch(`${getBackendBaseUrl()}/api/health`, {
+    const res = await fetch(`${getBackendBaseUrl()}/api/auth/health`, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });
@@ -46,14 +46,14 @@ export async function checkBackendHealth(): Promise<{ healthy: boolean; status?:
 }
 
 /**
- * Authenticate administrator against the Rust backend
+ * Authenticate administrator against the Netlify auth function
  */
 export async function apiLogin(
   username: string,
   password: string
 ): Promise<{ success: boolean; token?: string; error?: string }> {
   if (!isBackendConfigured()) {
-    return { success: false, error: 'Backend API URL is not configured.' };
+    return { success: false, error: 'መእተዊ ሓበሬታ ትክክል ኣይኮነን። (Backend not configured)' };
   }
 
   try {
@@ -72,13 +72,13 @@ export async function apiLogin(
     }
 
     if (res.status === 429) {
-      return { success: false, error: 'Too many attempts. Account throttled for 5 minutes.' };
+      return { success: false, error: 'መጠኑ ዝበዝሐ ፈተነ ተኻይዱ። ብኽብረትኩም ን 5 ደቓይቕ ተጸበዩ። (Throttled for 5 minutes)' };
     }
 
     const errData = await res.json().catch(() => ({}));
-    return { success: false, error: errData.error || 'Invalid administrator credentials' };
+    return { success: false, error: errData.error || 'መእተዊ ሓበሬታ ትክክል ኣይኮነን። (Invalid credentials)' };
   } catch {
-    return { success: false, error: 'Failed to communicate with authentication server' };
+    return { success: false, error: 'መእተዊ ሓበሬታ ትክክል ኣይኮነን። (Failed to reach auth server)' };
   }
 }
 
@@ -126,4 +126,3 @@ export async function apiFetchAuditLog(token: string): Promise<AuditEvent[]> {
   }
   return [];
 }
-

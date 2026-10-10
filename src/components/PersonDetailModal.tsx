@@ -127,15 +127,17 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               <h2 className="text-xl font-bold font-ethiopic text-amber-100">
                 {person.canonicalName}
               </h2>
-              <p className="text-xs text-stone-400 font-mono">
-                ID: {person.id}
-              </p>
+              {person.branch && (
+                <p className="text-xs text-amber-400 font-ethiopic">
+                  ጨንፈር: {person.branch}
+                </p>
+              )}
             </div>
           </div>
           <button
             onClick={onClose}
             className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition-colors"
-            aria-label="Close"
+            aria-label="ዕጾ"
           >
             <X className="w-5 h-5" />
           </button>
@@ -145,48 +147,48 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-stone-800">
           {/* Quick Review Status Strip */}
           <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-semibold text-stone-600">Verification Status:</span>
+            <div className="flex items-center space-x-2 font-ethiopic">
+              <span className="text-xs font-semibold text-stone-600">ኩነታት:</span>
               {status === 'verified' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  <CheckCircle className="w-3.5 h-3.5 mr-1" /> Verified
+                  <CheckCircle className="w-3.5 h-3.5 mr-1" /> ዝተረጋገጸ
                 </span>
               )}
               {status === 'needs_review' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
-                  <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Needs Review
+                  <AlertTriangle className="w-3.5 h-3.5 mr-1" /> ምምርማር ዘድልዮ
                 </span>
               )}
               {status === 'unverified' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-stone-200 text-stone-700">
-                  Unverified
+                  ዘይተረጋገጸ
                 </span>
               )}
             </div>
 
-            <div className="flex items-center space-x-2 text-xs">
+            <div className="flex items-center space-x-2 text-xs font-ethiopic">
               <button
                 onClick={() => handleQuickStatusChange('verified')}
                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow-sm transition-colors"
               >
-                Mark Verified
+                ኣረጋግጽ
               </button>
               <button
                 onClick={() => handleQuickStatusChange('needs_review')}
                 className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-sm transition-colors"
               >
-                Flag Review
+                ንመመርመሪ ምልክት ግበር
               </button>
             </div>
           </div>
 
           {/* Person Metadata Fields (Edit Mode or Read Mode) */}
           {isEditing ? (
-            <div className="space-y-4 p-4 bg-stone-50 rounded-xl border border-stone-200">
-              <h4 className="font-semibold text-sm text-stone-800">Edit Person Record</h4>
+            <div className="space-y-4 p-4 bg-stone-50 rounded-xl border border-stone-200 font-ethiopic">
+              <h4 className="font-semibold text-sm text-stone-800">መረዳእታ ኣባል ምዕራይ</h4>
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">
-                  Canonical Source Name (Exact Tigrinya/Ge'ez)
+                  ምሉእ ስም (ብትግርኛ) *
                 </label>
                 <input
                   type="text"
@@ -197,7 +199,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">
-                  Reviewed Display Name (Optional English or Normalized)
+                  ተወሳኺ ስም (Reviewed Name)
                 </label>
                 <input
                   type="text"
@@ -208,7 +210,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-stone-700 mb-1">Branch</label>
+                  <label className="block text-xs font-medium text-stone-700 mb-1">ጨንፈር / ሓረግ</label>
                   <input
                     type="text"
                     value={branch}
@@ -217,26 +219,26 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-stone-700 mb-1">Status</label>
+                  <label className="block text-xs font-medium text-stone-700 mb-1">ኩነታት ምርግጋጽ</label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as RecordStatus)}
-                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white"
+                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
                   >
-                    <option value="unverified">Unverified</option>
-                    <option value="needs_review">Needs Review</option>
-                    <option value="verified">Verified</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="unverified">ዘይተረጋገጸ</option>
+                    <option value="needs_review">ምምርማር ዘድልዮ</option>
+                    <option value="verified">ዝተረጋገጸ</option>
+                    <option value="rejected">ዘይቅቡል</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-stone-700 mb-1">Notes</label>
+                <label className="block text-xs font-medium text-stone-700 mb-1">መተሓሳሰቢ</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white"
+                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
                 />
               </div>
               <div className="flex justify-end space-x-2 pt-2">
@@ -244,21 +246,21 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                   onClick={() => setIsEditing(false)}
                   className="px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-200 rounded-lg"
                 >
-                  Cancel
+                  ሰርዝ
                 </button>
                 <button
                   onClick={handleSaveEdit}
                   className="px-4 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg flex items-center space-x-1"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>Save Changes</span>
+                  <span>ኣቐምጥ</span>
                 </button>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-ethiopic">
               <div className="p-3 bg-white rounded-lg border border-stone-200">
-                <span className="text-xs text-stone-400 block">Canonical Name</span>
+                <span className="text-xs text-stone-400 block">ምሉእ ስም</span>
                 <span className="font-bold text-stone-900 font-ethiopic text-lg">
                   {person.canonicalName}
                 </span>
@@ -270,62 +272,46 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               </div>
 
               <div className="p-3 bg-white rounded-lg border border-stone-200">
-                <span className="text-xs text-stone-400 block">Branch Lineage</span>
+                <span className="text-xs text-stone-400 block">ጨንፈር / ሓረግ</span>
                 <span className="font-semibold text-stone-800 font-ethiopic">
-                  {person.branch || 'Unassigned / Patriarch'}
+                  {person.branch || 'ከንቲባ ጉዕሽ ሓጎስ'}
                 </span>
               </div>
 
-              {/* Source Provenance */}
-              <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">
-                <span className="text-xs text-stone-400 flex items-center space-x-1 mb-1">
-                  <FileText className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Source Provenance (ከሰተ-ብርሃነ.pdf)</span>
-                </span>
-                <div className="text-xs text-stone-700 space-y-1">
-                  {person.sourcePage && (
-                    <p>
-                      <strong>PDF Page:</strong> Page {person.sourcePage}
-                    </p>
-                  )}
-                  {person.sourceHeading && (
-                    <p>
-                      <strong>Heading / Phrase:</strong> {person.sourceHeading}
-                    </p>
-                  )}
-                  {person.notes && (
-                    <p className="text-stone-500 whitespace-pre-line mt-1">
-                      <strong>Notes:</strong> {person.notes}
-                    </p>
-                  )}
+              {person.notes && (
+                <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">
+                  <span className="text-xs text-stone-400 block mb-1">መተሓሳሰቢ</span>
+                  <p className="text-xs text-stone-700 whitespace-pre-line">
+                    {person.notes}
+                  </p>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* Relationships Section */}
-          <div className="space-y-4">
+          <div className="space-y-4 font-ethiopic">
             <div className="flex items-center justify-between border-b border-stone-200 pb-2">
               <h3 className="font-bold text-sm text-stone-800 flex items-center space-x-2">
                 <GitCommit className="w-4 h-4 text-amber-600" />
-                <span>Documented Relationships</span>
+                <span>ዝተመዝገቡ ዝምድናታት</span>
               </h3>
               <button
                 onClick={() => onAddRelationship(person.id)}
                 className="px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg font-medium flex items-center space-x-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Link Relationship</span>
+                <span>ዝምድና ኣራኽብ</span>
               </button>
             </div>
 
             {/* Parents List */}
             <div>
-              <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block mb-1.5">
-                Parents / Source Ancestors ({parents.length})
+              <span className="text-xs font-semibold text-stone-500 block mb-1.5">
+                ወለዲ ({parents.length})
               </span>
               {parents.length === 0 ? (
-                <p className="text-xs text-stone-400 italic">No parent relationships documented.</p>
+                <p className="text-xs text-stone-400 italic">ዝተመዝገበ ወላዲ የለን።</p>
               ) : (
                 <div className="space-y-1.5">
                   {parents.map(({ rel, person: parentPerson }) => (
@@ -335,19 +321,18 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                     >
                       <div>
                         <span className="font-bold font-ethiopic text-stone-900 mr-2">
-                          {parentPerson?.canonicalName || 'Unknown Person'}
+                          {parentPerson?.canonicalName || 'ዘይተፈልጠ ኣባል'}
                         </span>
-                        <span className="text-stone-500">({rel.type})</span>
                         {rel.sourceWording && (
-                          <span className="text-stone-400 block text-[11px] truncate max-w-sm">
-                            Evidence: {rel.sourceWording}
+                          <span className="text-stone-500 block text-[11px] truncate max-w-sm">
+                            {rel.sourceWording}
                           </span>
                         )}
                       </div>
                       <button
                         onClick={() => onDeleteRelationship(rel.id)}
                         className="text-stone-400 hover:text-rose-600 p-1 rounded"
-                        title="Delete Relationship"
+                        title="ዝምድና ደምስስ"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -360,8 +345,8 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
             {/* Partners List */}
             {partners.length > 0 && (
               <div>
-                <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block mb-1.5">
-                  Partners / Union Statements ({partners.length})
+                <span className="text-xs font-semibold text-stone-500 block mb-1.5">
+                  መጻምድቲ / ሓዳር ({partners.length})
                 </span>
                 <div className="space-y-1.5">
                   {partners.map(({ rel, person: partnerPerson }) => (
@@ -371,9 +356,8 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                     >
                       <div>
                         <span className="font-bold font-ethiopic text-purple-950 mr-2">
-                          {partnerPerson?.canonicalName || 'Unknown Partner'}
+                          {partnerPerson?.canonicalName || 'ዘይተፈልጠ መጻምድቲ'}
                         </span>
-                        <span className="text-purple-600">Union Statement</span>
                         {rel.sourceWording && (
                           <span className="text-stone-500 block text-[11px]">
                             {rel.sourceWording}
@@ -383,7 +367,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                       <button
                         onClick={() => onDeleteRelationship(rel.id)}
                         className="text-stone-400 hover:text-rose-600 p-1 rounded"
-                        title="Delete Union"
+                        title="መጻምድቲ ደምስስ"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -395,11 +379,11 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
 
             {/* Children List */}
             <div>
-              <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block mb-1.5">
-                Children ({children.length})
+              <span className="text-xs font-semibold text-stone-500 block mb-1.5">
+                ውሉዳት ({children.length})
               </span>
               {children.length === 0 ? (
-                <p className="text-xs text-stone-400 italic">No children documented.</p>
+                <p className="text-xs text-stone-400 italic">ዝተመዝገቡ ውሉዳት የለዉን።</p>
               ) : (
                 <div className="space-y-1.5">
                   {children.map(({ rel, person: childPerson }) => (
@@ -409,18 +393,18 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                     >
                       <div>
                         <span className="font-bold font-ethiopic text-stone-900 mr-2">
-                          {childPerson?.canonicalName || 'Unknown Child'}
+                          {childPerson?.canonicalName || 'ዘይተፈልጠ ቆልዓ'}
                         </span>
                         {rel.status === 'needs_review' && (
                           <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-100 text-amber-800">
-                            Needs Review
+                            ምምርማር ዘድልዮ
                           </span>
                         )}
                       </div>
                       <button
                         onClick={() => onDeleteRelationship(rel.id)}
                         className="text-stone-400 hover:text-rose-600 p-1 rounded"
-                        title="Delete Relationship"
+                        title="ዝምድና ደምስስ"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -433,24 +417,23 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
 
           {/* Delete Confirmation Warning */}
           {showDeleteConfirm && (
-            <div className="p-4 bg-rose-50 border border-rose-300 rounded-xl space-y-2 text-rose-900 text-xs">
+            <div className="p-4 bg-rose-50 border border-rose-300 rounded-xl space-y-2 text-rose-900 text-xs font-ethiopic">
               <div className="flex items-center space-x-2 font-bold text-rose-800 text-sm">
                 <ShieldAlert className="w-4 h-4 text-rose-600" />
-                <span>Confirm Permanent Deletion</span>
+                <span>ካብ መዝገብ ምድምሳስ ኣረጋግጽ</span>
               </div>
               <p>
-                Are you sure you want to delete <strong>{person.canonicalName}</strong>?
+                ብሓቂ ን <strong>{person.canonicalName}</strong> ካብ መዝገብ ክትድምስስዎ ትደልዩ ዲኹም?
               </p>
               <p className="text-rose-700">
-                This will also permanently remove <strong>{totalAffectedRels}</strong> connected relationship links.
-                This action cannot be undone unless restored from a prior backup.
+                እዚ ስጉምቲ ምስዚ ኣባል ዝተተሓሓዙ <strong>{totalAffectedRels}</strong> ዝምድናታት ብሓባር ክድምስስ እዩ።
               </p>
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
                   className="px-3 py-1 bg-white border border-stone-300 rounded text-stone-700"
                 >
-                  Cancel
+                  ሰርዝ
                 </button>
                 <button
                   onClick={async () => {
@@ -459,7 +442,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                   }}
                   className="px-3 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700"
                 >
-                  Yes, Delete Person and Links
+                  እወ፡ ካብ መዝገብ ደምስስ
                 </button>
               </div>
             </div>
@@ -467,13 +450,13 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs">
+        <div className="px-6 py-3 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs font-ethiopic">
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="text-rose-600 hover:text-rose-800 font-medium flex items-center space-x-1"
           >
             <Trash2 className="w-4 h-4" />
-            <span>Delete Person...</span>
+            <span>ካብ መዝገብ ደምስስ...</span>
           </button>
 
           <div className="flex items-center space-x-2">
@@ -483,14 +466,14 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                 className="px-3 py-1.5 border border-stone-300 bg-white rounded-lg hover:bg-stone-100 text-stone-700 font-medium flex items-center space-x-1"
               >
                 <Edit2 className="w-3.5 h-3.5" />
-                <span>Edit Record</span>
+                <span>ኣስተኻኽል</span>
               </button>
             )}
             <button
               onClick={onClose}
               className="px-4 py-1.5 bg-stone-800 hover:bg-stone-900 text-white rounded-lg font-medium"
             >
-              Close
+              ዕጾ
             </button>
           </div>
         </div>

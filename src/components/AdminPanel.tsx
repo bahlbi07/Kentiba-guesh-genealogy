@@ -365,6 +365,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onSelectPerson={onSelectPerson}
           onUpdatePerson={onUpdatePerson}
           onUpdateRelationship={onSaveRelationship}
+          onDeleteRelationship={onDeleteRelationship}
         />
       )}
 

@@ -157,7 +157,6 @@ export const Directory: React.FC<DirectoryProps> = ({
             </div>
           )}
         </div>
-      </div>
 
       {/* Directory Grid */}
       {filteredPeople.length === 0 ? (

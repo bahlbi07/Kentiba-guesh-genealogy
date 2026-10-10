@@ -11,9 +11,10 @@ import {
   Search,
   CheckCircle,
   AlertTriangle,
-  RotateCcw,
+  GitFork,
+  ArrowUpRight,
   Sparkles,
-  GitFork
+  Link2
 } from 'lucide-react';
 
 const DRAFT_STORAGE_KEY = 'kinteba_add_person_draft';
@@ -31,32 +32,38 @@ export const OFFICIAL_BRANCHES = [
   'መድሂን'
 ];
 
+export interface LineageGeneration {
+  id: string;
+  name: string;
+  parentType: 'mother' | 'father';
+  spouseName?: string;
+  existingPersonId?: string | null;
+}
+
 interface DraftState {
   canonicalName: string;
   branch: string;
-  gender: 'male' | 'female' | 'unknown';
   notes: string;
-  fatherId: string | null;
-  fatherNameCustom: string;
-  motherId: string | null;
-  motherNameCustom: string;
-  spouseId: string | null;
-  spouseNameCustom: string;
+  // Lineage chain: e.g. [ደሃብ (መጻምድቲ: ሃይለ), ሓሊቦ, ሓጎስ, ዓዶ, ዑመር, ትዕበ]
+  lineageChain: LineageGeneration[];
+  // Quick text input for lineage
+  quickLineageText: string;
+  // Direct spouse of this person
+  spouseName: string;
   spouseWording: string;
+  // Children of this person
   children: Array<{ id: string; name: string; notes?: string }>;
 }
 
 const initialDraft: DraftState = {
   canonicalName: '',
   branch: '',
-  gender: 'unknown',
   notes: '',
-  fatherId: null,
-  fatherNameCustom: '',
-  motherId: null,
-  motherNameCustom: '',
-  spouseId: null,
-  spouseNameCustom: '',
+  lineageChain: [
+    { id: 'gen_1', name: '', parentType: 'mother', spouseName: '' }
+  ],
+  quickLineageText: '',
+  spouseName: '',
   spouseWording: '',
   children: []
 };
@@ -85,35 +92,33 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Search picker modals
-  const [pickerTarget, setPickerTarget] = useState<'father' | 'mother' | 'spouse' | null>(null);
+  // Search picker state for searching an existing ancestor in database
+  const [pickerTargetGenId, setPickerTargetGenId] = useState<string | null>(null);
   const [pickerSearchQuery, setPickerSearchQuery] = useState('');
-  const [inlineQuickAddName, setInlineQuickAddName] = useState('');
 
-  // Check draft in localStorage on mount
+  // Check draft on load
   useEffect(() => {
     if (hasCheckedDraft) return;
     try {
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.canonicalName || parsed.branch || (parsed.children && parsed.children.length > 0)) {
+        if (parsed.canonicalName || parsed.branch || (parsed.lineageChain && parsed.lineageChain.some((g: any) => g.name))) {
           setShowDraftRecoveryDialog(true);
         }
       }
     } catch {
-      // Ignore JSON parse errors
+      // Ignore parse error
     } finally {
       setHasCheckedDraft(true);
     }
   }, [hasCheckedDraft]);
 
-  // Save draft silently on any change
   const saveDraftSilent = useCallback((nextState: DraftState) => {
     try {
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(nextState));
     } catch {
-      // Silent fail
+      // Ignore storage error
     }
   }, []);
 
@@ -125,7 +130,6 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     });
   };
 
-  // Restore draft
   const handleResumeDraft = () => {
     try {
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -133,56 +137,101 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         setForm(JSON.parse(saved));
       }
     } catch {
-      // Fallback
+      // Ignore
     }
     setShowDraftRecoveryDialog(false);
   };
 
-  // Discard draft
   const handleDiscardDraft = () => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
     setForm(initialDraft);
     setShowDraftRecoveryDialog(false);
   };
 
-  // Lookup map
+  // Lookup map of existing people
   const peopleMap = useMemo(() => {
     const map = new Map<string, Person>();
     for (const p of people) map.set(p.id, p);
     return map;
   }, [people]);
 
-  // Filtered people for picker
-  const pickerSearchResults = useMemo(() => {
-    if (!pickerTarget) return [];
-    const q = pickerSearchQuery.toLowerCase().trim();
-    return people
-      .filter((p) => {
-        if (!q) return true;
-        return (
-          p.canonicalName.toLowerCase().includes(q) ||
-          (p.fatherName && p.fatherName.toLowerCase().includes(q)) ||
-          (p.branch && p.branch.toLowerCase().includes(q))
-        );
-      })
-      .slice(0, 15);
-  }, [pickerTarget, pickerSearchQuery, people]);
+  // Root patriarch Kinteba Guush
+  const rootPatriarch = useMemo(() => {
+    return (
+      people.find(
+        (p) =>
+          p.id === 'pers_root_kinteba_guush' ||
+          p.canonicalName.includes('ከንቲባ ጉዑሽ') ||
+          p.canonicalName.includes('ከንቲባ ጉዕሽ') ||
+          p.id === 'pers_p1_0_0'
+      ) || null
+    );
+  }, [people]);
 
-  // Validation
-  const validation = useMemo(() => {
-    if (!form.canonicalName.trim()) {
-      return { isValid: false, error: 'ስም ኣባል ምምላእ ግድነት እዩ።' };
-    }
-    return { isValid: true };
-  }, [form.canonicalName]);
+  // Quick chain parser: converts text like "ደሃብ ሓሊቦ ሓጎስ ዓዶ ዑመር ትዕበ" into generations
+  const handleApplyQuickChain = () => {
+    const raw = form.quickLineageText.trim();
+    if (!raw) return;
 
-  // Add child to batch
+    // Split by comma, arrow, or spaces
+    const parts = raw
+      .split(/[➔\->,]+|\s{2,}|\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.includes('ከንቲባ') && !s.includes('ጉዕሽ') && !s.includes('ጉዑሽ'));
+
+    if (parts.length === 0) return;
+
+    const newChain: LineageGeneration[] = parts.map((name, idx) => ({
+      id: `gen_${Date.now()}_${idx}`,
+      name,
+      parentType: idx === 0 ? 'mother' : 'father',
+      spouseName: ''
+    }));
+
+    updateForm((prev) => ({
+      ...prev,
+      lineageChain: newChain,
+      quickLineageText: ''
+    }));
+  };
+
+  // Lineage chain management
+  const handleAddGeneration = () => {
+    updateForm((prev) => ({
+      ...prev,
+      lineageChain: [
+        ...prev.lineageChain,
+        {
+          id: `gen_${Date.now()}_${prev.lineageChain.length}`,
+          name: '',
+          parentType: 'father',
+          spouseName: ''
+        }
+      ]
+    }));
+  };
+
+  const handleRemoveGeneration = (id: string) => {
+    updateForm((prev) => ({
+      ...prev,
+      lineageChain: prev.lineageChain.filter((g) => g.id !== id)
+    }));
+  };
+
+  const handleUpdateGeneration = (id: string, updates: Partial<LineageGeneration>) => {
+    updateForm((prev) => ({
+      ...prev,
+      lineageChain: prev.lineageChain.map((g) => (g.id === id ? { ...g, ...updates } : g))
+    }));
+  };
+
+  // Children management
   const handleAddChildRow = () => {
     updateForm((prev) => ({
       ...prev,
       children: [
         ...prev.children,
-        { id: `c_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`, name: '', notes: '' }
+        { id: `c_${Date.now()}_${prev.children.length}`, name: '', notes: '' }
       ]
     }));
   };
@@ -201,77 +250,180 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     }));
   };
 
-  // Handle final submission
+  // Search results for ancestor picker
+  const pickerSearchResults = useMemo(() => {
+    if (!pickerTargetGenId) return [];
+    const q = pickerSearchQuery.toLowerCase().trim();
+    return people
+      .filter((p) => {
+        if (!q) return true;
+        return (
+          p.canonicalName.toLowerCase().includes(q) ||
+          (p.fatherName && p.fatherName.toLowerCase().includes(q)) ||
+          (p.branch && p.branch.toLowerCase().includes(q))
+        );
+      })
+      .slice(0, 15);
+  }, [pickerTargetGenId, pickerSearchQuery, people]);
+
+  // Validation
+  const validation = useMemo(() => {
+    if (!form.canonicalName.trim()) {
+      return { isValid: false, error: 'ስም ኣባል ምምላእ ግድነት እዩ።' };
+    }
+    return { isValid: true };
+  }, [form.canonicalName]);
+
+  // Comprehensive Submission Handler: Saves person, multi-generational ancestral chain, spouses, and children
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitError(null);
-
-    if (!validation.isValid) {
-      setSubmitError(validation.error || 'በጃኹም ዝጎደለ ሓበሬታ ምልኡ።');
-      return;
-    }
+    if (!validation.isValid || isSubmitting) return;
 
     setIsSubmitting(true);
+    setSubmitError(null);
+
+    const now = new Date().toISOString();
 
     try {
-      const now = new Date().toISOString();
+      // 1. Create ID for Main Person
       const mainPersonId = `pers_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
-      // 1. Determine or create father
-      let effectiveFatherId = form.fatherId;
-      if (!effectiveFatherId && form.fatherNameCustom.trim()) {
-        effectiveFatherId = `pers_${Date.now()}_f_${Math.random().toString(36).substring(2, 5)}`;
-        await onSavePerson({
-          id: effectiveFatherId,
-          canonicalName: form.fatherNameCustom.trim(),
-          branch: form.branch || undefined,
-          status: 'verified',
-          isArchived: false,
-          notes: 'ብኢድ ዝተመዝገበ ወላዲ ኣቦ',
-          createdAt: now,
-          updatedAt: now
-        });
+      // 2. Process Ancestral Chain (from generation 1 up to top generation)
+      // Filter out empty generation entries
+      const validGenerations = form.lineageChain.filter((g) => g.name.trim().length > 0);
+
+      const createdAncestorIds: string[] = [];
+
+      for (let i = 0; i < validGenerations.length; i++) {
+        const gen = validGenerations[i];
+        const trimmedGenName = gen.name.trim();
+
+        // Check if ancestor exists in the database
+        let ancestorId: string;
+        const existingPerson = people.find(
+          (p) =>
+            p.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase() &&
+            (!form.branch || !p.branch || p.branch.trim() === form.branch.trim())
+        );
+
+        if (existingPerson) {
+          ancestorId = existingPerson.id;
+        } else {
+          ancestorId = `pers_${Date.now()}_anc_${i}_${Math.random().toString(36).substring(2, 5)}`;
+          await onSavePerson({
+            id: ancestorId,
+            canonicalName: trimmedGenName,
+            branch: form.branch || undefined,
+            status: 'verified',
+            isArchived: false,
+            notes: `ወለዶ ስድራቤት: ${form.canonicalName}`,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
+
+        createdAncestorIds.push(ancestorId);
+
+        // If this generation has a spouse specified (e.g. ወላዲተይ ደሃብ መጻምድታ ሃይለ)
+        if (gen.spouseName && gen.spouseName.trim()) {
+          const trimmedSpouseName = gen.spouseName.trim();
+          const existingSpouse = people.find(
+            (p) => p.canonicalName.trim().toLowerCase() === trimmedSpouseName.toLowerCase()
+          );
+
+          let genSpouseId: string;
+          if (existingSpouse) {
+            genSpouseId = existingSpouse.id;
+          } else {
+            genSpouseId = `pers_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 5)}`;
+            await onSavePerson({
+              id: genSpouseId,
+              canonicalName: trimmedSpouseName,
+              branch: form.branch || undefined,
+              status: 'verified',
+              isArchived: false,
+              notes: `መጻምድቲ ${trimmedGenName}`,
+              createdAt: now,
+              updatedAt: now
+            });
+          }
+
+          // Link ancestor to their spouse
+          await onSaveRelationship({
+            id: `rel_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 5)}`,
+            fromPersonId: ancestorId,
+            toPersonId: genSpouseId,
+            type: 'partner_or_union',
+            status: 'verified',
+            sourceFile: 'ከሰተ-ብርሃነ.pdf',
+            sourcePage: null,
+            sourceWording: `${trimmedGenName} ዝተመርዓዉ ምስ ${trimmedSpouseName}`,
+            isBiologicalConfirmed: false,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
       }
 
-      // 2. Determine or create mother
-      let effectiveMotherId = form.motherId;
-      if (!effectiveMotherId && form.motherNameCustom.trim()) {
-        effectiveMotherId = `pers_${Date.now()}_m_${Math.random().toString(36).substring(2, 5)}`;
-        await onSavePerson({
-          id: effectiveMotherId,
-          canonicalName: form.motherNameCustom.trim(),
-          branch: form.branch || undefined,
-          status: 'verified',
-          isArchived: false,
-          notes: 'ብኢድ ዝተመዝገበት ወላዲት ኣደ',
-          createdAt: now,
-          updatedAt: now
-        });
+      // Link Ancestral Chain Steps to one another (parent -> child)
+      for (let i = 0; i < createdAncestorIds.length - 1; i++) {
+        const childGenId = createdAncestorIds[i];
+        const parentGenId = createdAncestorIds[i + 1];
+
+        const cycleCheck = validateParentChildCycle(relationships, parentGenId, childGenId);
+        if (cycleCheck.isValid) {
+          await onSaveRelationship({
+            id: `rel_${Date.now()}_chain_${i}_${Math.random().toString(36).substring(2, 5)}`,
+            fromPersonId: parentGenId,
+            toPersonId: childGenId,
+            type: 'parent_child',
+            status: 'verified',
+            sourceFile: 'ከሰተ-ብርሃነ.pdf',
+            sourcePage: null,
+            sourceWording: `${validGenerations[i].name} ወዲ/ጓል ${validGenerations[i + 1].name}`,
+            isBiologicalConfirmed: true,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
       }
 
-      // 3. Determine or create spouse
-      let effectiveSpouseId = form.spouseId;
-      if (!effectiveSpouseId && form.spouseNameCustom.trim()) {
-        effectiveSpouseId = `pers_${Date.now()}_s_${Math.random().toString(36).substring(2, 5)}`;
-        await onSavePerson({
-          id: effectiveSpouseId,
-          canonicalName: form.spouseNameCustom.trim(),
-          branch: form.branch || undefined,
-          status: 'verified',
-          isArchived: false,
-          notes: 'ብኢድ ዝተመዝገበ መጻምድቲ',
-          createdAt: now,
-          updatedAt: now
-        });
+      // If top ancestor matches an official branch, link to root patriarch
+      if (createdAncestorIds.length > 0 && rootPatriarch) {
+        const topAncestorId = createdAncestorIds[createdAncestorIds.length - 1];
+        const topGenName = validGenerations[validGenerations.length - 1].name.trim();
+
+        // Check if top ancestor is one of the 10 branches
+        const isBranchTop = OFFICIAL_BRANCHES.some((b) => topGenName.includes(b));
+        if (isBranchTop && topAncestorId !== rootPatriarch.id) {
+          const cycleCheck = validateParentChildCycle(relationships, rootPatriarch.id, topAncestorId);
+          if (cycleCheck.isValid) {
+            await onSaveRelationship({
+              id: `rel_${Date.now()}_root_${topAncestorId}`,
+              fromPersonId: rootPatriarch.id,
+              toPersonId: topAncestorId,
+              type: 'parent_child',
+              status: 'verified',
+              sourceFile: 'ከሰተ-ብርሃነ.pdf',
+              sourcePage: null,
+              sourceWording: `${topGenName} ወዲ ከንቲባ ጉዑሽ ሓጎስ`,
+              isBiologicalConfirmed: true,
+              createdAt: now,
+              updatedAt: now
+            });
+          }
+        }
       }
 
-      // 4. Save Main Person
-      const fatherPerson = effectiveFatherId ? peopleMap.get(effectiveFatherId) : undefined;
+      // 3. Save Main Person
+      const immediateParentId = createdAncestorIds.length > 0 ? createdAncestorIds[0] : undefined;
+      const immediateParentName = validGenerations.length > 0 ? validGenerations[0].name : undefined;
+
       const mainPerson: Person = {
         id: mainPersonId,
         canonicalName: form.canonicalName.trim(),
-        branch: form.branch.trim() || undefined,
-        fatherName: fatherPerson ? fatherPerson.canonicalName : form.fatherNameCustom.trim() || undefined,
+        branch: form.branch.trim() || (validGenerations.length > 0 ? validGenerations[validGenerations.length - 1].name : undefined),
+        fatherName: immediateParentName,
         status: 'verified',
         isArchived: false,
         notes: form.notes.trim() || undefined,
@@ -280,19 +432,19 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       };
       await onSavePerson(mainPerson);
 
-      // 5. Save Parent Relationships
-      if (effectiveFatherId) {
-        const fatherCycle = validateParentChildCycle(relationships, effectiveFatherId, mainPersonId);
-        if (fatherCycle.isValid) {
+      // Link main person to immediate parent (generation 1)
+      if (immediateParentId) {
+        const cycleCheck = validateParentChildCycle(relationships, immediateParentId, mainPersonId);
+        if (cycleCheck.isValid) {
           await onSaveRelationship({
-            id: `rel_${Date.now()}_f_${Math.random().toString(36).substring(2, 5)}`,
-            fromPersonId: effectiveFatherId,
+            id: `rel_${Date.now()}_main_parent`,
+            fromPersonId: immediateParentId,
             toPersonId: mainPersonId,
             type: 'parent_child',
             status: 'verified',
             sourceFile: 'ከሰተ-ብርሃነ.pdf',
             sourcePage: null,
-            sourceWording: `${form.canonicalName} ወዲ/ጓል ${form.fatherNameCustom || fatherPerson?.canonicalName}`,
+            sourceWording: `${form.canonicalName} ወዲ/ጓል ${immediateParentName}`,
             isBiologicalConfirmed: true,
             createdAt: now,
             updatedAt: now
@@ -300,43 +452,37 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         }
       }
 
-      if (effectiveMotherId) {
-        const motherCycle = validateParentChildCycle(relationships, effectiveMotherId, mainPersonId);
-        if (motherCycle.isValid) {
-          await onSaveRelationship({
-            id: `rel_${Date.now()}_m_${Math.random().toString(36).substring(2, 5)}`,
-            fromPersonId: effectiveMotherId,
-            toPersonId: mainPersonId,
-            type: 'parent_child',
-            status: 'verified',
-            sourceFile: 'ከሰተ-ብርሃነ.pdf',
-            sourcePage: null,
-            sourceWording: `${form.canonicalName} ወዲ/ጓል ${form.motherNameCustom}`,
-            isBiologicalConfirmed: true,
-            createdAt: now,
-            updatedAt: now
-          });
-        }
-      }
+      // 4. Save Main Person's Spouse
+      if (form.spouseName.trim()) {
+        const trimmedSpouse = form.spouseName.trim();
+        const spouseId = `pers_${Date.now()}_main_sp_${Math.random().toString(36).substring(2, 5)}`;
+        await onSavePerson({
+          id: spouseId,
+          canonicalName: trimmedSpouse,
+          branch: form.branch || undefined,
+          status: 'verified',
+          isArchived: false,
+          notes: `መጻምድቲ ${form.canonicalName}`,
+          createdAt: now,
+          updatedAt: now
+        });
 
-      // 6. Save Spouse Relationship
-      if (effectiveSpouseId) {
         await onSaveRelationship({
-          id: `rel_${Date.now()}_sp_${Math.random().toString(36).substring(2, 5)}`,
+          id: `rel_${Date.now()}_main_sp_rel`,
           fromPersonId: mainPersonId,
-          toPersonId: effectiveSpouseId,
+          toPersonId: spouseId,
           type: 'partner_or_union',
           status: 'verified',
           sourceFile: 'ከሰተ-ብርሃነ.pdf',
           sourcePage: null,
-          sourceWording: form.spouseWording.trim() || `${form.canonicalName} ዝተመርዓዉ`,
+          sourceWording: form.spouseWording.trim() || `${form.canonicalName} ዝተመርዓዉ ምስ ${trimmedSpouse}`,
           isBiologicalConfirmed: false,
           createdAt: now,
           updatedAt: now
         });
       }
 
-      // 7. Save Children batch
+      // 5. Save Children
       for (const child of form.children) {
         if (!child.name.trim()) continue;
         const childId = `pers_${Date.now()}_c_${Math.random().toString(36).substring(2, 5)}`;
@@ -353,7 +499,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         });
 
         await onSaveRelationship({
-          id: `rel_${Date.now()}_rc_${Math.random().toString(36).substring(2, 5)}`,
+          id: `rel_${Date.now()}_c_${childId}`,
           fromPersonId: mainPersonId,
           toPersonId: childId,
           type: 'parent_child',
@@ -367,7 +513,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         });
       }
 
-      // 8. Clean draft storage and reload
+      // 6. Clean draft and reload
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       await onComplete();
       onClose();
@@ -379,294 +525,287 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     }
   };
 
-  const selectedFather = form.fatherId ? peopleMap.get(form.fatherId) : null;
-  const selectedMother = form.motherId ? peopleMap.get(form.motherId) : null;
-  const selectedSpouse = form.spouseId ? peopleMap.get(form.spouseId) : null;
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col font-ethiopic">
-        {/* Header */}
-        <div className="px-6 py-4 bg-stone-900 text-white flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300 font-bold text-lg">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 font-ethiopic">
+      <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Modal Header */}
+        <div className="px-6 py-4 bg-stone-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold">
               <Plus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-amber-100">
-                ሓድሽ ኣባል ስድራቤት ምምዝጋብ
-              </h2>
+              <h2 className="text-lg font-bold text-amber-100">ሓድሽ ኣባል ስድራቤት ምምዝጋብ</h2>
               <p className="text-xs text-stone-400">
-                ውልቃዊ ሓበሬታ፡ ወለዲ፡ መጻምድትን ውሉዳትን ብቐሊሉ ኣእቱ
+                ምሉእ ሓበሬታ፡ ወለዶ፡ መዋስብትን ውሉዳትን ብዝግባእ ኣእቱ
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition-colors"
+            className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition-colors cursor-pointer"
             aria-label="ዕጾ"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Draft Recovery Alert Modal Dialog */}
+        {/* Draft Recovery Alert */}
         {showDraftRecoveryDialog && (
-          <div className="p-4 bg-amber-50 border-b border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center space-x-2 text-amber-900">
-              <RotateCcw className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>
-                <strong>ዘይተዛዘመ ስራሕ ጸኒሑ ኣሎ!</strong> ካብቲ ዝነበሮ ክትቅጽል ትደሊ ዲኻ?
-              </span>
+          <div className="p-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between text-xs text-amber-900 shrink-0">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>ቅድሚ ሕጂ ዝጀመርኩምዎ ዘይተወድአ ረቂቕ መዝገብ ኣሎ። ክትቅጽልዎ ትደልዩ ዲኹም?</span>
             </div>
-            <div className="flex items-center space-x-2 shrink-0">
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleDiscardDraft}
-                className="px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-stone-700 hover:bg-stone-50 font-bold"
+                type="button"
+                onClick={handleResumeDraft}
+                className="px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-lg font-bold cursor-pointer"
               >
-                ሰርዝ (ሓድሽ ጀምር)
+                ቀጽል
               </button>
               <button
-                onClick={handleResumeDraft}
-                className="px-3 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-bold"
+                type="button"
+                onClick={handleDiscardDraft}
+                className="px-2.5 py-1 text-stone-600 hover:text-stone-900 hover:underline cursor-pointer"
               >
-                ካብቲ ዝነበሮ ቀጽል
+                ኣጥፍእ
               </button>
             </div>
           </div>
         )}
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-sm text-stone-800">
+        {/* Scrollable Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
           {submitError && (
-            <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-rose-800 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+            <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-rose-900 font-bold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{submitError}</span>
             </div>
           )}
 
-          {/* Section 1: ውልቃዊ ሓበሬታ */}
+          {/* SECTION 1: ውልቃዊ ሓበሬታ */}
           <div className="space-y-4">
             <h3 className="font-bold text-stone-900 text-base flex items-center gap-2 pb-2 border-b border-stone-200">
               <User className="w-4 h-4 text-amber-700" />
-              <span>1. ውልቃዊ ሓበሬታ (Personal Details)</span>
+              <span>1. ውልቃዊ ሓበሬታ</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-stone-800 mb-1">
                   ምሉእ ስም (ብትግርኛ) *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="ንኣብነት: ጎብሩ፡ ተስፉ፡ ብስራት..."
+                  placeholder="ንኣብነት: ባህልቢ ሃይለ..."
                   value={form.canonicalName}
                   onChange={(e) => updateForm((p) => ({ ...p, canonicalName: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-base focus:ring-2 focus:ring-amber-500 font-ethiopic"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 font-ethiopic"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                  ጨንፈር / ሓረግ (Branch)
+                <label className="block text-xs font-bold text-stone-800 mb-1">
+                  ጨንፈር / ሓረግ
                 </label>
-                <div className="flex gap-2">
-                  <select
-                    value={form.branch}
-                    onChange={(e) => updateForm((p) => ({ ...p, branch: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 font-ethiopic"
-                  >
-                    <option value="">ጨንፈር ምረጽ...</option>
-                    {OFFICIAL_BRANCHES.map((b) => (
-                      <option key={b} value={b}>
-                        ሓረግ {b}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={form.branch}
+                  onChange={(e) => updateForm((p) => ({ ...p, branch: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 font-ethiopic cursor-pointer"
+                >
+                  <option value="">ጨንፈር ምረጽ...</option>
+                  {OFFICIAL_BRANCHES.map((b) => (
+                    <option key={b} value={b}>
+                      ሓረግ {b}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                መተሓሳሰቢ ወይ ታሪኻዊ መረዳእታ (Notes)
+              <label className="block text-xs font-bold text-stone-800 mb-1">
+                መተሓሳሰቢ ወይ ታሪኻዊ መረዳእታ
               </label>
               <textarea
                 rows={2}
-                placeholder="ተወሳኺ መረዳእታ ወይ መተሓሳሰቢ እንተሃልዩ ኣብዚ ጽሓፍ..."
+                placeholder="ተወሳኺ መረዳእታ፡ ዓዲ፡ ወይ ታሪኽ እንተሃልዩ ኣብዚ ጽሓፍ..."
                 value={form.notes}
                 onChange={(e) => updateForm((p) => ({ ...p, notes: e.target.value }))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 font-ethiopic"
+                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-stone-900 text-xs focus:ring-2 focus:ring-amber-500 font-ethiopic"
               />
             </div>
           </div>
 
-          {/* Section 2: ወለዲ */}
+          {/* SECTION 2: ሰንሰለታዊ ወለዶ (Lineage Path to Kinteba Guush) */}
           <div className="space-y-4">
-            <h3 className="font-bold text-stone-900 text-base flex items-center gap-2 pb-2 border-b border-stone-200">
-              <Users className="w-4 h-4 text-amber-700" />
-              <span>2. ወለዲ (Parents)</span>
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-stone-200 gap-2">
+              <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-amber-700" />
+                <span>2. ሰንሰለታዊ ወለዶ (ናብ ከንቲባ ጉዕሽ ዝወስድ ሓረግ)</span>
+              </h3>
+              <span className="text-[11px] text-stone-500">
+                ካብ ወላዲ ጀሚርካ ክሳብ ጨንፈር ከንቲባ ጉዕሽ ብቅደም ተኸተል
+              </span>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Father */}
-              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-2">
-                <span className="text-xs font-bold text-stone-700 block">ኣቦ (Father)</span>
-                {selectedFather ? (
-                  <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-stone-200">
-                    <span className="font-bold text-stone-900">{selectedFather.canonicalName}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateForm((p) => ({ ...p, fatherId: null, fatherNameCustom: '' }))}
-                      className="text-stone-400 hover:text-rose-600 p-1"
-                      title="ኣልግስ"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : form.fatherNameCustom ? (
-                  <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-stone-200">
-                    <span className="font-bold text-stone-900">{form.fatherNameCustom} (ሓድሽ)</span>
-                    <button
-                      type="button"
-                      onClick={() => updateForm((p) => ({ ...p, fatherNameCustom: '' }))}
-                      className="text-stone-400 hover:text-rose-600 p-1"
-                      title="ኣልግስ"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPickerTarget('father');
-                        setPickerSearchQuery('');
-                        setInlineQuickAddName('');
-                      }}
-                      className="w-full py-2 px-3 border border-stone-300 rounded-xl bg-white hover:bg-stone-100 text-stone-700 font-semibold text-xs flex items-center justify-center gap-1.5"
-                    >
-                      <Search className="w-3.5 h-3.5 text-stone-400" />
-                      <span>ካብ ዝርዝር ኣቦ ምረጽ</span>
-                    </button>
-                  </div>
-                )}
+            {/* Quick Chain Paste / Type Box */}
+            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
+              <span className="text-xs font-bold text-amber-950 block">
+                ፈጣን ሰንሰለት ምእታው (ብቐሊሉ ብመስርዕ ጽሓፍ):
+              </span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="ንኣብነት: ደሃብ ሓሊቦ ሓጎስ ዓዶ ዑመር ትዕበ"
+                  value={form.quickLineageText}
+                  onChange={(e) => updateForm((p) => ({ ...p, quickLineageText: e.target.value }))}
+                  className="flex-1 px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-ethiopic focus:ring-2 focus:ring-amber-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyQuickChain}
+                  disabled={!form.quickLineageText.trim()}
+                  className="px-4 py-2 bg-amber-700 hover:bg-amber-800 disabled:bg-stone-300 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0"
+                >
+                  ሰንሰለት ዘርግሕ
+                </button>
               </div>
+              <p className="text-[11px] text-amber-800">
+                ኣስማት ወለዶ ብህዋኽ እንተጸሒፍኩምዎ፡ ብቐጥታ ናብቶም ዝስዕቡ ደረጃታት ክዝርግሖ እዩ።
+              </p>
+            </div>
 
-              {/* Mother */}
-              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-2">
-                <span className="text-xs font-bold text-stone-700 block">ኣደ (Mother)</span>
-                {selectedMother ? (
-                  <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-stone-200">
-                    <span className="font-bold text-stone-900">{selectedMother.canonicalName}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateForm((p) => ({ ...p, motherId: null, motherNameCustom: '' }))}
-                      className="text-stone-400 hover:text-rose-600 p-1"
-                      title="ኣልግስ"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+            {/* Generational Steps */}
+            <div className="space-y-3">
+              {form.lineageChain.map((gen, idx) => (
+                <div
+                  key={gen.id}
+                  className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-2.5 relative transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-900 font-bold text-[11px] flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="font-bold text-stone-800 text-xs">
+                        {idx === 0
+                          ? 'ቀዳማይ ደረጃ (ወላዲ / ወላዲት)'
+                          : idx === form.lineageChain.length - 1
+                          ? `መወዳእታ ወለዶ (ጨንፈር ከንቲባ ጉዕሽ)`
+                          : `ደረጃ ${idx + 1} ወለዶ`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickerTargetGenId(gen.id);
+                          setPickerSearchQuery(gen.name || '');
+                        }}
+                        className="text-[11px] text-amber-800 hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                      >
+                        <Search className="w-3 h-3" />
+                        <span>ካብ መዝገብ ድለ</span>
+                      </button>
+
+                      {form.lineageChain.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGeneration(gen.id)}
+                          className="p-1 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
+                          title="ኣልግስ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ) : form.motherNameCustom ? (
-                  <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-stone-200">
-                    <span className="font-bold text-stone-900">{form.motherNameCustom} (ሓድሽ)</span>
-                    <button
-                      type="button"
-                      onClick={() => updateForm((p) => ({ ...p, motherNameCustom: '' }))}
-                      className="text-stone-400 hover:text-rose-600 p-1"
-                      title="ኣልግስ"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                        ስም ወላዲ / ወላዲት
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={idx === 0 ? 'ንኣብነት: ደሃብ...' : 'ንኣብነት: ሓሊቦ...'}
+                        value={gen.name}
+                        onChange={(e) => handleUpdateGeneration(gen.id, { name: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-ethiopic"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                        መጻምድቲ (ሓዳር) እንተሃልዩ
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={idx === 0 ? 'ንኣብነት: ሃይለ...' : 'ስም መጻምድቲ...'}
+                        value={gen.spouseName || ''}
+                        onChange={(e) => handleUpdateGeneration(gen.id, { spouseName: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-ethiopic"
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPickerTarget('mother');
-                        setPickerSearchQuery('');
-                        setInlineQuickAddName('');
-                      }}
-                      className="w-full py-2 px-3 border border-stone-300 rounded-xl bg-white hover:bg-stone-100 text-stone-700 font-semibold text-xs flex items-center justify-center gap-1.5"
-                    >
-                      <Search className="w-3.5 h-3.5 text-stone-400" />
-                      <span>ካብ ዝርዝር ኣደ ምረጺ</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleAddGeneration}
+                className="w-full py-2 px-3 border border-dashed border-stone-300 hover:border-amber-500 rounded-xl bg-white hover:bg-amber-50/50 text-stone-700 hover:text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-700" />
+                <span>+ ቀጻሊ ወለዶ ወስኽ</span>
+              </button>
             </div>
           </div>
 
-          {/* Section 3: መጻምድቲ */}
+          {/* SECTION 3: መጻምድቲ / ሓዳር ናይዚ ሰብ */}
           <div className="space-y-4">
             <h3 className="font-bold text-stone-900 text-base flex items-center gap-2 pb-2 border-b border-stone-200">
               <Heart className="w-4 h-4 text-rose-500" />
-              <span>3. መጻምድቲ / ሓዳር (Spouse)</span>
+              <span>3. መጻምድቲ / ሓዳር ናይዚ ሰብ</span>
             </h3>
 
             <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
-              {selectedSpouse ? (
-                <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-stone-200">
-                  <span className="font-bold text-stone-900">{selectedSpouse.canonicalName}</span>
-                  <button
-                    type="button"
-                    onClick={() => updateForm((p) => ({ ...p, spouseId: null, spouseNameCustom: '' }))}
-                    className="text-stone-400 hover:text-rose-600 p-1"
-                    title="ኣልግስ"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : form.spouseNameCustom ? (
-                <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-stone-200">
-                  <span className="font-bold text-stone-900">{form.spouseNameCustom} (ሓድሽ)</span>
-                  <button
-                    type="button"
-                    onClick={() => updateForm((p) => ({ ...p, spouseNameCustom: '' }))}
-                    className="text-stone-400 hover:text-rose-600 p-1"
-                    title="ኣልግስ"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPickerTarget('spouse');
-                    setPickerSearchQuery('');
-                    setInlineQuickAddName('');
-                  }}
-                  className="py-2 px-3 border border-stone-300 rounded-xl bg-white hover:bg-stone-100 text-stone-700 font-semibold text-xs flex items-center gap-1.5"
-                >
-                  <Search className="w-3.5 h-3.5 text-stone-400" />
-                  <span>መጻምድቲ ካብ ዝርዝር ምረጽ ወይ ሓድሽ ወስኽ</span>
-                </button>
-              )}
-
-              {(selectedSpouse || form.spouseNameCustom) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-stone-700 mb-1">
+                  <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                    ስም መጻምድቲ
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ንኣብነት: ስም መጻምድቲ..."
+                    value={form.spouseName}
+                    onChange={(e) => updateForm((p) => ({ ...p, spouseName: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-stone-600 font-medium mb-1">
                     መግለጺ ሓዳር / ዝምድና
                   </label>
                   <input
                     type="text"
-                    placeholder="ንኣብነት: ዝተመርዓዉ፡ ናብ ... ኣትያ ዝወለደቶም..."
+                    placeholder="ንኣብነት: ዝተመርዓዉ፡ ዝወለድዎም..."
                     value={form.spouseWording}
                     onChange={(e) => updateForm((p) => ({ ...p, spouseWording: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
                   />
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
-          {/* Section 4: ውሉዳት */}
+          {/* SECTION 4: ውሉዳት */}
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-stone-200">
               <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
@@ -676,7 +815,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               <button
                 type="button"
                 onClick={handleAddChildRow}
-                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ ቆልዓ ወስኽ</span>
@@ -702,12 +841,12 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                       placeholder="ስም ቆልዓ..."
                       value={child.name}
                       onChange={(e) => handleUpdateChildRow(child.id, e.target.value)}
-                      className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-sm font-ethiopic"
+                      className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-ethiopic"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemoveChildRow(child.id)}
-                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                       title="ደምስስ"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -719,21 +858,21 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           </div>
 
           {/* Footer Submit */}
-          <div className="pt-4 border-t border-stone-200 flex items-center justify-between">
+          <div className="pt-4 border-t border-stone-200 flex items-center justify-between shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 border border-stone-300 rounded-xl text-stone-700 font-bold text-sm hover:bg-stone-50"
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-stone-700 font-bold text-xs hover:bg-stone-50 cursor-pointer"
             >
               ሰርዝ
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !validation.isValid}
-              className={`px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-md flex items-center gap-2 transition-colors ${
+              className={`px-6 py-2.5 rounded-xl text-white font-bold text-xs shadow-md flex items-center gap-2 transition-colors cursor-pointer ${
                 isSubmitting || !validation.isValid
                   ? 'bg-stone-400 cursor-not-allowed'
-                  : 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-amber-700 hover:bg-amber-800 active:scale-98'
               }`}
             >
               {isSubmitting ? (
@@ -741,28 +880,24 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  <span>ኣጽዲቕካ መዝግብ</span>
+                  <span>ኣረጋግጽን መዝግብን</span>
                 </>
               )}
             </button>
           </div>
         </form>
 
-        {/* Modal Picker for Selecting Existing / Quick Adding Parent or Spouse */}
-        {pickerTarget && (
-          <div className="fixed inset-0 z-60 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        {/* Modal Picker for Selecting Existing Ancestor */}
+        {pickerTargetGenId && (
+          <div className="fixed inset-0 z-60 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-ethiopic">
             <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-                <h4 className="font-bold text-stone-900 text-base">
-                  {pickerTarget === 'father'
-                    ? 'ኣቦ ምረጽ'
-                    : pickerTarget === 'mother'
-                    ? 'ኣደ ምረጺ'
-                    : 'መጻምድቲ ምረጽ'}
+                <h4 className="font-bold text-stone-900 text-sm">
+                  ካብ መዝገብ ስድራቤት ምረጽ
                 </h4>
                 <button
-                  onClick={() => setPickerTarget(null)}
-                  className="p-1 text-stone-400 hover:text-stone-700"
+                  onClick={() => setPickerTargetGenId(null)}
+                  className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -770,13 +905,13 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
               {/* Search Bar */}
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-stone-400" />
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-stone-400" />
                 <input
                   type="text"
                   placeholder="ስም ጽሒፍካ ድለ..."
                   value={pickerSearchQuery}
                   onChange={(e) => setPickerSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-300 text-sm font-ethiopic"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-300 text-xs font-ethiopic focus:ring-2 focus:ring-amber-500"
                   autoFocus
                 />
               </div>
@@ -784,7 +919,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               {/* Pick from existing */}
               <div className="max-h-52 overflow-y-auto space-y-1">
                 {pickerSearchResults.length === 0 ? (
-                  <p className="text-xs text-stone-400 italic py-2 text-center">
+                  <p className="text-xs text-stone-400 italic py-4 text-center">
                     ኣብ መዝገብ ዝተረኽበ የለን።
                   </p>
                 ) : (
@@ -793,18 +928,15 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                       key={p.id}
                       type="button"
                       onClick={() => {
-                        if (pickerTarget === 'father') {
-                          updateForm((prev) => ({ ...prev, fatherId: p.id, fatherNameCustom: '' }));
-                        } else if (pickerTarget === 'mother') {
-                          updateForm((prev) => ({ ...prev, motherId: p.id, motherNameCustom: '' }));
-                        } else if (pickerTarget === 'spouse') {
-                          updateForm((prev) => ({ ...prev, spouseId: p.id, spouseNameCustom: '' }));
-                        }
-                        setPickerTarget(null);
+                        handleUpdateGeneration(pickerTargetGenId, {
+                          name: p.canonicalName,
+                          existingPersonId: p.id
+                        });
+                        setPickerTargetGenId(null);
                       }}
-                      className="w-full text-left p-2.5 rounded-xl hover:bg-amber-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-amber-300"
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-amber-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-amber-300 cursor-pointer"
                     >
-                      <span className="font-bold text-stone-900 font-ethiopic">
+                      <span className="font-bold text-stone-900">
                         {p.canonicalName}
                       </span>
                       {p.branch && (
@@ -813,52 +945,6 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                     </button>
                   ))
                 )}
-              </div>
-
-              {/* Inline Quick Add without losing form state */}
-              <div className="pt-3 border-t border-stone-100 space-y-2">
-                <span className="text-xs font-semibold text-stone-600 block">
-                  ኣብቲ ዝርዝር ዘየለ ሓድሽ ስም እንተኾይኑ:
-                </span>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="ሓድሽ ስም ጽሓፍ..."
-                    value={inlineQuickAddName}
-                    onChange={(e) => setInlineQuickAddName(e.target.value)}
-                    className="flex-1 px-3 py-1.5 rounded-xl border border-stone-300 text-xs font-ethiopic"
-                  />
-                  <button
-                    type="button"
-                    disabled={!inlineQuickAddName.trim()}
-                    onClick={() => {
-                      if (!inlineQuickAddName.trim()) return;
-                      if (pickerTarget === 'father') {
-                        updateForm((prev) => ({
-                          ...prev,
-                          fatherId: null,
-                          fatherNameCustom: inlineQuickAddName.trim()
-                        }));
-                      } else if (pickerTarget === 'mother') {
-                        updateForm((prev) => ({
-                          ...prev,
-                          motherId: null,
-                          motherNameCustom: inlineQuickAddName.trim()
-                        }));
-                      } else if (pickerTarget === 'spouse') {
-                        updateForm((prev) => ({
-                          ...prev,
-                          spouseId: null,
-                          spouseNameCustom: inlineQuickAddName.trim()
-                        }));
-                      }
-                      setPickerTarget(null);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-50"
-                  >
-                    ወሰኽ
-                  </button>
-                </div>
               </div>
             </div>
           </div>

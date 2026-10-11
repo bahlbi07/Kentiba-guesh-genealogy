@@ -743,21 +743,6 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
   };
 
   // Lineage chain management
-  const handleAddGeneration = () => {
-    updateForm((prev) => ({
-      ...prev,
-      lineageChain: [
-        ...prev.lineageChain,
-        {
-          id: `gen_${Date.now()}_${prev.lineageChain.length}`,
-          name: '',
-          parentType: 'father',
-          spouseName: ''
-        }
-      ]
-    }));
-  };
-
   const handleRemoveGeneration = (id: string) => {
     updateForm((prev) => ({
       ...prev,
@@ -1729,15 +1714,6 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                   </div>
                 );
               })}
-
-              <button
-                type="button"
-                onClick={handleAddGeneration}
-                className="w-full py-2 px-3 border border-dashed border-stone-300 hover:border-amber-500 rounded-xl bg-white hover:bg-amber-50/50 text-stone-700 hover:text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 text-amber-700" />
-                <span>+ ቀጻሊ ወለዶ ወስኽ</span>
-              </button>
             </div>
           </div>
 

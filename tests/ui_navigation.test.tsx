@@ -402,6 +402,9 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     // Verify ፈጣን ሰንሰለት is removed
     expect(screen.queryByText(/ፈጣን ሰንሰለት ምእታው/)).toBeNull();
 
+    // Verify "+ ቀጻሊ ወለዶ ወስኽ" is omitted
+    expect(screen.queryByText('+ ቀጻሊ ወለዶ ወስኽ')).toBeNull();
+
     // Fuzzy typo matching on generation input
     const genInput = screen.getByPlaceholderText(/ንኣብነት: ደሃብ\.\.\./);
     fireEvent.change(genInput, { target: { value: 'ትእበ' } });

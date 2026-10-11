@@ -52,7 +52,14 @@ export interface CascadeStep {
   isCustom: boolean;
 }
 
-interface DraftState {
+export interface SpouseEntry {
+  id: string;
+  spouseName: string;
+  spouseWording?: string;
+  children: Array<{ id: string; name: string; notes?: string }>;
+}
+
+export interface DraftState {
   canonicalName: string;
   branch: string;
   notes: string;
@@ -60,10 +67,12 @@ interface DraftState {
   lineageChain: LineageGeneration[];
   // Quick text input for lineage
   quickLineageText: string;
-  // Direct spouse of this person
+  // Multiple spouses with their respective children
+  spouses: SpouseEntry[];
+  // Direct spouse of this person (kept in sync for backward compatibility)
   spouseName: string;
   spouseWording?: string;
-  // Children of this person
+  // Children of this person (combined across spouses for backward compatibility)
   children: Array<{ id: string; name: string; notes?: string }>;
   // Cascading hierarchy steps under branch
   cascadeSteps?: CascadeStep[];
@@ -77,10 +86,18 @@ const initialDraft: DraftState = {
     { id: 'gen_1', name: '', parentType: 'mother', spouseName: '' }
   ],
   quickLineageText: '',
+  spouses: [
+    {
+      id: 'sp_1',
+      spouseName: '',
+      spouseWording: '',
+      children: [],
+    },
+  ],
   spouseName: '',
   spouseWording: '',
   children: [],
-  cascadeSteps: []
+  cascadeSteps: [],
 };
 
 /**
@@ -147,19 +164,21 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[bn.length][an.length];
 }
 
-interface AddPersonGuidedModalProps {
+export interface AddPersonGuidedModalProps {
   people: Person[];
   relationships: Relationship[];
   onClose: () => void;
-  onSavePerson: (person: Person) => Promise<void>;
-  onSaveRelationship: (rel: Relationship) => Promise<{ success: boolean; error?: string }>;
-  onComplete: () => Promise<void>;
+  onSaveBatch?: (people: Person[], relationships: Relationship[]) => Promise<void>;
+  onSavePerson?: (person: Person) => Promise<void>;
+  onSaveRelationship?: (rel: Relationship) => Promise<{ success: boolean; error?: string }>;
+  onComplete?: () => Promise<void> | void;
 }
 
 export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
   people,
   relationships,
   onClose,
+  onSaveBatch,
   onSavePerson,
   onSaveRelationship,
   onComplete,
@@ -243,6 +262,26 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           }));
           setCascadeSteps(parsed.cascadeSteps);
         }
+        if (parsed.spouses && Array.isArray(parsed.spouses) && parsed.spouses.length > 0) {
+          parsed.spouses = parsed.spouses.map((s: any, idx: number) => ({
+            id: s.id || `sp_${Date.now()}_${idx}`,
+            spouseName: cleanCandidateSpouseName(s.spouseName),
+            spouseWording: s.spouseWording || '',
+            children: Array.isArray(s.children) ? s.children : [],
+          }));
+        } else {
+          parsed.spouses = [
+            {
+              id: 'sp_init_1',
+              spouseName: cleanCandidateSpouseName(parsed.spouseName),
+              spouseWording: parsed.spouseWording || '',
+              children: Array.isArray(parsed.children) ? parsed.children : [],
+            },
+          ];
+        }
+        parsed.spouseName = parsed.spouses[0]?.spouseName || '';
+        parsed.spouseWording = parsed.spouses[0]?.spouseWording || '';
+        parsed.children = parsed.spouses.flatMap((s: any) => s.children);
         setForm(parsed);
       }
     } catch {
@@ -803,38 +842,189 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       const cleanSelfSpouse = cleanCandidateSpouseName(selfSpouse?.spouseName);
       const cleanPrevSpouse = cleanCandidateSpouseName(prev.spouseName);
 
+      const resolvedSpouseName = cleanPrevSpouse || cleanSelfSpouse || '';
+      const nextSpouses = prev.spouses.map((s, idx) =>
+        idx === 0 && !s.spouseName && cleanSelfSpouse
+          ? { ...s, spouseName: cleanSelfSpouse }
+          : s
+      );
+
       return {
         ...prev,
         canonicalName: val,
-        spouseName: cleanPrevSpouse || cleanSelfSpouse || '',
+        spouses: nextSpouses,
+        spouseName: resolvedSpouseName,
         lineageChain: nextChain,
       };
     });
   };
 
-  // Children management
+  // Multiple Spouses and per-spouse Children management
+  const handleAddSpouse = () => {
+    updateForm((prev) => {
+      const nextSpouses: SpouseEntry[] = [
+        ...prev.spouses,
+        {
+          id: `sp_${Date.now()}_${prev.spouses.length + 1}`,
+          spouseName: '',
+          spouseWording: '',
+          children: [],
+        },
+      ];
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        spouseName: nextSpouses[0]?.spouseName || '',
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  const handleRemoveSpouse = (spouseId: string) => {
+    updateForm((prev) => {
+      if (prev.spouses.length <= 1) {
+        const resetSpouse: SpouseEntry = {
+          id: `sp_${Date.now()}`,
+          spouseName: '',
+          spouseWording: '',
+          children: [],
+        };
+        return {
+          ...prev,
+          spouses: [resetSpouse],
+          spouseName: '',
+          spouseWording: '',
+          children: [],
+        };
+      }
+      const nextSpouses = prev.spouses.filter((s) => s.id !== spouseId);
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        spouseName: nextSpouses[0]?.spouseName || '',
+        spouseWording: nextSpouses[0]?.spouseWording || '',
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  const handleUpdateSpouse = (spouseId: string, updates: Partial<SpouseEntry>) => {
+    updateForm((prev) => {
+      const nextSpouses = prev.spouses.map((s) =>
+        s.id === spouseId ? { ...s, ...updates } : s
+      );
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        spouseName: nextSpouses[0]?.spouseName || '',
+        spouseWording: nextSpouses[0]?.spouseWording || '',
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  const handleAddChildToSpouse = (spouseId: string) => {
+    updateForm((prev) => {
+      const nextSpouses = prev.spouses.map((s) => {
+        if (s.id !== spouseId) return s;
+        return {
+          ...s,
+          children: [
+            ...s.children,
+            { id: `c_${Date.now()}_${s.children.length}`, name: '', notes: '' },
+          ],
+        };
+      });
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  const handleAddMultipleChildrenToSpouse = (spouseId: string, count = 4) => {
+    updateForm((prev) => {
+      const nextSpouses = prev.spouses.map((s) => {
+        if (s.id !== spouseId) return s;
+        const newRows: Array<{ id: string; name: string; notes?: string }> = Array.from(
+          { length: count },
+          (_, i) => ({
+            id: `c_${Date.now()}_${s.children.length + i}`,
+            name: '',
+            notes: '',
+          })
+        );
+        return {
+          ...s,
+          children: [...s.children, ...newRows],
+        };
+      });
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  const handleUpdateSpouseChild = (spouseId: string, childId: string, name: string) => {
+    updateForm((prev) => {
+      const nextSpouses = prev.spouses.map((s) => {
+        if (s.id !== spouseId) return s;
+        return {
+          ...s,
+          children: s.children.map((c) => (c.id === childId ? { ...c, name } : c)),
+        };
+      });
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  const handleRemoveSpouseChild = (spouseId: string, childId: string) => {
+    updateForm((prev) => {
+      const nextSpouses = prev.spouses.map((s) => {
+        if (s.id !== spouseId) return s;
+        return {
+          ...s,
+          children: s.children.filter((c) => c.id !== childId),
+        };
+      });
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  // Backwards compatible child row helpers (operating on first spouse)
   const handleAddChildRow = () => {
-    updateForm((prev) => ({
-      ...prev,
-      children: [
-        ...prev.children,
-        { id: `c_${Date.now()}_${prev.children.length}`, name: '', notes: '' }
-      ]
-    }));
+    if (form.spouses.length > 0) {
+      handleAddChildToSpouse(form.spouses[0].id);
+    }
   };
 
   const handleUpdateChildRow = (id: string, name: string) => {
-    updateForm((prev) => ({
-      ...prev,
-      children: prev.children.map((c) => (c.id === id ? { ...c, name } : c))
-    }));
+    for (const sp of form.spouses) {
+      if (sp.children.some((c) => c.id === id)) {
+        handleUpdateSpouseChild(sp.id, id, name);
+        return;
+      }
+    }
   };
 
   const handleRemoveChildRow = (id: string) => {
-    updateForm((prev) => ({
-      ...prev,
-      children: prev.children.filter((c) => c.id !== id)
-    }));
+    for (const sp of form.spouses) {
+      if (sp.children.some((c) => c.id === id)) {
+        handleRemoveSpouseChild(sp.id, id);
+        return;
+      }
+    }
   };
 
   // Search results for ancestor picker
@@ -874,6 +1064,20 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     try {
       const createdPeopleBatch: Person[] = [];
       const createdRelationshipsBatch: Relationship[] = [];
+
+      const persistPerson = async (p: Person) => {
+        createdPeopleBatch.push(p);
+        if (!onSaveBatch && onSavePerson) {
+          await onSavePerson(p);
+        }
+      };
+
+      const persistRelationship = async (r: Relationship) => {
+        createdRelationshipsBatch.push(r);
+        if (!onSaveBatch && onSaveRelationship) {
+          await onSaveRelationship(r);
+        }
+      };
 
       // 1. Create ID for Main Person
       const mainPersonId = `pers_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -943,8 +1147,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             createdAt: now,
             updatedAt: now,
           };
-          await onSavePerson(newAncestor);
-          createdPeopleBatch.push(newAncestor);
+          await persistPerson(newAncestor);
         }
 
         createdAncestorIds.push(ancestorId);
@@ -972,8 +1175,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               createdAt: now,
               updatedAt: now,
             };
-            await onSavePerson(newSpouse);
-            createdPeopleBatch.push(newSpouse);
+            await persistPerson(newSpouse);
           }
 
           // Link ancestor to their spouse if not already linked
@@ -1005,8 +1207,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               createdAt: now,
               updatedAt: now,
             };
-            await onSaveRelationship(spouseRel);
-            createdRelationshipsBatch.push(spouseRel);
+            await persistRelationship(spouseRel);
           }
 
           // Permanently record spouseNote on the ancestor person record
@@ -1017,8 +1218,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               spouseNote: `መጻምድቲ: ${trimmedSpouseName}`,
               updatedAt: now,
             };
-            await onSavePerson(updatedAncestor);
-            createdPeopleBatch.push(updatedAncestor);
+            await persistPerson(updatedAncestor);
           }
         }
       }
@@ -1059,8 +1259,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               createdAt: now,
               updatedAt: now,
             };
-            await onSaveRelationship(chainRel);
-            createdRelationshipsBatch.push(chainRel);
+            await persistRelationship(chainRel);
           }
         }
       }
@@ -1102,8 +1301,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                 createdAt: now,
                 updatedAt: now,
               };
-              await onSaveRelationship(rootRel);
-              createdRelationshipsBatch.push(rootRel);
+              await persistRelationship(rootRel);
             }
           }
         }
@@ -1121,12 +1319,11 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         status: 'verified',
         isArchived: false,
         notes: form.notes?.trim() || undefined,
-        spouseNote: form.spouseName?.trim() ? `መጻምድቲ: ${form.spouseName.trim()}` : undefined,
+        spouseNote: form.spouses.filter((s) => s.spouseName.trim()).map((s) => s.spouseName.trim()).join('፣ ') || undefined,
         createdAt: now,
         updatedAt: now
       };
-      await onSavePerson(mainPerson);
-      createdPeopleBatch.push(mainPerson);
+      await persistPerson(mainPerson);
 
       // Link main person to immediate parent (generation 1)
       if (immediateParentId) {
@@ -1145,114 +1342,182 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             createdAt: now,
             updatedAt: now
           };
-          await onSaveRelationship(mainParentRel);
-          createdRelationshipsBatch.push(mainParentRel);
+          await persistRelationship(mainParentRel);
         }
       }
 
-      // 4. Save Main Person's Spouse (Requirement 4: only spouseName)
-      if (form.spouseName.trim()) {
-        const trimmedSpouse = form.spouseName.trim();
-        const spouseId = `pers_${Date.now()}_main_sp_${Math.random().toString(36).substring(2, 5)}`;
-        const spousePerson: Person = {
-          id: spouseId,
-          canonicalName: trimmedSpouse,
-          branch: form.branch || undefined,
-          status: 'verified',
-          isArchived: false,
-          notes: `መጻምድቲ ${form.canonicalName}`,
-          spouseNote: `መጻምድቲ: ${form.canonicalName.trim()}`,
-          createdAt: now,
-          updatedAt: now
-        };
-        await onSavePerson(spousePerson);
-        createdPeopleBatch.push(spousePerson);
+      // 4. Save Main Person's Multiple Spouses and their respective Children
+      for (let sIdx = 0; sIdx < form.spouses.length; sIdx++) {
+        const spouseEntry = form.spouses[sIdx];
+        const trimmedSpouse = spouseEntry.spouseName?.trim();
+        let spouseId: string | null = null;
 
-        const mainSpouseRel: Relationship = {
-          id: `rel_${Date.now()}_main_sp_rel`,
-          fromPersonId: mainPersonId,
-          toPersonId: spouseId,
-          type: 'partner_or_union',
-          status: 'verified',
-          sourceFile: 'ከሰተ-ብርሃነ.pdf',
-          sourcePage: null,
-          sourceWording: form.spouseWording?.trim() || `${form.canonicalName} ዝተመርዓዉ ምስ ${trimmedSpouse}`,
-          isBiologicalConfirmed: false,
-          createdAt: now,
-          updatedAt: now
-        };
-        await onSaveRelationship(mainSpouseRel);
-        createdRelationshipsBatch.push(mainSpouseRel);
-      }
-
-      // 5. Save Children
-      for (const child of form.children) {
-        if (!child.name.trim()) continue;
-        const trimmedChildName = child.name.trim();
-
-        const existingChild = people.find(
-          (p) =>
-            p.canonicalName.trim().toLowerCase() === trimmedChildName.toLowerCase() &&
-            (p.fatherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase() ||
-              p.motherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase())
-        );
-
-        let childId: string;
-        if (existingChild) {
-          childId = existingChild.id;
-        } else {
-          childId = `pers_${Date.now()}_c_${Math.random().toString(36).substring(2, 5)}`;
-          const childPerson: Person = {
-            id: childId,
-            canonicalName: trimmedChildName,
-            branch: form.branch || undefined,
-            fatherName: form.canonicalName.trim(),
-            status: 'verified',
-            isArchived: false,
-            notes: child.notes?.trim() || undefined,
-            createdAt: now,
-            updatedAt: now,
-          };
-          await onSavePerson(childPerson);
-          createdPeopleBatch.push(childPerson);
-        }
-
-        const alreadyChildLinked =
-          relationships.some(
-            (r) =>
-              r.type === 'parent_child' &&
-              r.fromPersonId === mainPersonId &&
-              r.toPersonId === childId
-          ) ||
-          createdRelationshipsBatch.some(
-            (r) =>
-              r.type === 'parent_child' &&
-              r.fromPersonId === mainPersonId &&
-              r.toPersonId === childId
+        if (trimmedSpouse) {
+          const existingSpouse = people.find(
+            (p) => p.canonicalName.trim().toLowerCase() === trimmedSpouse.toLowerCase()
           );
 
-        if (!alreadyChildLinked) {
-          const childRel: Relationship = {
-            id: `rel_${Date.now()}_c_${childId}`,
-            fromPersonId: mainPersonId,
-            toPersonId: childId,
-            type: 'parent_child',
-            status: 'verified',
-            sourceFile: 'ከሰተ-ብርሃነ.pdf',
-            sourcePage: null,
-            sourceWording: `${trimmedChildName} ወዲ/ጓል ${form.canonicalName.trim()}`,
-            isBiologicalConfirmed: true,
-            createdAt: now,
-            updatedAt: now,
-          };
-          await onSaveRelationship(childRel);
-          createdRelationshipsBatch.push(childRel);
+          if (existingSpouse) {
+            spouseId = existingSpouse.id;
+          } else {
+            spouseId = `pers_${Date.now()}_main_sp_${sIdx}_${Math.random().toString(36).substring(2, 5)}`;
+            const spousePerson: Person = {
+              id: spouseId,
+              canonicalName: trimmedSpouse,
+              branch: form.branch || undefined,
+              status: 'verified',
+              isArchived: false,
+              notes: `መጻምድቲ ${form.canonicalName}`,
+              spouseNote: `መጻምድቲ: ${form.canonicalName.trim()}`,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await persistPerson(spousePerson);
+          }
+
+          const alreadyLinkedSpouse =
+            relationships.some(
+              (r) =>
+                r.type === 'partner_or_union' &&
+                ((r.fromPersonId === mainPersonId && r.toPersonId === spouseId) ||
+                  (r.fromPersonId === spouseId && r.toPersonId === mainPersonId))
+            ) ||
+            createdRelationshipsBatch.some(
+              (r) =>
+                r.type === 'partner_or_union' &&
+                ((r.fromPersonId === mainPersonId && r.toPersonId === spouseId) ||
+                  (r.fromPersonId === spouseId && r.toPersonId === mainPersonId))
+            );
+
+          if (!alreadyLinkedSpouse) {
+            const mainSpouseRel: Relationship = {
+              id: `rel_${Date.now()}_main_sp_${sIdx}_rel`,
+              fromPersonId: mainPersonId,
+              toPersonId: spouseId,
+              type: 'partner_or_union',
+              status: 'verified',
+              sourceFile: 'ከሰተ-ብርሃነ.pdf',
+              sourcePage: null,
+              sourceWording:
+                spouseEntry.spouseWording?.trim() ||
+                `${form.canonicalName} ዝተመርዓዉ ምስ ${trimmedSpouse}`,
+              isBiologicalConfirmed: false,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await persistRelationship(mainSpouseRel);
+          }
+        }
+
+        // Save Children of this Spouse
+        for (const child of spouseEntry.children) {
+          if (!child.name.trim()) continue;
+          const trimmedChildName = child.name.trim();
+
+          const existingChild = people.find(
+            (p) =>
+              p.canonicalName.trim().toLowerCase() === trimmedChildName.toLowerCase() &&
+              (p.fatherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase() ||
+                p.motherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase())
+          );
+
+          let childId: string;
+          if (existingChild) {
+            childId = existingChild.id;
+          } else {
+            childId = `pers_${Date.now()}_c_${Math.random().toString(36).substring(2, 5)}`;
+            const childPerson: Person = {
+              id: childId,
+              canonicalName: trimmedChildName,
+              branch: form.branch || undefined,
+              fatherName: form.canonicalName.trim(),
+              motherName: trimmedSpouse || undefined,
+              status: 'verified',
+              isArchived: false,
+              notes: child.notes?.trim() || undefined,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await persistPerson(childPerson);
+          }
+
+          // Link to Main Person
+          const alreadyChildLinked =
+            relationships.some(
+              (r) =>
+                r.type === 'parent_child' &&
+                r.fromPersonId === mainPersonId &&
+                r.toPersonId === childId
+            ) ||
+            createdRelationshipsBatch.some(
+              (r) =>
+                r.type === 'parent_child' &&
+                r.fromPersonId === mainPersonId &&
+                r.toPersonId === childId
+            );
+
+          if (!alreadyChildLinked) {
+            const childRel: Relationship = {
+              id: `rel_${Date.now()}_c_${childId}`,
+              fromPersonId: mainPersonId,
+              toPersonId: childId,
+              type: 'parent_child',
+              status: 'verified',
+              sourceFile: 'ከሰተ-ብርሃነ.pdf',
+              sourcePage: null,
+              sourceWording: `${trimmedChildName} ወዲ/ጓል ${form.canonicalName.trim()}`,
+              isBiologicalConfirmed: true,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await persistRelationship(childRel);
+          }
+
+          // Link to Spouse if spouseId is available
+          if (spouseId) {
+            const alreadySpouseChildLinked =
+              relationships.some(
+                (r) =>
+                  r.type === 'parent_child' &&
+                  r.fromPersonId === spouseId &&
+                  r.toPersonId === childId
+              ) ||
+              createdRelationshipsBatch.some(
+                (r) =>
+                  r.type === 'parent_child' &&
+                  r.fromPersonId === spouseId &&
+                  r.toPersonId === childId
+              );
+
+            if (!alreadySpouseChildLinked) {
+              const spouseChildRel: Relationship = {
+                id: `rel_${Date.now()}_sp_c_${childId}`,
+                fromPersonId: spouseId,
+                toPersonId: childId,
+                type: 'parent_child',
+                status: 'verified',
+                sourceFile: 'ከሰተ-ብርሃነ.pdf',
+                sourcePage: null,
+                sourceWording: `${trimmedChildName} ወዲ/ጓል ${trimmedSpouse}`,
+                isBiologicalConfirmed: true,
+                createdAt: now,
+                updatedAt: now,
+              };
+              await persistRelationship(spouseChildRel);
+            }
+          }
         }
       }
 
-      // 6. Clean draft, reload, and close modal IMMEDIATELY (Sub-second local response!)
+      // 5. Fast Atomic Batch Commit or Complete Callback
+      if (onSaveBatch) {
+        await onSaveBatch(createdPeopleBatch, createdRelationshipsBatch);
+      } else if (onComplete) {
+        await onComplete();
+      }
+
+      // 6. Clean draft, close modal immediately (< 20ms!)
       localStorage.removeItem(DRAFT_STORAGE_KEY);
-      await onComplete();
       onClose();
 
       // 7. Non-blocking background synchronization with server backend
@@ -1719,115 +1984,172 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
           {/* SECTION 3: መጻምድቲ / ሓዳር ናይዚ ሰብ */}
           <div className="space-y-4">
-            <h3 className="font-bold text-stone-900 text-base flex items-center gap-2 pb-2 border-b border-stone-200">
-              <Heart className="w-4 h-4 text-rose-500" />
-              <span>3. መጻምድቲ / ሓዳር ናይዚ ሰብ</span>
-            </h3>
+            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+              <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
+                <Heart className="w-4 h-4 text-rose-500" />
+                <span>3. መጻምድቲ / ሓዳር ናይዚ ሰብ ({form.spouses.length})</span>
+              </h3>
+              <button
+                type="button"
+                onClick={handleAddSpouse}
+                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ መጻምድቲ ወስኽ</span>
+              </button>
+            </div>
 
-            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                    ስም መጻምድቲ
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="ንኣብነት: ስም መጻምድቲ..."
-                    value={form.spouseName}
-                    onChange={(e) => updateForm((p) => ({ ...p, spouseName: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
-                  />
-                </div>
+            <div className="space-y-4">
+              {form.spouses.map((spouse, sIdx) => {
+                const spouseChildrenCount = spouse.children.length;
+                return (
+                  <div
+                    key={spouse.id}
+                    className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3.5 relative transition-all"
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-900 font-bold text-[11px] flex items-center justify-center shrink-0">
+                          {sIdx + 1}
+                        </span>
+                        <span className="font-bold text-stone-800 text-xs">
+                          {sIdx === 0 ? 'ቀዳማይ መጻምድቲ' : `መጻምድቲ ${sIdx + 1}`}
+                          {spouse.spouseName ? ` (${spouse.spouseName})` : ''}
+                        </span>
+                      </div>
+                      {form.spouses.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSpouse(spouse.id)}
+                          className="text-[11px] text-stone-400 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
+                          title="እዚ መጻምድቲ ኣልግስ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>ኣልግስ</span>
+                        </button>
+                      )}
+                    </div>
 
-                <div>
-                  <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                    መግለፂ ሓዳር / ዝምድና
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="ንኣብነት: ዝተመርዓዉ፡ ዝወለድዎም..."
-                    value={form.spouseWording || ''}
-                    onChange={(e) => updateForm((p) => ({ ...p, spouseWording: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
-                  />
-                </div>
-              </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                          ስም መጻምድቲ
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="ንኣብነት: ስም መጻምድቲ..."
+                          value={spouse.spouseName}
+                          onChange={(e) => handleUpdateSpouse(spouse.id, { spouseName: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                          መግለፂ ሓዳር / ዝምድና
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="ንኣብነት: ዝተመርዓዉ፡ ዝወለድዎም..."
+                          value={spouse.spouseWording || ''}
+                          onChange={(e) => handleUpdateSpouse(spouse.id, { spouseWording: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Dedicated Children Section for this specific Spouse */}
+                    <div className="p-3 bg-white rounded-xl border border-amber-200/90 shadow-2xs space-y-2.5">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-amber-100">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                          <GitFork className="w-3.5 h-3.5 rotate-180 text-amber-700" />
+                          <span>
+                            ውሉዳት {spouse.spouseName ? `(ምስ ${spouse.spouseName})` : ''} ({spouseChildrenCount})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleAddChildToSpouse(spouse.id)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>+ ቆልዓ ወስኽ</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddMultipleChildrenToSpouse(spouse.id, 4)}
+                            className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                            title="4 መስመራት ውሉዳት ብሓባር ወስኽ"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>+ 4 ውሉዳት</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {spouse.children.length === 0 ? (
+                        <p className="text-[11px] text-stone-500 italic py-1">
+                          ውሉዳት {spouse.spouseName ? `ምስ ${spouse.spouseName}` : 'ናይዚ መጻምድቲ'} እንተሃልዮም፡ «+ ቆልዓ ወስኽ» ብምጥዋቕ ኣእትዉ።
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {spouse.children.map((child, cIdx) => (
+                            <div
+                              key={child.id}
+                              className="flex items-center gap-2 p-2 rounded-lg bg-amber-50/40 border border-amber-200/70"
+                            >
+                              <span className="w-5 h-5 rounded-md bg-amber-200 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {cIdx + 1}
+                              </span>
+                              <input
+                                type="text"
+                                placeholder="ስም ቆልዓ..."
+                                value={child.name}
+                                onChange={(e) => handleUpdateSpouseChild(spouse.id, child.id, e.target.value)}
+                                className="flex-1 px-2.5 py-1 rounded-md border border-stone-300 bg-white text-xs font-ethiopic"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSpouseChild(spouse.id, child.id)}
+                                className="p-1 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
+                                title="ደምስስ"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={handleAddSpouse}
+                className="w-full py-2.5 px-3 border border-dashed border-rose-300 hover:border-rose-500 rounded-xl bg-white hover:bg-rose-50/40 text-rose-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 text-rose-600" />
+                <span>+ መጻምድቲ ወስኽ</span>
+              </button>
             </div>
           </div>
 
-          {/* SECTION 4: ውሉዳት */}
-          <div className="space-y-4">
+          {/* SECTION 4: ሓፈሻዊ ድምር ውሉዳት */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-stone-200">
               <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
                 <GitFork className="w-4 h-4 rotate-180 text-amber-700" />
                 <span>4. ውሉዳት ({form.children.length})</span>
               </h3>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleAddChildRow}
-                  className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ ቆልዓ ወስኽ</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    updateForm((prev) => ({
-                      ...prev,
-                      children: [
-                        ...prev.children,
-                        ...Array.from({ length: 4 }, (_, i) => ({
-                          id: `c_${Date.now()}_${prev.children.length + i}`,
-                          name: '',
-                          notes: '',
-                        })),
-                      ],
-                    }));
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                  title="4 መስመራት ውሉዳት ብሓባር ወስኽ"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ 4 ውሉዳት</span>
-                </button>
+                <span className="text-xs text-stone-600 font-medium bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200">
+                  ድምር ዝተመዝገቡ ውሉዳት፦ <strong>{form.children.length}</strong>
+                </span>
               </div>
             </div>
-
-            {form.children.length === 0 ? (
-              <p className="text-xs text-stone-500 italic py-2">
-                ውሉዳት እንተሃልዮሞም፡ ነቲ &ldquo;+ ቆልዓ ወስኽ&rdquo; ዝብል ጠዊቕኩም ብሓባር ከተእትዉ ትኽእሉ ኢኹም።
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {form.children.map((child, index) => (
-                  <div
-                    key={child.id}
-                    className="flex items-center gap-2 p-2.5 rounded-xl bg-stone-50 border border-stone-200"
-                  >
-                    <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center shrink-0">
-                      {index + 1}
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="ስም ቆልዓ..."
-                      value={child.name}
-                      onChange={(e) => handleUpdateChildRow(child.id, e.target.value)}
-                      className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-ethiopic"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveChildRow(child.id)}
-                      className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                      title="ደምስስ"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Footer Submit (Requirement 5: Immediately saved to server) */}

@@ -842,6 +842,80 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     fireEvent.click(treeViewBtn);
     expect(screen.getAllByText(/ሰንሰለት: ከንቲባ ጉዕሽ › ጎብሩ › ተላ/).length).toBe(2);
   });
+
+  it('14. AddPersonGuidedModal: supports multiple spouses with per-spouse children and fast atomic batch saving', async () => {
+    localStorage.clear();
+    const handleSaveBatch = vi.fn().mockResolvedValue(undefined);
+    const handleClose = vi.fn();
+
+    render(
+      <AddPersonGuidedModal
+        people={[]}
+        relationships={[]}
+        onClose={handleClose}
+        onSaveBatch={handleSaveBatch}
+      />
+    );
+
+    // 1. Enter Main Person name
+    const mainPersonInput = screen.getByPlaceholderText('ንኣብነት: ባህልቢ ሃይለ...') as HTMLInputElement;
+    fireEvent.change(mainPersonInput, { target: { value: 'ተኽለ በርሀ' } });
+
+    // 2. Spouse 1 name and wording
+    const spouseInputs = screen.getAllByPlaceholderText('ንኣብነት: ስም መጻምድቲ...') as HTMLInputElement[];
+    fireEvent.change(spouseInputs[0], { target: { value: 'ኣልጋነሽ' } });
+
+    // 3. Add 2nd spouse via "+ መጻምድቲ ወስኽ"
+    const addSpouseBtn = screen.getAllByRole('button', { name: /\+ መጻምድቲ ወስኽ/ })[0];
+    fireEvent.click(addSpouseBtn);
+
+    // Now there should be 2 spouse cards
+    const updatedSpouseInputs = screen.getAllByPlaceholderText('ንኣብነት: ስም መጻምድቲ...') as HTMLInputElement[];
+    expect(updatedSpouseInputs.length).toBe(2);
+    fireEvent.change(updatedSpouseInputs[1], { target: { value: 'ብርኽቲ' } });
+
+    // 4. Add child under Spouse 1 via "+ ቆልዓ ወስኽ"
+    const addChildBtns = screen.getAllByRole('button', { name: /\+ ቆልዓ ወስኽ/ });
+    fireEvent.click(addChildBtns[0]); // add to spouse 1
+
+    // 5. Add 4 children under Spouse 2 via "+ 4 ውሉዳት"
+    const add4Btns = screen.getAllByRole('button', { name: /\+ 4 ውሉዳት/ });
+    fireEvent.click(add4Btns[1]); // add 4 children to spouse 2
+
+    // Fill in child name under Spouse 1
+    const childInputs = screen.getAllByPlaceholderText('ስም ቆልዓ...') as HTMLInputElement[];
+    expect(childInputs.length).toBe(5); // 1 for spouse 1, 4 for spouse 2
+    fireEvent.change(childInputs[0], { target: { value: 'ዳዊት ተኽለ' } });
+    fireEvent.change(childInputs[1], { target: { value: 'ዮናስ ተኽለ' } });
+
+    // Verify Section 4 displays total children: 5
+    expect(screen.getByText('4. ውሉዳት (5)')).toBeDefined();
+
+    // 6. Submit form
+    const submitBtn = screen.getByRole('button', { name: /ኣረጋግጽን መዝግብን/ });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    // 7. Verify handleSaveBatch was called with all people and relationships
+    await waitFor(() => {
+      expect(handleSaveBatch).toHaveBeenCalledTimes(1);
+    });
+    const [savedPeople, savedRels] = handleSaveBatch.mock.calls[0];
+
+    // Main person, 2 spouses, 2 named children (empty children skipped)
+    const personNames = savedPeople.map((p: any) => p.canonicalName);
+    expect(personNames).toContain('ተኽለ በርሀ');
+    expect(personNames).toContain('ኣልጋነሽ');
+    expect(personNames).toContain('ብርኽቲ');
+    expect(personNames).toContain('ዳዊት ተኽለ');
+    expect(personNames).toContain('ዮናስ ተኽለ');
+
+    // Partner relationships exist for both spouses
+    const partnerRels = savedRels.filter((r: any) => r.type === 'partner_or_union');
+    expect(partnerRels.length).toBe(2);
+
+    // Modal closed immediately
+    expect(handleClose).toHaveBeenCalledTimes(1);
+  });
 });
 
 

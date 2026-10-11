@@ -164,6 +164,51 @@ export async function savePerson(person: Person, reviewer = 'User'): Promise<voi
   );
 }
 
+export async function saveBatchData(
+  peopleToSave: Person[],
+  relationshipsToSave: Relationship[],
+  reviewer = 'User'
+): Promise<void> {
+  if (peopleToSave.length === 0 && relationshipsToSave.length === 0) return;
+  const db = await getDB();
+  const tx = db.transaction(['people', 'relationships', 'auditEvents'], 'readwrite');
+  const peopleStore = tx.objectStore('people');
+  const relStore = tx.objectStore('relationships');
+  const auditStore = tx.objectStore('auditEvents');
+  const now = new Date().toISOString();
+
+  for (const p of peopleToSave) {
+    const toSave: Person = {
+      ...p,
+      updatedAt: p.updatedAt || now,
+      createdAt: p.createdAt || now,
+    };
+    await peopleStore.put(toSave);
+  }
+
+  for (const r of relationshipsToSave) {
+    const toSave: Relationship = {
+      ...r,
+      updatedAt: r.updatedAt || now,
+      createdAt: r.createdAt || now,
+    };
+    await relStore.put(toSave);
+  }
+
+  const auditEvent: AuditEvent = {
+    id: `audit_${Date.now()}_batch_${Math.random().toString(36).substring(2, 7)}`,
+    timestamp: now,
+    entityType: 'person',
+    entityId: peopleToSave[0]?.id || 'batch_save',
+    action: 'create',
+    reviewer,
+    details: `Batch saved ${peopleToSave.length} people and ${relationshipsToSave.length} relationships in a single atomic transaction.`,
+  };
+  await auditStore.put(auditEvent);
+
+  await tx.done;
+}
+
 export async function deletePerson(
   id: string,
   reviewer = 'User'

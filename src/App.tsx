@@ -15,6 +15,7 @@ import {
   deletePerson,
   saveRelationship,
   deleteRelationship,
+  saveBatchData,
   bulkLoadData
 } from './services/db';
 import { isCloudConfigured } from './services/supabaseClient';
@@ -482,6 +483,32 @@ export const App: React.FC = () => {
           people={people}
           relationships={relationships}
           onClose={() => setShowAddPersonModal(false)}
+          onSaveBatch={async (batchPeople, batchRelationships) => {
+            // 1. Instantly update in-memory React state for 0ms latency UI update!
+            setPeople((prev) => {
+              const map = new Map(prev.map((p) => [p.id, p]));
+              for (const p of batchPeople) map.set(p.id, p);
+              return Array.from(map.values());
+            });
+            setRelationships((prev) => {
+              const map = new Map(prev.map((r) => [r.id, r]));
+              for (const r of batchRelationships) map.set(r.id, r);
+              return Array.from(map.values());
+            });
+
+            // 2. Persist to IndexedDB in a single lightning-fast atomic transaction
+            await saveBatchData(batchPeople, batchRelationships, 'Admin');
+
+            // 3. Non-blocking asynchronous remote sync in the background
+            try {
+              const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+              apiSaveBatch(batchPeople, batchRelationships, token).catch((e) => {
+                console.warn('Background sync note:', e);
+              });
+            } catch (syncErr) {
+              console.warn('Server batch sync note:', syncErr);
+            }
+          }}
           onSavePerson={async (p) => {
             await savePerson(p, 'Admin');
           }}

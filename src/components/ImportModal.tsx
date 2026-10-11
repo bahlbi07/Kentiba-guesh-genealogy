@@ -100,7 +100,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ onImportCommitted }) =
           መዝገብ ወለዶ ከንቲባ ጉዑሽ ናብ ሲስተም ምእታው
         </h2>
         <p className="text-stone-600 text-xs sm:text-sm font-ethiopic leading-relaxed">
-          እዚ ክፍሊ ንመላእ መዝገብ ስድራቤት ናብቲ ሲስተም ንምእታውን ንምዕቃብን ዘገልግል እዩ። ኩሎም ኣስማትን ዝምድናታትን ብጥንቃቐ ይምዝገቡ።
+          እዚ ክፍሊ ንመላእ መዝገብ ስድራቤት ናብቲ ሲስተም ንምእታውን ንምዕቃብን ዘገልግል እዩ። ኩሎም ኣስማትን ዝምድናታትን ብጥንቃቐ ይመዝገቡ።
         </p>
       </div>
 
@@ -172,8 +172,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ onImportCommitted }) =
         <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl space-y-1.5 text-xs text-stone-700 font-ethiopic">
           <p className="font-semibold text-stone-900">መተሓሳሰቢ:</p>
           <ul className="list-disc list-inside space-y-1 text-stone-600">
-            <li>ኩሎም ኣባላት ስድራቤት ምስ ወለዶምን ውሉዳቶምን ብትኽክል ይምዝገቡ።</li>
-            <li>ተመሳሰልቲ ኣስማት ዘለዉዎም ኣባላት ከይተደባለቑ በበይኖም ይዕቀቡ።</li>
+            <li>ኩሎም ኣባላት ስድራቤት ምስ ወለዶምን ውሉዳቶምን ብትኽክል ይመዝገቡ።</li>
           </ul>
         </div>
 

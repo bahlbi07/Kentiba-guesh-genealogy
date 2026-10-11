@@ -397,9 +397,12 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(screen.getByText(/ተዋረድ ወለዶ ሓረግ «ትዕበ»/)).toBeDefined();
     expect(screen.getByText(/ደቂ «ትዕበ»/)).toBeDefined();
 
-    // Requirement 3: Fuzzy typo matching
-    const quickInput = screen.getByPlaceholderText(/ንኣብነት: ደሃብ ሓሊቦ ሓጎስ ዓዶ ዑመር ትዕበ/);
-    fireEvent.change(quickInput, { target: { value: 'ትእበ' } });
+    // Verify ፈጣን ሰንሰለት is removed
+    expect(screen.queryByText(/ፈጣን ሰንሰለት ምእታው/)).toBeNull();
+
+    // Fuzzy typo matching on generation input
+    const genInput = screen.getByPlaceholderText(/ንኣብነት: ደሃብ\.\.\./);
+    fireEvent.change(genInput, { target: { value: 'ትእበ' } });
 
     // Typo suggestion chip should appear proposing «ትዕበ»
     expect(screen.getByText(/ኣብ መዝገብና ተመሳሳሊ ስም ሓረግ/)).toBeDefined();
@@ -408,7 +411,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     fireEvent.click(useSuggestionBtn);
 
     // After clicking "እወ ተጠቐም", value changes to ትዕበ
-    expect((quickInput as HTMLInputElement).value).toBe('ትዕበ');
+    expect((genInput as HTMLInputElement).value).toBe('ትዕበ');
   });
 
   it('9. UncertainRecordsView: allows direct person name editing in place and separate save vs approve buttons', async () => {

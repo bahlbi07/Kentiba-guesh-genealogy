@@ -1303,62 +1303,6 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               </div>
             </div>
 
-            {/* Quick Chain Paste / Type Box */}
-            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
-              <span className="text-xs font-bold text-amber-950 block">
-                ፈጣን ሰንሰለት ምእታው (ብቐሊሉ ብመስርዕ ጽሓፍ):
-              </span>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="ንኣብነት: ደሃብ ሓሊቦ ሓጎስ ዓዶ ዑመር ትዕበ"
-                  value={form.quickLineageText}
-                  onChange={(e) => updateForm((p) => ({ ...p, quickLineageText: e.target.value }))}
-                  className="flex-1 px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-ethiopic focus:ring-2 focus:ring-amber-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleApplyQuickChain}
-                  disabled={!form.quickLineageText.trim()}
-                  className="px-4 py-2 bg-amber-700 hover:bg-amber-800 disabled:bg-stone-300 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0"
-                >
-                  ሰንሰለት ዘርግሕ
-                </button>
-              </div>
-
-              {/* REQUIREMENT 3: Fuzzy Typo Suggestion on Quick Lineage */}
-              {quickLineageSuggestion && (
-                <div className="p-2.5 bg-amber-100 border border-amber-300 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
-                  <div className="flex items-center gap-2 text-amber-950 font-medium">
-                    <Sparkles className="w-4 h-4 text-amber-700 shrink-0" />
-                    <span>
-                      ኣብ መዝገብና ተመሳሳሊ ስም ሓረግ <strong>&laquo;{quickLineageSuggestion.suggestion}&raquo;</strong> ኣሎ። እዚ ዲኹም ደሊኹም?
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleAcceptQuickFuzzy(quickLineageSuggestion.typo, quickLineageSuggestion.suggestion)}
-                      className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-lg font-bold text-[11px] cursor-pointer"
-                    >
-                      እወ ተጠቐም
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDismissFuzzy(quickLineageSuggestion.typo, quickLineageSuggestion.suggestion)}
-                      className="px-2.5 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg font-medium text-[11px] cursor-pointer"
-                    >
-                      ኣይፋል ቀጽል
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <p className="text-[11px] text-amber-800">
-                ኣስማት ወለዶ ብህዋኽ እንተጸሒፍኩምዎ፡ ብቐጥታ ናብቶም ዝስዕቡ ደረጃታት ክዝርግሖ እዩ።
-              </p>
-            </div>
-
             {/* Generational Steps */}
             <div className="space-y-3">
               {form.lineageChain.map((gen, idx) => {

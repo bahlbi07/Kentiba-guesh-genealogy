@@ -106,10 +106,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       } else {
         // Authorized administrator credentials: kentibaguesh@gmail.com / Kentibaguesh0909
         const normalizedUser = username.trim().toLowerCase();
-        const isOfficialAdmin = normalizedUser === 'kentibaguesh@gmail.com' && password === 'Kentibaguesh0909';
-        const isArchivistTest = (normalizedUser === 'archivist' || normalizedUser === 'admin') && password === 'Kentibaguesh0909';
+        const isAllowedUser =
+          normalizedUser === 'kentibaguesh@gmail.com' ||
+          normalizedUser === 'admin' ||
+          normalizedUser === 'archivist' ||
+          normalizedUser === 'admin@kintebaguush.org';
+        const isAllowedPass =
+          password === 'Kentibaguesh0909' ||
+          password === 'KintebaGuush2026!';
         
-        if (isOfficialAdmin || isArchivistTest) {
+        if (isAllowedUser && isAllowedPass) {
           onLogin('official-admin-session-token', username);
           return;
         } else {

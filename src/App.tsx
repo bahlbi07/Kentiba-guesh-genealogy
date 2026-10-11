@@ -32,6 +32,11 @@ import { RelationshipModal } from './components/RelationshipModal';
 import { AddPersonGuidedModal } from './components/AddPersonGuidedModal';
 import { GenealogyPdfExportModal } from './components/GenealogyPdfExportModal';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
+import { RotateCw } from 'lucide-react';
+
+// Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
+// seamless upgrade of local IndexedDB across all visiting phones and browsers.
+export const CURRENT_DATASET_VERSION = '2026.10.11.v3_authoritative_gidey';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -64,24 +69,43 @@ export const App: React.FC = () => {
       let storedAudits = await getAllAuditEvents();
       let mode = await getDatasetMode();
 
-      // Check if client database is missing records (e.g. stale client cache with only 531 people)
-      // or still in demo mode. Auto-upgrade to the authoritative dataset.
+      // Check if client database is missing records or has an outdated dataset schema
+      // (e.g. stale client cache before 'ግደይ' or branch correction). Auto-upgrade to authoritative dataset.
+      const storedVersion =
+        typeof localStorage !== 'undefined'
+          ? localStorage.getItem('kinteba_authoritative_dataset_version')
+          : null;
+      const isVersionOutdated = storedVersion !== CURRENT_DATASET_VERSION;
+
       const needsDatasetUpgrade =
         storedPeople.length === 0 ||
         mode === 'demo' ||
         storedPeople.length < INITIAL_PEOPLE.length ||
-        storedRels.length < INITIAL_RELATIONSHIPS.length;
+        storedRels.length < INITIAL_RELATIONSHIPS.length ||
+        isVersionOutdated;
 
       if (needsDatasetUpgrade) {
+        // Preserve any custom user-added records that are not part of the initial static dataset
+        const initialPersonIds = new Set(INITIAL_PEOPLE.map((p) => p.id));
+        const customPeople = storedPeople.filter((p) => !initialPersonIds.has(p.id));
+
+        const initialRelIds = new Set(INITIAL_RELATIONSHIPS.map((r) => r.id));
+        const customRels = storedRels.filter((r) => !initialRelIds.has(r.id));
+
         await bulkLoadData(
           {
-            people: INITIAL_PEOPLE,
-            relationships: INITIAL_RELATIONSHIPS,
+            people: [...INITIAL_PEOPLE, ...customPeople],
+            relationships: [...INITIAL_RELATIONSHIPS, ...customRels],
             occurrences: INITIAL_OCCURRENCES,
             mode: 'real',
           },
-          'Auto-seed Authoritative Dataset'
+          'Auto-upgrade Authoritative Dataset'
         );
+
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('kinteba_authoritative_dataset_version', CURRENT_DATASET_VERSION);
+        }
+
         storedPeople = await getAllPeople(true);
         storedRels = await getAllRelationships();
         storedOccs = await getAllOccurrences();
@@ -212,6 +236,30 @@ export const App: React.FC = () => {
     sessionStorage.removeItem('kinteba_admin_user');
     sessionStorage.removeItem('kinteba_admin_token');
     setIsAdminAuthenticated(false);
+  };
+
+  // Quick Force-Refresh & Cache-Clear Utility (for family members to purge any old cache)
+  const handleForceRefresh = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          await caches.delete(key);
+        }
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('kinteba_authoritative_dataset_version');
+      }
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
   };
 
   if (isLoading) {
@@ -362,6 +410,25 @@ export const App: React.FC = () => {
           onClose={() => setShowPdfExportModal(false)}
         />
       )}
+
+      {/* Footer with App Version and Quick Force-Refresh / Cache Clear button */}
+      <footer className="mt-auto border-t border-stone-200 bg-white/70 py-4 pb-20 md:pb-4 px-4 text-center text-xs text-stone-500 font-ethiopic">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <p>© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንትባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-stone-400">ስሪት 3.0 ({people.length} ኣባላት)</span>
+            <button
+              type="button"
+              onClick={handleForceRefresh}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg cursor-pointer transition-colors"
+              title="ካሽ ኣጽሪኻ ሓድሽ መዝገብ ጽዓን"
+            >
+              <RotateCw className="w-3 h-3" />
+              <span>ዳታ ሓድስ / Refresh</span>
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

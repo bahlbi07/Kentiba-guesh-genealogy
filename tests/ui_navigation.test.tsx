@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FamilyExplorer } from '../src/components/FamilyExplorer';
 import { Directory } from '../src/components/Directory';
 import { FamilyInformationView } from '../src/components/FamilyInformationView';
@@ -8,6 +8,7 @@ import { AboutArchive } from '../src/components/AboutArchive';
 import { AdminPanel } from '../src/components/AdminPanel';
 import { RecordEditorView } from '../src/components/RecordEditorView';
 import { AddPersonGuidedModal } from '../src/components/AddPersonGuidedModal';
+import { UncertainRecordsView } from '../src/components/UncertainRecordsView';
 import App from '../src/App';
 import { Person, Relationship } from '../src/types/genealogy';
 
@@ -409,5 +410,94 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     // After clicking "እወ ተጠቐም", value changes to ትዕበ
     expect((quickInput as HTMLInputElement).value).toBe('ትዕበ');
   });
+
+  it('9. UncertainRecordsView: allows direct person name editing in place and separate save vs approve buttons', async () => {
+    const mockPersonFrom: Person = {
+      id: 'pers_test_from',
+      canonicalName: 'ናብ',
+      branch: 'ጎብሩ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockPersonTo: Person = {
+      id: 'pers_test_to',
+      canonicalName: 'ቀሺ ፍትዊ',
+      branch: 'ጎብሩ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockRel: Relationship = {
+      id: 'rel_test_1',
+      fromPersonId: 'pers_test_from',
+      toPersonId: 'pers_test_to',
+      type: 'parent_child',
+      status: 'needs_review',
+      sourceFile: 'ከሰተ-ብርሃነ.pdf',
+      sourcePage: 5,
+      sourceWording: 'ናብ ተኪኤ ዓድምባረኽ ኣትያ ዝወለደቶም ድማ',
+      isBiologicalConfirmed: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+
+    const handleUpdatePerson = vi.fn().mockResolvedValue(undefined);
+    const handleUpdateRel = vi.fn().mockResolvedValue({ success: true });
+
+    render(
+      <UncertainRecordsView
+        people={[mockPersonFrom, mockPersonTo]}
+        relationships={[mockRel]}
+        onSelectPerson={vi.fn()}
+        onUpdatePerson={handleUpdatePerson}
+        onUpdateRelationship={handleUpdateRel}
+      />
+    );
+
+    // Click "ኣስተኻኽል" on the relationship
+    const editBtn = screen.getByRole('button', { name: /ኣስተኻኽል/ });
+    fireEvent.click(editBtn);
+
+    // Modal opens with direct name editing fields
+    expect(screen.getByText('ዝምድና ኣስተኻኽል')).toBeDefined();
+    expect(screen.getByText('ወላዲ / መጻምድቲ (ካበይ) *')).toBeDefined();
+
+    // The fromName input initially has 'ናብ'
+    const fromNameInput = screen.getByPlaceholderText('ስም ወላዲ/መጻምድቲ ኣስተኻኽል...');
+    expect((fromNameInput as HTMLInputElement).value).toBe('ናብ');
+
+    // Rename 'ናብ' to 'ግደይ'
+    fireEvent.change(fromNameInput, { target: { value: 'ግደይ' } });
+    expect((fromNameInput as HTMLInputElement).value).toBe('ግደይ');
+
+    // Both "ለውጢ ኣቐምጥ" and "ኣስተኻኺልካ ኣጽድቕ" buttons must exist
+    const saveChangesBtn = screen.getByRole('button', { name: /ለውጢ ኣቐምጥ/ });
+    const approveBtn = screen.getByRole('button', { name: /ኣስተኻኺልካ ኣጽድቕ/ });
+    expect(saveChangesBtn).toBeDefined();
+    expect(approveBtn).toBeDefined();
+
+    // Clicking "ለውጢ ኣቐምጥ" saves person as 'ግደይ' without forcing 'verified' status
+    fireEvent.click(saveChangesBtn);
+
+    await waitFor(() => {
+      expect(handleUpdatePerson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'pers_test_from',
+          canonicalName: 'ግደይ',
+        })
+      );
+      expect(handleUpdateRel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromPersonId: 'pers_test_from',
+          toPersonId: 'pers_test_to',
+          status: 'needs_review',
+        })
+      );
+    });
+  });
 });
+
 

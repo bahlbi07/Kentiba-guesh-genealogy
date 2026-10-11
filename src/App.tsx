@@ -18,7 +18,7 @@ import {
   bulkLoadData
 } from './services/db';
 import { isCloudConfigured } from './services/supabaseClient';
-import { apiFetchTree } from './services/apiClient';
+import { apiFetchTree, apiSaveBatch, apiSaveRelationship } from './services/apiClient';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
 
 import { Navbar, AppDestination } from './components/Navbar';
@@ -157,6 +157,12 @@ export const App: React.FC = () => {
   // Handle Person CRUD
   const handleUpdatePerson = async (updated: Person) => {
     await savePerson(updated, 'Admin');
+    try {
+      const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+      await apiSaveBatch([updated], [], token);
+    } catch {
+      // offline fallback
+    }
     await reloadData();
     setSelectedPerson(updated);
   };
@@ -173,6 +179,12 @@ export const App: React.FC = () => {
   const handleSaveRelationship = async (rel: Relationship) => {
     const result = await saveRelationship(rel, 'Admin');
     if (result.success) {
+      try {
+        const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+        await apiSaveRelationship(rel, token);
+      } catch {
+        // offline fallback
+      }
       await reloadData();
     }
     return result;

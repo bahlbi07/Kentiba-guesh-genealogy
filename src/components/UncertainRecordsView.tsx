@@ -10,7 +10,9 @@ import {
   Search,
   Trash2,
   Save,
-  Check
+  Check,
+  User,
+  UserPlus
 } from 'lucide-react';
 
 interface UncertainRecordsViewProps {
@@ -34,13 +36,19 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
 
   // Editing Relationship State
   const [editingRel, setEditingRel] = useState<Relationship | null>(null);
+  const [fromMode, setFromMode] = useState<'rename' | 'select' | 'new'>('rename');
+  const [fromName, setFromName] = useState('');
   const [editFromPersonId, setEditFromPersonId] = useState('');
+  const [fromSearchQuery, setFromSearchQuery] = useState('');
+
+  const [toMode, setToMode] = useState<'rename' | 'select' | 'new'>('rename');
+  const [toName, setToName] = useState('');
   const [editToPersonId, setEditToPersonId] = useState('');
+  const [toSearchQuery, setToSearchQuery] = useState('');
+
   const [editType, setEditType] = useState<RelationshipType>('parent_child');
   const [editWording, setEditWording] = useState('');
-  const [editStatus, setEditStatus] = useState<RecordStatus>('verified');
-  const [fromSearchQuery, setFromSearchQuery] = useState('');
-  const [toSearchQuery, setToSearchQuery] = useState('');
+  const [editStatus, setEditStatus] = useState<RecordStatus>('needs_review');
   const [editError, setEditError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
@@ -78,38 +86,161 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
     setEditingRel(r);
     setEditFromPersonId(r.fromPersonId);
     setEditToPersonId(r.toPersonId);
+
+    const fromPerson = peopleMap.get(r.fromPersonId);
+    setFromName(fromPerson ? fromPerson.canonicalName : '');
+    setFromMode('rename');
+
+    const toPerson = peopleMap.get(r.toPersonId);
+    setToName(toPerson ? toPerson.canonicalName : '');
+    setToMode('rename');
+
     setEditType(r.type);
     setEditWording(r.sourceWording || '');
-    setEditStatus('verified'); // Auto mark as verified when edited and approved
+    setEditStatus(r.status || 'needs_review');
     setFromSearchQuery('');
     setToSearchQuery('');
     setEditError(null);
   };
 
   // Save Edited Relationship
-  const handleSaveEditedRel = async (shouldApprove = true) => {
+  const handleSaveEditedRel = async (shouldApprove = false) => {
     if (!editingRel) return;
-    if (!editFromPersonId || !editToPersonId) {
-      setEditError('ክልቲኦም ሰባት ምረጹ።');
-      return;
-    }
-    if (editFromPersonId === editToPersonId) {
-      setEditError('ሰብ ምስ ርእሱ ዝምድና ክህልዎ ኣይኽእልን።');
-      return;
-    }
-
     setIsSavingEdit(true);
     setEditError(null);
+
     try {
+      let finalFromId = editFromPersonId;
+      let finalToId = editToPersonId;
+
+      // 1. Resolve From Person (ወላዲ / መጻምድቲ)
+      if (fromMode === 'rename') {
+        const trimmed = fromName.trim();
+        if (!trimmed) {
+          setEditError('ስም ወላዲ / መጻምድቲ ባዶ ክኸውን ኣይኽእልን።');
+          return;
+        }
+        const existing = peopleMap.get(editFromPersonId);
+        if (existing) {
+          if (existing.canonicalName !== trimmed) {
+            await onUpdatePerson({
+              ...existing,
+              canonicalName: trimmed,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          finalFromId = existing.id;
+        } else {
+          const newId = `pers_manual_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          await onUpdatePerson({
+            id: newId,
+            canonicalName: trimmed,
+            status: shouldApprove ? 'verified' : 'needs_review',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isArchived: false,
+            notes: 'ኣብ ዝምድና ምስትኽኻል ዝተፈጠረ',
+          });
+          finalFromId = newId;
+        }
+      } else if (fromMode === 'new') {
+        const trimmed = fromName.trim();
+        if (!trimmed) {
+          setEditError('ሓድሽ ስም ወላዲ / መጻምድቲ ምልኡ።');
+          return;
+        }
+        const newId = `pers_manual_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await onUpdatePerson({
+          id: newId,
+          canonicalName: trimmed,
+          status: shouldApprove ? 'verified' : 'needs_review',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isArchived: false,
+          notes: 'ኣብ ዝምድና ምስትኽኻል ዝተፈጠረ',
+        });
+        finalFromId = newId;
+      } else {
+        if (!editFromPersonId) {
+          setEditError('ካብ መዝገብ ወላዲ / መጻምድቲ ምረጹ።');
+          return;
+        }
+        finalFromId = editFromPersonId;
+      }
+
+      // 2. Resolve To Person (ውሉድ / ተቐባሊ)
+      if (toMode === 'rename') {
+        const trimmed = toName.trim();
+        if (!trimmed) {
+          setEditError('ስም ውሉድ / መጻምድቲ ባዶ ክኸውን ኣይኽእልን።');
+          return;
+        }
+        const existing = peopleMap.get(editToPersonId);
+        if (existing) {
+          if (existing.canonicalName !== trimmed) {
+            await onUpdatePerson({
+              ...existing,
+              canonicalName: trimmed,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          finalToId = existing.id;
+        } else {
+          const newId = `pers_manual_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          await onUpdatePerson({
+            id: newId,
+            canonicalName: trimmed,
+            status: shouldApprove ? 'verified' : 'needs_review',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isArchived: false,
+            notes: 'ኣብ ዝምድና ምስትኽኻል ዝተፈጠረ',
+          });
+          finalToId = newId;
+        }
+      } else if (toMode === 'new') {
+        const trimmed = toName.trim();
+        if (!trimmed) {
+          setEditError('ሓድሽ ስም ውሉድ / መጻምድቲ ምልኡ።');
+          return;
+        }
+        const newId = `pers_manual_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await onUpdatePerson({
+          id: newId,
+          canonicalName: trimmed,
+          status: shouldApprove ? 'verified' : 'needs_review',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isArchived: false,
+          notes: 'ኣብ ዝምድና ምስትኽኻል ዝተፈጠረ',
+        });
+        finalToId = newId;
+      } else {
+        if (!editToPersonId) {
+          setEditError('ካብ መዝገብ ውሉድ / ተቐባሊ ምረጹ።');
+          return;
+        }
+        finalToId = editToPersonId;
+      }
+
+      // 3. Validation
+      if (finalFromId === finalToId) {
+        setEditError('ሰብ ምስ ርእሱ ዝምድና ክህልዎ ኣይኽእልን።');
+        return;
+      }
+
+      const finalStatus: RecordStatus = shouldApprove ? 'verified' : editStatus;
+
       const updated: Relationship = {
         ...editingRel,
-        fromPersonId: editFromPersonId,
-        toPersonId: editToPersonId,
+        fromPersonId: finalFromId,
+        toPersonId: finalToId,
         type: editType,
         sourceWording: editWording.trim() || editingRel.sourceWording,
-        status: shouldApprove ? 'verified' : editStatus,
+        status: finalStatus,
         updatedAt: new Date().toISOString(),
       };
+
       const res = await onUpdateRelationship(updated);
       if (res.success) {
         setEditingRel(null);
@@ -477,85 +608,250 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
               </div>
             )}
 
-            <div className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs max-h-[68vh] overflow-y-auto pr-1">
               {/* Parent / Partner Selection */}
-              <div className="space-y-1.5">
-                <label className="block font-bold text-stone-800">
-                  ወላዲ / መጻምድቲ (ካበይ) *
-                </label>
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
-                  <input
-                    type="text"
-                    placeholder="ስም ወላዲ ጽሒፍካ ድለ..."
-                    value={fromSearchQuery}
-                    onChange={(e) => setFromSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-stone-300 text-xs font-ethiopic mb-1.5 focus:ring-2 focus:ring-amber-500"
-                  />
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <label className="font-bold text-stone-800 text-xs flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-amber-700" />
+                    <span>ወላዲ / መጻምድቲ (ካበይ) *</span>
+                  </label>
+                  <div className="inline-flex p-0.5 bg-stone-200/80 rounded-lg text-[11px] font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setFromMode('rename')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                        fromMode === 'rename'
+                          ? 'bg-white text-stone-900 font-bold shadow-xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      ✏️ ስም ኣስተኻኽል
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFromMode('select')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                        fromMode === 'select'
+                          ? 'bg-white text-stone-900 font-bold shadow-xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      🔍 ካብ መዝገብ ምረጽ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFromMode('new')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                        fromMode === 'new'
+                          ? 'bg-white text-stone-900 font-bold shadow-xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      ➕ ሓድሽ ሰብ
+                    </button>
+                  </div>
                 </div>
-                <select
-                  value={editFromPersonId}
-                  onChange={(e) => setEditFromPersonId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="">ወላዲ / መጻምድቲ ምረጽ...</option>
-                  {filteredFromPeople.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.canonicalName} {p.branch ? `(${p.branch})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-stone-500">
-                  ዝተመረጸ: <strong className="text-stone-800">{peopleMap.get(editFromPersonId)?.canonicalName || editFromPersonId}</strong>
-                </p>
+
+                {fromMode === 'rename' && (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={fromName}
+                      onChange={(e) => setFromName(e.target.value)}
+                      placeholder="ስም ወላዲ/መጻምድቲ ኣስተኻኽል..."
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs focus:ring-2 focus:ring-amber-500 font-semibold text-stone-900"
+                    />
+                    <p className="text-[10.5px] text-stone-500">
+                      እዚ ስም ኣብ መዝገብ ቀጥታ ይስተኻኸል (ንኣብነት ናብ ዝነበረ ናብ <strong>ግደይ</strong> ንምቕያር)።
+                    </p>
+                  </div>
+                )}
+
+                {fromMode === 'select' && (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
+                      <input
+                        type="text"
+                        placeholder="ስም ወላዲ ጽሒፍካ ድለ..."
+                        value={fromSearchQuery}
+                        onChange={(e) => setFromSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-stone-300 text-xs font-ethiopic mb-1 focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <select
+                      value={editFromPersonId}
+                      onChange={(e) => {
+                        setEditFromPersonId(e.target.value);
+                        const p = peopleMap.get(e.target.value);
+                        if (p) setFromName(p.canonicalName);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">ካብ ዝተመዝገቡ ምረጽ...</option>
+                      {filteredFromPeople.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.canonicalName} {p.branch ? `(${p.branch})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {fromMode === 'new' && (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={fromName}
+                      onChange={(e) => setFromName(e.target.value)}
+                      placeholder="ሓድሽ ስም ወላዲ/መጻምድቲ ጽሓፍ..."
+                      className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/40 font-ethiopic text-xs focus:ring-2 focus:ring-amber-500 font-semibold text-stone-900"
+                    />
+                    <p className="text-[10.5px] text-amber-700">
+                      ሓድሽ ሰብ ኣብ መዝገብ ተፈጢሩ ምስዚ ዝምድና ክተኣሳሰር እዩ።
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Child / Target Selection */}
-              <div className="space-y-1.5">
-                <label className="block font-bold text-stone-800">
-                  ውሉድ / ተቐባሊ (ንመን) *
-                </label>
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
-                  <input
-                    type="text"
-                    placeholder="ስም ውሉድ ጽሒፍካ ድለ..."
-                    value={toSearchQuery}
-                    onChange={(e) => setToSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-stone-300 text-xs font-ethiopic mb-1.5 focus:ring-2 focus:ring-amber-500"
-                  />
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <label className="font-bold text-stone-800 text-xs flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-teal-700" />
+                    <span>ውሉድ / ተቐባሊ (ንመን) *</span>
+                  </label>
+                  <div className="inline-flex p-0.5 bg-stone-200/80 rounded-lg text-[11px] font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setToMode('rename')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                        toMode === 'rename'
+                          ? 'bg-white text-stone-900 font-bold shadow-xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      ✏️ ስም ኣስተኻኽል
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setToMode('select')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                        toMode === 'select'
+                          ? 'bg-white text-stone-900 font-bold shadow-xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      🔍 ካብ መዝገብ ምረጽ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setToMode('new')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                        toMode === 'new'
+                          ? 'bg-white text-stone-900 font-bold shadow-xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      ➕ ሓድሽ ሰብ
+                    </button>
+                  </div>
                 </div>
-                <select
-                  value={editToPersonId}
-                  onChange={(e) => setEditToPersonId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="">ውሉድ ምረጽ...</option>
-                  {filteredToPeople.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.canonicalName} {p.branch ? `(${p.branch})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-stone-500">
-                  ዝተመረጸ: <strong className="text-stone-800">{peopleMap.get(editToPersonId)?.canonicalName || editToPersonId}</strong>
-                </p>
+
+                {toMode === 'rename' && (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={toName}
+                      onChange={(e) => setToName(e.target.value)}
+                      placeholder="ስም ውሉድ/ተቐባሊ ኣስተኻኽል..."
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs focus:ring-2 focus:ring-amber-500 font-semibold text-stone-900"
+                    />
+                    <p className="text-[10.5px] text-stone-500">
+                      እዚ ስም ንኹሉ ናይዚ ሰብ መዝገብ ቀጥታ ይቕይሮ።
+                    </p>
+                  </div>
+                )}
+
+                {toMode === 'select' && (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
+                      <input
+                        type="text"
+                        placeholder="ስም ውሉድ ጽሒፍካ ድለ..."
+                        value={toSearchQuery}
+                        onChange={(e) => setToSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-stone-300 text-xs font-ethiopic mb-1 focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <select
+                      value={editToPersonId}
+                      onChange={(e) => {
+                        setEditToPersonId(e.target.value);
+                        const p = peopleMap.get(e.target.value);
+                        if (p) setToName(p.canonicalName);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">ካብ ዝተመዝገቡ ምረጽ...</option>
+                      {filteredToPeople.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.canonicalName} {p.branch ? `(${p.branch})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {toMode === 'new' && (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={toName}
+                      onChange={(e) => setToName(e.target.value)}
+                      placeholder="ሓድሽ ስም ውሉድ/ተቐባሊ ጽሓፍ..."
+                      className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/40 font-ethiopic text-xs focus:ring-2 focus:ring-amber-500 font-semibold text-stone-900"
+                    />
+                    <p className="text-[10.5px] text-amber-700">
+                      ሓድሽ ሰብ ኣብ መዝገብ ተፈጢሩ ምስዚ ዝምድና ክተኣሳሰር እዩ።
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Relationship Type */}
-              <div className="space-y-1">
-                <label className="block font-bold text-stone-800">
-                  ዓይነት ዝምድና
-                </label>
-                <select
-                  value={editType}
-                  onChange={(e) => setEditType(e.target.value as RelationshipType)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="parent_child">ወላድን ውሉድን</option>
-                  <option value="partner_or_union">መጻምድቲ / ሓዳር</option>
-                  <option value="other_source_statement">ካልእ ዝምድና</option>
-                </select>
+              {/* Relationship Type & Status Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block font-bold text-stone-800">
+                    ዓይነት ዝምድና
+                  </label>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value as RelationshipType)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="parent_child">ወላድን ውሉድን</option>
+                    <option value="partner_or_union">መጻምድቲ / ሓዳር</option>
+                    <option value="other_source_statement">ካልእ ዝምድና</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block font-bold text-stone-800">
+                    ኩነታት ምርመራ
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as RecordStatus)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-ethiopic text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="needs_review">ክምርመር ዘለዎ (Needs Review)</option>
+                    <option value="verified">ዝተረጋገፀ / ጽዱቕ (Verified)</option>
+                    <option value="unverified">ዘይተረጋገፀ (Unverified)</option>
+                  </select>
+                </div>
               </div>
 
               {/* Notes / Description */}
@@ -574,7 +870,7 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="pt-3 border-t border-stone-200 flex items-center justify-between gap-2">
+            <div className="pt-3 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2">
               {onDeleteRelationship && (
                 <button
                   type="button"
@@ -587,7 +883,7 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
                 </button>
               )}
 
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex flex-wrap items-center gap-2 ml-auto">
                 <button
                   type="button"
                   onClick={() => setEditingRel(null)}
@@ -597,12 +893,21 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => handleSaveEditedRel(false)}
+                  disabled={isSavingEdit}
+                  className="px-3.5 py-2 border border-amber-600 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSavingEdit ? 'የቐምጥ ኣሎ...' : 'ለውጢ ኣቐምጥ'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleSaveEditedRel(true)}
                   disabled={isSavingEdit}
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-98 transition-all"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{isSavingEdit ? 'የዕርኽ ኣሎ...' : 'ኣስተኻኺልካ ኣጽድቕ'}</span>
+                  <span>{isSavingEdit ? 'የፅድቕ ኣሎ...' : 'ኣስተኻኺልካ ኣጽድቕ'}</span>
                 </button>
               </div>
             </div>

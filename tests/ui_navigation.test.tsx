@@ -267,7 +267,8 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
 
   it('6. App: renders complete application root without crashing', async () => {
     render(<App />);
-    expect(await screen.findByText(/ተወለድ እንዳቦይ ከንትባ ጉዕሽ/)).toBeDefined();
+    const elements = await screen.findAllByText(/ተወለድ እንዳቦይ ከንትባ ጉዕሽ/);
+    expect(elements.length).toBeGreaterThan(0);
   });
 
   it('7. RecordEditorView: searches people and opens edit modal to correct misspelled data', async () => {

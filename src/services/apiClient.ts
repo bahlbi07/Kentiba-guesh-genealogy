@@ -216,7 +216,7 @@ export async function apiFetchTree(): Promise<{
 } | null> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
 
     const res = await fetch(`${getBackendBaseUrl()}/api/tree`, {
       signal: controller.signal,

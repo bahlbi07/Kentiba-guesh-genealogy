@@ -20,7 +20,9 @@ export const PwaInstallPrompt: React.FC = () => {
     // Detect iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as { standalone?: boolean }).standalone;
+    const isStandalone =
+      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+      Boolean((window.navigator as unknown as { standalone?: boolean }).standalone);
 
     if (isIosDevice && !isStandalone) {
       setIsIos(true);

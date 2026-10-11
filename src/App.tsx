@@ -41,15 +41,29 @@ export const CURRENT_DATASET_VERSION = '2026.10.11.v3_authoritative_gidey';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
-  const [people, setPeople] = useState<Person[]>([]);
-  const [relationships, setRelationships] = useState<Relationship[]>([]);
-  const [occurrences, setOccurrences] = useState<SourceOccurrence[]>([]);
+  // Immediately initialize with authoritative dataset for instantaneous 0.0s startup
+  const [people, setPeople] = useState<Person[]>(() => INITIAL_PEOPLE);
+  const [relationships, setRelationships] = useState<Relationship[]>(() => INITIAL_RELATIONSHIPS);
+  const [occurrences, setOccurrences] = useState<SourceOccurrence[]>(() => INITIAL_OCCURRENCES);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [datasetMode, setDatasetMode] = useState<'real' | 'demo' | 'empty'>('real');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Modals and selection state
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  // Modals and selection state: immediately select root ancestor
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(() => {
+    return (
+      INITIAL_PEOPLE.find(
+        (p) =>
+          p.id === 'pers_root_kinteba_guush' ||
+          p.canonicalName.includes('ከንቲባ ጉዑሽ') ||
+          p.canonicalName.includes('ከንቲባ ጉዕሽ') ||
+          p.id === 'pers_p1_0_0'
+      ) ||
+      INITIAL_PEOPLE[0] ||
+      null
+    );
+  });
   const [showPersonModal, setShowPersonModal] = useState(false);
   const [showRelationshipModal, setShowRelationshipModal] = useState(false);
   const [initialRelFromId, setInitialRelFromId] = useState<string | undefined>(undefined);
@@ -61,7 +75,7 @@ export const App: React.FC = () => {
     return sessionStorage.getItem('kinteba_admin_auth') === 'true';
   });
 
-  // Reload all data from local IndexedDB with automatic real-dataset seeding
+  // Reload data from local IndexedDB with automatic real-dataset seeding & background server sync
   const reloadData = useCallback(async () => {
     try {
       let storedPeople = await getAllPeople(true);
@@ -114,41 +128,7 @@ export const App: React.FC = () => {
         mode = 'real';
       }
 
-      // Synchronize with server backend for live updates across all family members
-      try {
-        const serverTree = await apiFetchTree();
-        if (serverTree && serverTree.people && serverTree.people.length > 0) {
-          let hasNewServerData = false;
-          const localPersonMap = new Map(storedPeople.map((p) => [p.id, p]));
-          for (const sp of serverTree.people) {
-            const existing = localPersonMap.get(sp.id);
-            if (!existing || (sp.updatedAt && existing.updatedAt && sp.updatedAt > existing.updatedAt)) {
-              await savePerson(sp, 'ServerSync');
-              localPersonMap.set(sp.id, sp);
-              hasNewServerData = true;
-            }
-          }
-
-          const localRelMap = new Map(storedRels.map((r) => [r.id, r]));
-          for (const sr of serverTree.relationships) {
-            const existing = localRelMap.get(sr.id);
-            if (!existing || (sr.updatedAt && existing.updatedAt && sr.updatedAt > existing.updatedAt)) {
-              await saveRelationship(sr, 'ServerSync');
-              localRelMap.set(sr.id, sr);
-              hasNewServerData = true;
-            }
-          }
-
-          if (hasNewServerData) {
-            storedPeople = await getAllPeople(true);
-            storedRels = await getAllRelationships();
-          }
-        }
-      } catch (syncErr) {
-        // Silently proceed with local offline database
-      }
-
-      // Automatically detect and merge duplicate family records (e.g. duplicate siblings with identical names)
+      // Automatically detect and merge duplicate family records
       const dedupResult = deduplicateFamilyRecords(storedPeople, storedRels);
       if (dedupResult.removedPersonIds.length > 0 || dedupResult.removedRelationshipIds.length > 0) {
         for (const remId of dedupResult.removedPersonIds) {
@@ -169,12 +149,13 @@ export const App: React.FC = () => {
 
         try {
           const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
-          await apiSaveBatch(storedPeople, storedRels, token);
+          apiSaveBatch(storedPeople, storedRels, token).catch(() => {});
         } catch {
           // Proceed with local
         }
       }
 
+      // Immediately display local database with zero waiting time!
       setPeople(storedPeople);
       setRelationships(storedRels);
       setOccurrences(storedOccs);
@@ -199,6 +180,49 @@ export const App: React.FC = () => {
         }
         return prev;
       });
+
+      // Synchronize with server backend completely in the background without blocking the screen
+      setIsSyncing(true);
+      (async () => {
+        try {
+          const serverTree = await apiFetchTree();
+          if (serverTree && serverTree.people && serverTree.people.length > 0) {
+            let hasNewServerData = false;
+            const currentStoredPeople = await getAllPeople(true);
+            const localPersonMap = new Map(currentStoredPeople.map((p) => [p.id, p]));
+            for (const sp of serverTree.people) {
+              const existing = localPersonMap.get(sp.id);
+              if (!existing || (sp.updatedAt && existing.updatedAt && sp.updatedAt > existing.updatedAt)) {
+                await savePerson(sp, 'ServerSync');
+                localPersonMap.set(sp.id, sp);
+                hasNewServerData = true;
+              }
+            }
+
+            const currentStoredRels = await getAllRelationships();
+            const localRelMap = new Map(currentStoredRels.map((r) => [r.id, r]));
+            for (const sr of serverTree.relationships) {
+              const existing = localRelMap.get(sr.id);
+              if (!existing || (sr.updatedAt && existing.updatedAt && sr.updatedAt > existing.updatedAt)) {
+                await saveRelationship(sr, 'ServerSync');
+                localRelMap.set(sr.id, sr);
+                hasNewServerData = true;
+              }
+            }
+
+            if (hasNewServerData) {
+              const refreshedPeople = await getAllPeople(true);
+              const refreshedRels = await getAllRelationships();
+              setPeople(refreshedPeople);
+              setRelationships(refreshedRels);
+            }
+          }
+        } catch {
+          // Silently proceed with local offline database
+        } finally {
+          setIsSyncing(false);
+        }
+      })();
     } catch (err) {
       console.error('Failed to load database:', err);
     } finally {
@@ -323,7 +347,7 @@ export const App: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && people.length === 0) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
         <div className="text-center space-y-4">
@@ -483,6 +507,12 @@ export const App: React.FC = () => {
           <p>© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንትባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-stone-400">ስሪት 3.0 ({people.length} ኣባላት)</span>
+            {isSyncing && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                <span>ይመሳሰል ኣሎ...</span>
+              </span>
+            )}
             <button
               type="button"
               onClick={handleForceRefresh}

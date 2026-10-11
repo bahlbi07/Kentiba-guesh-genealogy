@@ -1982,12 +1982,14 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 3: መጻምድቲ / ሓዳር ናይዚ ሰብ */}
+          {/* SECTION 3: መጻምድትን ውሉዳትን */}
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-stone-200">
               <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
                 <Heart className="w-4 h-4 text-rose-500" />
-                <span>3. መጻምድቲ / ሓዳር ናይዚ ሰብ ({form.spouses.length})</span>
+                <span>
+                  3. መጻምድትን ውሉዳትን ({form.spouses.length} መጻምድቲ{form.children.length > 0 ? `፡ ${form.children.length} ውሉዳት` : ''})
+                </span>
               </h3>
               <button
                 type="button"
@@ -2125,30 +2127,6 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                   </div>
                 );
               })}
-
-              <button
-                type="button"
-                onClick={handleAddSpouse}
-                className="w-full py-2.5 px-3 border border-dashed border-rose-300 hover:border-rose-500 rounded-xl bg-white hover:bg-rose-50/40 text-rose-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 text-rose-600" />
-                <span>+ መጻምድቲ ወስኽ</span>
-              </button>
-            </div>
-          </div>
-
-          {/* SECTION 4: ሓፈሻዊ ድምር ውሉዳት */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-              <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
-                <GitFork className="w-4 h-4 rotate-180 text-amber-700" />
-                <span>4. ውሉዳት ({form.children.length})</span>
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-stone-600 font-medium bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200">
-                  ድምር ዝተመዝገቡ ውሉዳት፦ <strong>{form.children.length}</strong>
-                </span>
-              </div>
             </div>
           </div>
 

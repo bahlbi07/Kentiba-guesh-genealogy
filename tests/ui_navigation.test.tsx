@@ -718,7 +718,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     fireEvent.click(add4Btn);
 
     // Now 4 children rows should be rendered!
-    expect(screen.getByText('4. ውሉዳት (4)')).toBeDefined();
+    expect(screen.getAllByPlaceholderText('ስም ቆልዓ...').length).toBe(4);
   });
 
   it('13. GenealogyPdfExportModal: renders hierarchical generational descent tables with lineage breadcrumbs and branch themes', () => {
@@ -888,8 +888,8 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     fireEvent.change(childInputs[0], { target: { value: 'ዳዊት ተኽለ' } });
     fireEvent.change(childInputs[1], { target: { value: 'ዮናስ ተኽለ' } });
 
-    // Verify Section 4 displays total children: 5
-    expect(screen.getByText('4. ውሉዳት (5)')).toBeDefined();
+    // Verify Section 3 displays total children: 5
+    expect(screen.getByText(/3\. መጻምድትን ውሉዳትን.*5 ውሉዳት/)).toBeDefined();
 
     // 6. Submit form
     const submitBtn = screen.getByRole('button', { name: /ኣረጋግጽን መዝግብን/ });

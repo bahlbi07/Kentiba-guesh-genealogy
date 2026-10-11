@@ -163,6 +163,8 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     setExpandedChildIds(new Set());
     setSearchQuery('');
     setShowSearchResults(false);
+    const p = peopleMap.get(personId);
+    if (p) onSelectPerson(p);
   };
 
   const handleResetToRoot = () => {
@@ -252,7 +254,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                     </div>
                     {result.branch && (
                       <span className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded font-ethiopic">
-                        ጨንፈር {result.branch}
+                        ጨንፈር {result.branch === 'Main Ancestor' ? 'ቀንዲ መበቆል' : result.branch}
                       </span>
                     )}
                   </button>
@@ -400,7 +402,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                 )}
                 {focusedPerson.branch && (
                   <span className="bg-stone-100 text-stone-800 px-3 py-1 rounded-lg">
-                    ጨንፈር: <strong>{focusedPerson.branch}</strong>
+                    ጨንፈር: <strong>{focusedPerson.branch === 'Main Ancestor' ? 'ቀንዲ መበቆል' : focusedPerson.branch}</strong>
                   </span>
                 )}
                 {childrenIds.length > 0 && (
@@ -524,15 +526,11 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  {/* Clicking name/card toggles expand/collapse in-place */}
+                  {/* Clicking name/card opens their dedicated generational page */}
                   <button
-                    onClick={() => {
-                      if (hasKids) {
-                        toggleChildExpansion(personId);
-                      }
-                    }}
+                    onClick={() => handleFocusPerson(personId)}
                     className="text-left flex items-center gap-3.5 min-h-[48px] flex-1 group"
-                    title={hasKids ? (isExpanded ? 'ጨንፈር ዓጽፍ' : 'ጨንፈር ዘርግሕ') : p.canonicalName}
+                    title={`ናይ ${p.canonicalName} ገጽ ርአ`}
                   >
                     <div
                       className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold shrink-0 transition-colors ${
@@ -553,9 +551,13 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                             {p.spouseNote}
                           </span>
                         )}
-                        {hasKids && (
+                        {hasKids ? (
                           <span className="text-amber-700 font-bold">
                             {kids.length} ውሉዳት
+                          </span>
+                        ) : (
+                          <span className="text-stone-400">
+                            ገጽ ንምርኣይ ጠውቕ
                           </span>
                         )}
                       </div>
@@ -563,11 +565,14 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                   </button>
 
                   <div className="flex items-center gap-1.5">
-                    {/* Dedicated in-place expand/collapse button */}
-                    {hasKids && (
+                    {/* Dedicated in-place expand/collapse button if has kids */}
+                    {hasKids ? (
                       <button
-                        onClick={() => toggleChildExpansion(personId)}
-                        className="px-3 py-2 min-h-[44px] rounded-xl text-sm font-ethiopic font-bold text-stone-700 hover:bg-stone-200 flex items-center gap-1 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleChildExpansion(personId);
+                        }}
+                        className="px-3 py-2 min-h-[44px] rounded-xl text-sm font-ethiopic font-bold text-stone-700 bg-stone-100 hover:bg-amber-100 hover:text-amber-900 flex items-center gap-1 transition-colors"
                         title={isExpanded ? 'ጨንፈር ዓጽፍ' : 'ጨንፈር ዘርግሕ'}
                         aria-label={
                           isExpanded
@@ -578,14 +583,22 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                         {isExpanded ? (
                           <>
                             <ChevronDown className="w-5 h-5 text-amber-700" />
-                            <span className="hidden sm:inline">ዕጾ</span>
+                            <span className="text-xs">ዕጾ</span>
                           </>
                         ) : (
                           <>
                             <ChevronRight className="w-5 h-5 text-stone-600" />
-                            <span className="hidden sm:inline">ክፈት</span>
+                            <span className="text-xs">ዘርግሕ</span>
                           </>
                         )}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleFocusPerson(personId)}
+                        className="px-2.5 py-1.5 min-h-[40px] rounded-xl text-xs font-ethiopic font-semibold text-stone-600 hover:bg-stone-100 hover:text-amber-800 flex items-center gap-1 transition-colors"
+                        title={`ናይ ${p.canonicalName} ገጽ ክፈት`}
+                      >
+                        <span>ገጽ ርአ &rarr;</span>
                       </button>
                     )}
                   </div>

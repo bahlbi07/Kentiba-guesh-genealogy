@@ -63,8 +63,15 @@ export const App: React.FC = () => {
       let storedAudits = await getAllAuditEvents();
       let mode = await getDatasetMode();
 
-      // If database is empty or still in demo mode, auto-seed the authoritative real dataset
-      if (storedPeople.length === 0 || mode === 'demo') {
+      // Check if client database is missing records (e.g. stale client cache with only 531 people)
+      // or still in demo mode. Auto-upgrade to the authoritative dataset.
+      const needsDatasetUpgrade =
+        storedPeople.length === 0 ||
+        mode === 'demo' ||
+        storedPeople.length < INITIAL_PEOPLE.length ||
+        storedRels.length < INITIAL_RELATIONSHIPS.length;
+
+      if (needsDatasetUpgrade) {
         await bulkLoadData(
           {
             people: INITIAL_PEOPLE,

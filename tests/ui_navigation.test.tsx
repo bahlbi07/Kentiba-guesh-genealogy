@@ -379,16 +379,15 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
       />
     );
 
-    // Requirement 2: Historical notes textarea must NOT exist
-    expect(screen.queryByText('መተሓሳሰቢ ወይ ታሪኻዊ መረዳእታ')).toBeNull();
+    // Historical notes textarea must exist
+    expect(screen.getByText('መተሓሳሰቢ ወይ ታሪኻዊ መረዳእታ')).toBeDefined();
 
-    // Requirement 3: Professional Lineage Guidance Box must exist
+    // Professional Lineage Guidance Box must exist
     expect(screen.getByText('ፕሮፌሽናል መዘኻኸሪ ንሰንሰለታዊ ወለዶ፦')).toBeDefined();
 
-    // Requirement 4: Section 3 should have spouse name, but NO "መግለጺ ሓዳር / ዝምድና"
+    // Section 3 should have spouse name and "መግለፂ ሓዳር / ዝምድና"
     expect(screen.getByText('ስም መጻምድቲ')).toBeDefined();
-    expect(screen.queryByText('መግለጺ ሓዳር / ዝምድና')).toBeNull();
-    expect(screen.queryByText('መግለፂ ሓዳር / ዝምድና')).toBeNull();
+    expect(screen.getByText('መግለፂ ሓዳር / ዝምድና')).toBeDefined();
 
     // Requirement 1: Cascading branch selector
     const branchSelect = screen.getByRole('combobox');

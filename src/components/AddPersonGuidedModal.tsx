@@ -900,7 +900,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           status: 'verified',
           sourceFile: 'ከሰተ-ብርሃነ.pdf',
           sourcePage: null,
-          sourceWording: `${form.canonicalName} ዝተመርዓዉ ምስ ${trimmedSpouse}`,
+          sourceWording: form.spouseWording?.trim() || `${form.canonicalName} ዝተመርዓዉ ምስ ${trimmedSpouse}`,
           isBiologicalConfirmed: false,
           createdAt: now,
           updatedAt: now
@@ -1264,6 +1264,20 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* መተሓሳሰቢ ወይ ታሪኻዊ መረዳእታ */}
+            <div>
+              <label className="block text-xs font-bold text-stone-800 mb-1">
+                መተሓሳሰቢ ወይ ታሪኻዊ መረዳእታ
+              </label>
+              <textarea
+                rows={2}
+                placeholder="ተወሳኺ መረዳእታ፡ ዓዲ፡ ወይ ታሪኽ እንተሃልዩ ኣብዚ ጽሓፍ..."
+                value={form.notes}
+                onChange={(e) => updateForm((p) => ({ ...p, notes: e.target.value }))}
+                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-stone-900 text-xs focus:ring-2 focus:ring-amber-500 font-ethiopic"
+              />
+            </div>
           </div>
 
           {/* SECTION 2: ሰንሰለታዊ ወለዶ (Lineage Path to Kinteba Guush) */}
@@ -1464,7 +1478,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 3: መጻምድቲ / ሓዳር ናይዚ ሰብ (Requirement 4: Removed spouseWording input) */}
+          {/* SECTION 3: መጻምድቲ / ሓዳር ናይዚ ሰብ */}
           <div className="space-y-4">
             <h3 className="font-bold text-stone-900 text-base flex items-center gap-2 pb-2 border-b border-stone-200">
               <Heart className="w-4 h-4 text-rose-500" />
@@ -1472,17 +1486,32 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             </h3>
 
             <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
-              <div>
-                <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                  ስም መጻምድቲ
-                </label>
-                <input
-                  type="text"
-                  placeholder="ንኣብነት: ስም መጻምድቲ..."
-                  value={form.spouseName}
-                  onChange={(e) => updateForm((p) => ({ ...p, spouseName: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                    ስም መጻምድቲ
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ንኣብነት: ስም መጻምድቲ..."
+                    value={form.spouseName}
+                    onChange={(e) => updateForm((p) => ({ ...p, spouseName: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                    መግለፂ ሓዳር / ዝምድና
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ንኣብነት: ዝተመርዓዉ፡ ዝወለድዎም..."
+                    value={form.spouseWording || ''}
+                    onChange={(e) => updateForm((p) => ({ ...p, spouseWording: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
+                  />
+                </div>
               </div>
             </div>
           </div>

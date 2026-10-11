@@ -235,6 +235,33 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(handleLogin).not.toHaveBeenCalled();
   });
 
+  it('5b. AdminPanel: displays people, needs review, and verified stats without total relationships', () => {
+    render(
+      <AdminPanel
+        people={mockPeople}
+        relationships={mockRelationships}
+        occurrences={[]}
+        auditEvents={[]}
+        isAuthenticated={true}
+        onLogin={vi.fn()}
+        onLogout={vi.fn()}
+        onSelectPerson={vi.fn()}
+        onUpdatePerson={vi.fn()}
+        onDeletePerson={vi.fn()}
+        onSaveRelationship={vi.fn()}
+        onDeleteRelationship={vi.fn()}
+        onAddNewPerson={vi.fn()}
+        onAddNewRelationship={vi.fn()}
+        onImportCommitted={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('ጠቕላላ ሰባት')).toBeDefined();
+    expect(screen.getByText('ምምርማር ዘድልዮም')).toBeDefined();
+    expect(screen.getByText('ዝተረጋገጹ')).toBeDefined();
+    expect(screen.queryByText('ጠቕላላ ዝምድናታት')).toBeNull();
+  });
+
   it('6. App: renders complete application root without crashing', async () => {
     render(<App />);
     expect(await screen.findByText(/ተወለድ እንዳቦይ ከንትባ ጉዕሽ/)).toBeDefined();

@@ -327,15 +327,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {adminTab === 'overview' && (
         <div className="space-y-6">
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
               <span className="text-xs text-stone-500 font-medium">ጠቕላላ ሰባት</span>
               <div className="text-2xl font-bold text-stone-900 mt-1">{people.length}</div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
-              <span className="text-xs text-stone-500 font-medium">ጠቕላላ ዝምድናታት</span>
-              <div className="text-2xl font-bold text-stone-900 mt-1">{relationships.length}</div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">

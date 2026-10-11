@@ -1,5 +1,5 @@
 // Kinteba Guush Family Genealogy — Production Service Worker
-const CACHE_NAME = 'kinteba-guush-v2.1';
+const CACHE_NAME = 'kinteba-guush-v2.2';
 const SHELL_ASSETS = [
   '/',
   '/index.html',

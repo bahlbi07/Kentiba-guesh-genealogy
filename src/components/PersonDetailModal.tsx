@@ -3,6 +3,7 @@ import { Person, Relationship, RecordStatus } from '../types/genealogy';
 import { savePerson, saveRelationship } from '../services/db';
 import { apiSaveBatch } from '../services/apiClient';
 import { validateParentChildCycle } from '../services/cycleDetector';
+import { cleanDisplayNote } from './GenealogyPdfExportModal';
 import {
   X,
   CheckCircle,
@@ -679,11 +680,11 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                 </div>
               )}
 
-              {person.notes && !person.notes.includes('PDF') && !person.notes.includes('source title') && (
+              {cleanDisplayNote(person.notes) && (
                 <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">
                   <span className="text-xs text-stone-400 block mb-1">መተሓሳሰቢ</span>
                   <p className="text-xs text-stone-700 whitespace-pre-line">
-                    {person.notes}
+                    {cleanDisplayNote(person.notes)}
                   </p>
                 </div>
               )}

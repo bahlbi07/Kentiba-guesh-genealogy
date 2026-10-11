@@ -194,7 +194,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     // Verifies scribe attribution and primary source title
     expect(screen.getByText('ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ')).toBeDefined();
     expect(screen.getByText(/ጸሓፊ ከሰተ ብርሃነ ወልዱ ወዲ ጎብሩ/)).toBeDefined();
-    expect(screen.getByText(/ከሰተ-ብርሃነ\.pdf/)).toBeDefined();
+    expect(screen.getByText(/መበቆላዊ ታሪኻዊ መዝገብ/)).toBeDefined();
   });
 
   it('5. AdminPanel: enforces authentication gate and rejects invalid credentials with generic message', async () => {

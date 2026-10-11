@@ -27,7 +27,7 @@ export const AboutArchive: React.FC = () => {
             </div>
             <div>
               <h3 className="font-bold text-stone-900 font-ethiopic text-lg">ጸሓፊ እቲ ሰነድ (The Scribe)</h3>
-              <p className="text-xs text-stone-500">ካብ ዋና ምንጪ ገጽ 29 ዝተወሰደ</p>
+              <p className="text-xs text-stone-500">ካብ ዋና ታሪኻዊ ሰነድ ዝተወሰደ</p>
             </div>
           </div>
           <blockquote className="p-3 bg-amber-50/70 border-l-4 border-amber-600 rounded-r-lg font-ethiopic text-stone-800 text-sm italic">
@@ -45,11 +45,11 @@ export const AboutArchive: React.FC = () => {
             </div>
             <div>
               <h3 className="font-bold text-stone-900 font-ethiopic text-lg">ቀዳማይ ምንጪ ሰነድ (Primary Source)</h3>
-              <p className="text-xs text-stone-500">ከሰተ-ብርሃነ.pdf (36 ገጻት)</p>
+              <p className="text-xs text-stone-500">መበቆላዊ ታሪኻዊ መዝገብ ወለዶ</p>
             </div>
           </div>
           <p className="text-xs text-stone-600 leading-relaxed font-ethiopic">
-            እቲ መበቆላዊ ሰነድ 36 ገጻት ዘለዎ ኾይኑ፡ ካብ ገጽ 1 ክሳብ 29 ዝተዘርግሐ ዝርዝር ስድራቤታት ይርከቦ። ገጻት 30 ክሳብ 35 ጌጣጌጣዊ መስመራት ዘለዎም ኾይኖም፡ ኣብ ገጽ 36 ድማ ሓደ መበገሲ ኣርእስቲ ይርከብ።
+            እቲ መበቆላዊ ሰነድ ዝርዝር ስድራቤታትን ጨናፍርን ከንቲባ ጉዕሽ ሓጎስ ብጥንቃቐ ዝሓዘ ኾይኑ፡ ንኹሎም ወለዶታት ብትኽክል ዝሰነደ ታሪኻዊ ውርሻ እዩ።
           </p>
           <div className="pt-2 flex items-center gap-3 text-xs text-stone-500">
             <span className="flex items-center gap-1">
@@ -89,9 +89,9 @@ export const AboutArchive: React.FC = () => {
               2
             </div>
             <div>
-              <strong className="text-stone-900">ምንጪን ገጽን ምዕቃብ (Provenance Preservation):</strong>
+              <strong className="text-stone-900">ትኽክለኛነት ታሪኽ ምዕቃብ (Historical Integrity):</strong>
               <p className="text-stone-600 text-xs mt-0.5">
-                ነፍሲ ወከፍ ሰብን ዝምድናን ካብ ኣየናይ ገጽ ናይቲ መበቆላዊ PDF ከምዝተረኽበን፡ እቲ ጸሓፊ ዝተጠቀመሉ ቃል ብቃሉ ተመዝጊቡ ይርከብ።
+                ነፍሲ ወከፍ ሰብን ዝምድናን ካብቲ መበቆላዊ ታሪኽን ውርሻን ከምዝተረኸበን፡ ብትኽክለኛ ኣገባብ ብዘይ ምቅያር ተመዝጊቡ ይርከብ።
               </p>
             </div>
           </div>

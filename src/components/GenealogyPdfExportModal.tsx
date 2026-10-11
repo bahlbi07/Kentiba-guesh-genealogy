@@ -33,6 +33,8 @@ export const OFFICIAL_BRANCH_ORDER = [
   'ትዕበ',
   'በርሀ',
   'መድሂን',
+  'ግብፂት',
+  'ተፈሪ',
 ];
 
 export interface BranchTheme {
@@ -202,6 +204,36 @@ export const BRANCH_THEMES: Record<string, BranchTheme> = {
     badgeText: 'text-fuchsia-900',
     accentHex: '#a21caf',
   },
+  ግብፂት: {
+    name: 'ግብፂት',
+    themeColor: 'rose',
+    headerGradient: 'from-rose-600 via-rose-700 to-pink-800',
+    headerBadge: 'bg-rose-800/80 text-rose-100 border-rose-400/40',
+    tableHeadBg: 'bg-rose-100/90',
+    tableHeadText: 'text-rose-950',
+    borderCol: 'border-rose-300',
+    lightBg: 'bg-rose-50/40',
+    accentText: 'text-rose-800',
+    badgeBg: 'bg-rose-100',
+    badgeBorder: 'border-rose-300',
+    badgeText: 'text-rose-900',
+    accentHex: '#e11d48',
+  },
+  ተፈሪ: {
+    name: 'ተፈሪ',
+    themeColor: 'indigo',
+    headerGradient: 'from-indigo-600 via-indigo-700 to-purple-800',
+    headerBadge: 'bg-indigo-800/80 text-indigo-100 border-indigo-400/40',
+    tableHeadBg: 'bg-indigo-100/90',
+    tableHeadText: 'text-indigo-950',
+    borderCol: 'border-indigo-300',
+    lightBg: 'bg-indigo-50/40',
+    accentText: 'text-indigo-800',
+    badgeBg: 'bg-indigo-100',
+    badgeBorder: 'border-indigo-300',
+    badgeText: 'text-indigo-900',
+    accentHex: '#4f46e5',
+  },
 };
 
 const DEFAULT_THEME: BranchTheme = {
@@ -237,6 +269,29 @@ export interface BranchHierarchicalData {
   totalMembers: number;
   hierarchicalMembers: HierarchicalMember[];
   maxGeneration: number;
+}
+
+export function cleanDisplayNote(note?: string | null): string {
+  if (!note) return '';
+  const trimmed = note.trim();
+  if (
+    /PDF/i.test(trimmed) ||
+    /page \d+/i.test(trimmed) ||
+    /ገጽ \d+/i.test(trimmed) ||
+    /ከሰተ-ብርሃነ/i.test(trimmed) ||
+    /Recorded on/i.test(trimmed) ||
+    /Opening names/i.test(trimmed) ||
+    /Source relationship/i.test(trimmed) ||
+    /Confirmed continuation/i.test(trimmed) ||
+    /Named in union/i.test(trimmed) ||
+    /Parent introduced/i.test(trimmed) ||
+    /Patriarch named/i.test(trimmed) ||
+    /Unlabelled in source/i.test(trimmed) ||
+    /source title/i.test(trimmed)
+  ) {
+    return '';
+  }
+  return trimmed;
 }
 
 export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = ({
@@ -311,9 +366,30 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
     );
   }, [people]);
 
+  // Dynamic list of all branch names from official order plus any children of Kinteba Guush in dataset
+  const allBranchNames = useMemo(() => {
+    const list: string[] = [...OFFICIAL_BRANCH_ORDER];
+    for (const p of people) {
+      if (p.isArchived) continue;
+      if (
+        p.fatherName &&
+        (p.fatherName.includes('ከንቲባ ጉዑሽ') || p.fatherName.includes('ከንቲባ ጉዕሽ')) &&
+        p.canonicalName
+      ) {
+        const name = p.canonicalName.trim();
+        if (!list.includes(name)) list.push(name);
+      }
+      if (p.branch && p.branch !== 'ቀንዲ መበቆል') {
+        const b = p.branch.trim();
+        if (!list.includes(b)) list.push(b);
+      }
+    }
+    return list;
+  }, [people]);
+
   // Build hierarchical descent order per branch
   const branchData = useMemo<BranchHierarchicalData[]>(() => {
-    return OFFICIAL_BRANCH_ORDER.map((branchName) => {
+    return allBranchNames.map((branchName) => {
       const theme = BRANCH_THEMES[branchName] || DEFAULT_THEME;
 
       // Collect all people assigned to this branch
@@ -565,9 +641,9 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                   : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-50'
               }`}
             >
-              ኩሎም 10 ጨናፍር ({people.length})
+              ኩሎም {allBranchNames.length} ጨናፍር ({people.length})
             </button>
-            {OFFICIAL_BRANCH_ORDER.map((bName) => {
+            {allBranchNames.map((bName) => {
               const bTheme = BRANCH_THEMES[bName] || DEFAULT_THEME;
               const count = people.filter((p) => p.branch && p.branch.trim() === bName).length;
               const isSelected = selectedBranchFilter === bName;
@@ -676,12 +752,12 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                 ተወለድ እንዳቦይ ከንትባ ጉዕሽ ሓጎስ
               </h1>
               <p className="text-sm sm:text-base text-stone-700 font-bold">
-                ሓረግ ወለዶን ተዋረድ ሰንሰለትን 10 ጨናፍር (መበቆል ዓዲ ሓሓይለ)
+                ሓረግ ወለዶን ተዋረድ ሰንሰለትን {allBranchNames.length} ጨናፍር (መበቆል ዓዲ ሓሓይለ)
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-stone-500 pt-1">
                 <span>ጠቕላላ ኣባላት: <strong>{people.length}</strong></span>
                 <span>&bull;</span>
-                <span>ብዝሒ ጨናፍር: <strong>10</strong></span>
+                <span>ብዝሒ ጨናፍር: <strong>{allBranchNames.length}</strong></span>
                 <span>&bull;</span>
                 <span>ዝተዳለወሉ ዕለት: <strong>{new Date().toLocaleDateString('en-GB')}</strong></span>
               </div>
@@ -702,16 +778,16 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                 {rootAncestor?.canonicalName || 'ከንቲባ ጉዕሽ ሓጎስ'}
               </h2>
               <p className="text-xs sm:text-sm text-stone-700 leading-relaxed">
-                ከንቲባ ጉዕሽ ሓጎስ፡ 10 ውሉዳት (5 ደቂ ተባዕትዮን 5 ደቂ ኣንስትዮን) ዝወለዱ ኮይኖም፡ እዚ ወግዓዊ ሰነድ እዚ ነቶም ካብዚኣቶም ዝተወልዱ ኩሎም ወለዶታት ብተዋረድ ሰንሰለት ኣሰናዲኡ የቅርብ።
+                ከንቲባ ጉዕሽ ሓጎስ፡ {allBranchNames.length} ውሉዳት ዝወለዱ ኮይኖም፡ እዚ ወግዓዊ ሰነድ እዚ ነቶም ካብዚኣቶም ዝተወልዱ ኩሎም ወለዶታት ብተዋረድ ሰንሰለት ኣሰናዲኡ የቅርብ።
               </p>
             </section>
 
-            {/* Quick 10 Branches Visual Index - Screen only or compact print */}
+            {/* Quick Branches Visual Index - Screen only or compact print */}
             {selectedBranchFilter === 'all' && (
               <section className="space-y-2.5 print:hidden">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
                   <Filter className="w-3.5 h-3.5" />
-                  <span>10 ጨናፍር እንዳቦይ ከንትባ ጉዕሽ</span>
+                  <span>{allBranchNames.length} ጨናፍር እንዳቦይ ከንትባ ጉዕሽ</span>
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                   {branchData.map((b, i) => (
@@ -948,8 +1024,8 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
 
                                   {/* 8. ዓዲ / መተሓሳሰቢ (Village / Notes) */}
                                   <td className="py-2 px-3 text-[11px] text-stone-600">
-                                    {member.person.notes ? (
-                                      <span className="line-clamp-2">{member.person.notes}</span>
+                                    {cleanDisplayNote(member.person.notes) ? (
+                                      <span className="line-clamp-2">{cleanDisplayNote(member.person.notes)}</span>
                                     ) : (
                                       <span className="text-stone-400">ዓዲ ሓሓይለ</span>
                                     )}

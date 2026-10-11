@@ -31,7 +31,9 @@ export const OFFICIAL_BRANCHES = [
   'ብስራት',
   'ትዕበ',
   'በርሀ',
-  'መድሂን'
+  'መድሂን',
+  'ግብፂት',
+  'ተፈሪ'
 ];
 
 export interface LineageGeneration {
@@ -62,6 +64,7 @@ export interface SpouseEntry {
 export interface DraftState {
   canonicalName: string;
   branch: string;
+  customBranch?: string;
   notes: string;
   // Lineage chain from immediate parent up to branch root
   lineageChain: LineageGeneration[];
@@ -81,6 +84,7 @@ export interface DraftState {
 const initialDraft: DraftState = {
   canonicalName: '',
   branch: '',
+  customBranch: '',
   notes: '',
   lineageChain: [
     { id: 'gen_1', name: '', parentType: 'mother', spouseName: '' }
@@ -296,6 +300,27 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     setCascadeSteps([]);
     setShowDraftRecoveryDialog(false);
   };
+
+  // Dynamic list of branches including official branches plus any additional children of Kinteba Guush
+  const availableBranches = useMemo(() => {
+    const list: string[] = [...OFFICIAL_BRANCHES];
+    for (const p of people) {
+      if (p.isArchived) continue;
+      if (
+        p.fatherName &&
+        (p.fatherName.includes('ከንቲባ ጉዑሽ') || p.fatherName.includes('ከንቲባ ጉዕሽ')) &&
+        p.canonicalName
+      ) {
+        const name = p.canonicalName.trim();
+        if (!list.includes(name)) list.push(name);
+      }
+      if (p.branch && p.branch !== 'ቀንዲ መበቆል') {
+        const b = p.branch.trim();
+        if (!list.includes(b)) list.push(b);
+      }
+    }
+    return list;
+  }, [people]);
 
   // Root patriarch Kinteba Guush
   const rootPatriarch = useMemo(() => {
@@ -1624,17 +1649,53 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                   ጨንፈር / ሓረግ
                 </label>
                 <select
-                  value={form.branch}
-                  onChange={(e) => handleBranchChange(e.target.value)}
+                  value={availableBranches.includes(form.branch) ? form.branch : (form.branch ? '__custom__' : '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__custom__') {
+                      updateForm((prev) => ({
+                        ...prev,
+                        branch: '__custom__',
+                        customBranch: prev.customBranch || '',
+                      }));
+                    } else {
+                      updateForm((prev) => ({ ...prev, customBranch: '' }));
+                      handleBranchChange(val);
+                    }
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 font-ethiopic cursor-pointer"
                 >
                   <option value="">ጨንፈር ምረጽ...</option>
-                  {OFFICIAL_BRANCHES.map((b) => (
+                  {availableBranches.map((b) => (
                     <option key={b} value={b}>
                       ሓረግ {b}
                     </option>
                   ))}
+                  <option value="__custom__">+ ካሊእ ሓድሽ ጨንፈር ጽሓፍ... (ስም ኣእቱ)</option>
                 </select>
+
+                {(form.branch === '__custom__' || (form.customBranch !== undefined && form.customBranch !== '')) && (
+                  <div className="mt-2.5 space-y-1">
+                    <label className="block text-[11px] font-bold text-amber-900">
+                      ስም ሓድሽ ጨንፈር ብኢድካ ኣእቱ፦
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ስም ሓድሽ ጨንፈር ጽሓፍ (ንኣብነት: ስም ጨንፈር)..."
+                      value={form.customBranch || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateForm((prev) => ({
+                          ...prev,
+                          customBranch: val,
+                          branch: val.trim() || '__custom__',
+                        }));
+                      }}
+                      className="w-full px-3.5 py-2 rounded-xl border border-amber-400 bg-amber-50/60 text-stone-900 text-xs font-ethiopic focus:ring-2 focus:ring-amber-500"
+                      autoFocus
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1854,7 +1915,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               <div className="text-xs text-blue-900 space-y-1">
                 <p className="font-bold">ፕሮፌሽናል መዘኻኸሪ ንሰንሰለታዊ ወለዶ፦</p>
                 <p className="text-[11px] leading-relaxed text-blue-800">
-                  ቅድሚ ኣብዚ ሰንሰለታዊ ወለዶ ብኢድኩም ምጽሓፍኩም፡ እቲ ጨንፈር ወይ መበቆልኩም ካብቶም ኣብ ላዕሊ ኣብ &ldquo;ጨንፈር / ሓረግ&rdquo; ዝተዘርዘሩ 10 ዓበይቲ ጨናፍር ከንቲባ ጉዕሽ (ጎብሩ፡ ሃብቱ፡ ተስፉ፡ ደስታ፡ ወለገርግስ፡ ይሕደጋ፡ ብስራት፡ ትዕበ፡ በርሀ፡ መድሂን) ዘይተዘርዘረ ምዃኑ ኣረጋግጹ። እቲ ጨንፈር እንተሃልዩ፡ ካብቲ ላዕላይ መምረጺ ብምምራጽ ብቐሊሉ ተዋረድ ክትረኽቡ ትኽእሉ ኢኹም።
+                  ቅድሚ ኣብዚ ሰንሰለታዊ ወለዶ ብኢድኩም ምጽሓፍኩም፡ እቲ ጨንፈር ወይ መበቆልኩም ካብቶም ኣብ ላዕሊ ኣብ &ldquo;ጨንፈር / ሓረግ&rdquo; ዝተዘርዘሩ {availableBranches.length} ዓበይቲ ጨናፍር ከንቲባ ጉዕሽ ({availableBranches.join('፡ ')}) ዘይተዘርዘረ ምዃኑ ኣረጋግጹ። እቲ ጨንፈር እንተሃልዩ፡ ካብቲ ላዕላይ መምረጺ ብምምራጽ ብቐሊሉ ተዋረድ ክትረኽቡ ትኽእሉ ኢኹም።
                 </p>
               </div>
             </div>

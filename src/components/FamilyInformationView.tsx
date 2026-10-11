@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Person, Relationship } from '../types/genealogy';
+import { cleanDisplayNote } from './GenealogyPdfExportModal';
 import {
   User,
   Users,
@@ -232,9 +233,9 @@ export const FamilyInformationView: React.FC<FamilyInformationViewProps> = ({
           </button>
         </div>
 
-        {person.notes && (
+        {cleanDisplayNote(person.notes) && (
           <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 text-xs sm:text-sm text-stone-600 font-ethiopic">
-            <strong>መተሓሳሰቢ:</strong> {person.notes}
+            <strong>መተሓሳሰቢ:</strong> {cleanDisplayNote(person.notes)}
           </div>
         )}
       </div>

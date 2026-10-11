@@ -43,6 +43,9 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [canonicalName, setCanonicalName] = useState(person.canonicalName);
   const [displayName, setDisplayName] = useState(person.displayName || '');
+  const [fatherName, setFormFatherName] = useState(person.fatherName || '');
+  const [motherName, setFormMotherName] = useState(person.motherName || '');
+  const [gender, setGender] = useState<'male' | 'female' | 'unknown'>(person.gender || 'unknown');
   const [branch, setBranch] = useState(person.branch || '');
   const [notes, setNotes] = useState(person.notes || '');
   const [status, setStatus] = useState<RecordStatus>(person.status);
@@ -89,8 +92,11 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
   const handleSaveEdit = async () => {
     const updated: Person = {
       ...person,
-      canonicalName,
+      canonicalName: canonicalName.trim(),
       displayName: displayName.trim() || undefined,
+      fatherName: fatherName.trim() || undefined,
+      motherName: motherName.trim() || undefined,
+      gender,
       branch: branch.trim() || undefined,
       notes: notes.trim() || undefined,
       status,
@@ -209,10 +215,44 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white"
+                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-stone-700 mb-1">ስም ኣቦ</label>
+                  <input
+                    type="text"
+                    value={fatherName}
+                    onChange={(e) => setFormFatherName(e.target.value)}
+                    placeholder="ስም ኣቦ..."
+                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-stone-700 mb-1">ስም ኣደ</label>
+                  <input
+                    type="text"
+                    value={motherName}
+                    onChange={(e) => setFormMotherName(e.target.value)}
+                    placeholder="ስም ኣደ..."
+                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-stone-700 mb-1">ጾታ</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as 'male' | 'female' | 'unknown')}
+                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
+                  >
+                    <option value="male">ተባዕታይ</option>
+                    <option value="female">ኣንስተይቲ</option>
+                    <option value="unknown">ዘይተፈልጠ</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-stone-700 mb-1">ጨንፈር / ሓረግ</label>
                   <input
@@ -281,6 +321,26 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                   {person.branch || 'ከንቲባ ጉዕሽ ሓጎስ'}
                 </span>
               </div>
+
+              {(person.fatherName || person.motherName) && (
+                <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">
+                  <span className="text-xs text-stone-400 block mb-1">ወለዲ (ኣቦን ኣደን)</span>
+                  <div className="flex flex-wrap gap-4 text-xs">
+                    {person.fatherName && (
+                      <div className="text-stone-800">
+                        <span className="text-stone-500">ኣቦ: </span>
+                        <span className="font-bold">{person.fatherName}</span>
+                      </div>
+                    )}
+                    {person.motherName && (
+                      <div className="text-stone-800">
+                        <span className="text-stone-500">ኣደ: </span>
+                        <span className="font-bold">{person.motherName}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {person.notes && !person.notes.includes('PDF') && !person.notes.includes('source title') && (
                 <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">

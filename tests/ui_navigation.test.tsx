@@ -6,6 +6,7 @@ import { Directory } from '../src/components/Directory';
 import { FamilyInformationView } from '../src/components/FamilyInformationView';
 import { AboutArchive } from '../src/components/AboutArchive';
 import { AdminPanel } from '../src/components/AdminPanel';
+import { RecordEditorView } from '../src/components/RecordEditorView';
 import App from '../src/App';
 import { Person, Relationship } from '../src/types/genealogy';
 
@@ -144,7 +145,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     );
 
     // Search for repeated name 'ሃብቱ'
-    const searchInput = screen.getByPlaceholderText('Search by name (Tigrinya/English) or ID...');
+    const searchInput = screen.getByPlaceholderText('ብሽም፣ ብስም ኣቦ ወይ መፍለዪ ቁጽሪ ድለዩ...');
     fireEvent.change(searchInput, { target: { value: 'ሃብቱ' } });
 
     // Both distinct occurrences must be present separately!
@@ -220,7 +221,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(screen.getByText('ናይ መዛግብቲ ኣካያዲ መእተዊ')).toBeDefined();
 
     // Attempt login with invalid password
-    const usernameInput = screen.getByPlaceholderText('archivist');
+    const usernameInput = screen.getByPlaceholderText('ስም ተጠቃሚ የእትዉ...');
     const passwordInput = screen.getByPlaceholderText('••••••••');
     const submitBtn = screen.getByRole('button', { name: /ብደሓን እቶ/ });
 
@@ -236,6 +237,52 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
   it('6. App: renders complete application root without crashing', async () => {
     render(<App />);
     expect(await screen.findByText(/ተወለድ እንዳቦይ ከንትባ ጉዕሽ/)).toBeDefined();
+  });
+
+  it('7. RecordEditorView: searches people and opens edit modal to correct misspelled data', async () => {
+    const handleUpdate = vi.fn().mockResolvedValue(undefined);
+    const handleDelete = vi.fn().mockResolvedValue(undefined);
+    const handleSaveRel = vi.fn().mockResolvedValue({ success: true });
+    const handleDeleteRel = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecordEditorView
+        people={mockPeople}
+        relationships={mockRelationships}
+        onUpdatePerson={handleUpdate}
+        onDeletePerson={handleDelete}
+        onSaveRelationship={handleSaveRel}
+        onDeleteRelationship={handleDeleteRel}
+      />
+    );
+
+    // Initial table renders
+    expect(screen.getByText('መመዓራረዪ መዝገብ ወለዶ')).toBeDefined();
+    expect(screen.getAllByText('ጎብሩ').length).toBeGreaterThan(0);
+
+    // Find and click the edit button for a person
+    const editBtns = screen.getAllByRole('button', { name: /ኣስተኻኽል/ });
+    expect(editBtns.length).toBeGreaterThan(0);
+    fireEvent.click(editBtns[0]);
+
+    // Modal opens
+    expect(screen.getByText(/መረዳእታ ምስትኻኻል/)).toBeDefined();
+
+    // Check input fields exist
+    const nameInput = screen.getByDisplayValue(mockPeople[0].canonicalName);
+    expect(nameInput).toBeDefined();
+
+    // Make an edit and submit
+    fireEvent.change(nameInput, { target: { value: 'ሓረግ ወለዶ ዝተዓረየ' } });
+    const saveBtn = screen.getByRole('button', { name: /ለውጢ ኣቐምጥ/ });
+    fireEvent.click(saveBtn);
+
+    expect(handleUpdate).toHaveBeenCalledTimes(1);
+    expect(handleUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        canonicalName: 'ሓረግ ወለዶ ዝተዓረየ',
+      })
+    );
   });
 });
 

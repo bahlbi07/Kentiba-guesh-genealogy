@@ -22,8 +22,10 @@ import {
   ShieldCheck,
   Settings,
   Database,
-  Printer
+  Printer,
+  Edit3
 } from 'lucide-react';
+import { RecordEditorView } from './RecordEditorView';
 import { UncertainRecordsView } from './UncertainRecordsView';
 import { ImportModal } from './ImportModal';
 import { AuditLogViewer } from './AuditLogViewer';
@@ -43,7 +45,7 @@ interface AdminPanelProps {
   onSaveRelationship: (rel: Relationship) => Promise<{ success: boolean; error?: string }>;
   onDeleteRelationship: (id: string) => Promise<void>;
   onAddNewPerson: () => void;
-  onAddNewRelationship: () => void;
+  onAddNewRelationship: (fromPersonId?: string) => void;
   onImportCommitted: () => Promise<void>;
   onOpenPdfExport?: () => void;
 }
@@ -74,7 +76,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Admin sub-view
-  const [adminTab, setAdminTab] = useState<'overview' | 'uncertain' | 'import' | 'audit'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'editor' | 'uncertain' | 'import' | 'audit'>('overview');
 
   // Handle Login
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -142,13 +144,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <form onSubmit={handleLoginSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1">
-              ስም ተጠቃሚ (Username)
+              ስም ተጠቃሚ
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="archivist"
+              placeholder="ስም ተጠቃሚ የእትዉ..."
               required
               className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
             />
@@ -156,7 +158,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1">
-              መሕለፊ ቃል (Password)
+              መሕለፊ ቃል
             </label>
             <input
               type="password"
@@ -241,7 +243,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
 
           <button
-            onClick={onAddNewRelationship}
+            onClick={() => onAddNewRelationship()}
             className="px-3 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <GitFork className="w-4 h-4 rotate-180" />
@@ -270,6 +272,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           }`}
         >
           ሓፈሻዊ ጸብጻብ
+        </button>
+
+        <button
+          onClick={() => setAdminTab('editor')}
+          className={`px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            adminTab === 'editor'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+          }`}
+        >
+          <Edit3 className="w-3.5 h-3.5 text-amber-500" />
+          <span>መመዓራረዪ መዝገብ ({people.length})</span>
         </button>
 
         <button
@@ -335,12 +349,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
+          {/* Quick Action: Open Record Editor */}
+          <div className="bg-linear-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 sm:p-6 rounded-3xl border border-amber-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                <Edit3 className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-stone-900">
+                  ዝተመዝገበ ዳታ ወይ ስም ምዕራይ (መመዓራረዪ)
+                </h4>
+                <p className="text-xs text-stone-600 mt-0.5 leading-relaxed">
+                  ኣብ መዛግብቲ ወለዶ ዝተጋገየ ስም፣ ስም ኣቦ/ኣደ፣ ጨንፈር ወይ ዝምድናታት ንምስትኻኻል እዚ ሓድሽ መመዓራረዪ ተጠቐሙ።
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setAdminTab('editor')}
+              className="px-4 py-2.5 min-h-[40px] bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>መመዓራረዪ መዝገብ ክፈት</span>
+            </button>
+          </div>
+
           {/* Quick Management Instructions */}
           <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-xs space-y-3">
             <h3 className="font-bold text-stone-900 font-ethiopic text-lg">
               ኣካይዳ መምርሒ
             </h3>
             <ul className="space-y-2 text-xs sm:text-sm text-stone-700 font-ethiopic list-disc list-inside leading-relaxed">
+              <li>
+                <strong>ምዕራይ መዛግብቲ:</strong> ኣብ ዝኾነ ስም ወይ ሓበሬታ ስሕተት እንተተረኺቡ፡ ኣብቲ &ldquo;መመዓራረዪ መዝገብ&rdquo; ዝብል ክፍሊ ብምእታው ብቐሊሉ ኣስተኻኽሉ።
+              </li>
               <li>
                 <strong>ምድላው መዝገብ:</strong> እቲ ናይ መበቆል ሰነድ ዳታ ቅድሚ ምእታዉ፡ ኣብቲ &ldquo;መዝገብ ምእታው&rdquo; ዝብል ክፍሊ ብንጹር ተረጋጊጹ ብፍቓድካ ጥራይ ይኣቱ።
               </li>
@@ -356,6 +398,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </ul>
           </div>
         </div>
+      )}
+
+      {adminTab === 'editor' && (
+        <RecordEditorView
+          people={people}
+          relationships={relationships}
+          onUpdatePerson={onUpdatePerson}
+          onDeletePerson={onDeletePerson}
+          onSaveRelationship={onSaveRelationship}
+          onDeleteRelationship={onDeleteRelationship}
+          onAddNewPerson={onAddNewPerson}
+          onAddNewRelationship={onAddNewRelationship}
+          onSelectPerson={onSelectPerson}
+        />
       )}
 
       {adminTab === 'uncertain' && (

@@ -95,7 +95,7 @@ export const Directory: React.FC<DirectoryProps> = ({
             <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-stone-400" />
             <input
               type="text"
-              placeholder="Search by name (Tigrinya/English) or ID..."
+              placeholder="ብሽም፣ ብስም ኣቦ ወይ መፍለዪ ቁጽሪ ድለዩ..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-10 py-3 text-base rounded-xl border border-stone-300 bg-stone-50/70 focus:bg-white focus:ring-2 focus:ring-amber-500 font-ethiopic text-stone-900"

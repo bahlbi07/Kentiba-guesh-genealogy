@@ -153,7 +153,7 @@ export const App: React.FC = () => {
       setAuditEvents(storedAudits);
       setDatasetMode(mode);
 
-      // Auto-select root ancestor if none selected
+      // Auto-select root ancestor if none selected, or refresh current selection
       setSelectedPerson((prev) => {
         if (!prev && storedPeople.length > 0) {
           const root = storedPeople.find(
@@ -164,6 +164,10 @@ export const App: React.FC = () => {
               p.id === 'pers_p1_0_0'
           );
           return root || storedPeople[0];
+        }
+        if (prev) {
+          const refreshed = storedPeople.find((p) => p.id === prev.id);
+          return refreshed || prev;
         }
         return prev;
       });
@@ -374,6 +378,8 @@ export const App: React.FC = () => {
           onDeletePerson={handleDeletePerson}
           onAddRelationship={(fromId) => handleOpenAddRelationship(fromId)}
           onDeleteRelationship={handleDeleteRelationship}
+          onSelectPerson={(p) => setSelectedPerson(p)}
+          onReload={reloadData}
         />
       )}
 

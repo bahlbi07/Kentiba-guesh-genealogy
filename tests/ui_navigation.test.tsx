@@ -9,6 +9,7 @@ import { AdminPanel } from '../src/components/AdminPanel';
 import { RecordEditorView } from '../src/components/RecordEditorView';
 import { AddPersonGuidedModal } from '../src/components/AddPersonGuidedModal';
 import { UncertainRecordsView } from '../src/components/UncertainRecordsView';
+import { PersonDetailModal } from '../src/components/PersonDetailModal';
 import App from '../src/App';
 import { Person, Relationship } from '../src/types/genealogy';
 
@@ -496,6 +497,116 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
           status: 'needs_review',
         })
       );
+    });
+  });
+
+  it('11. PersonDetailModal: provides "+ ውሉድ ወስኽ / ኣስፍሕ" button and batch adds children to expand from 2 to 6', async () => {
+    const mockParent: Person = {
+      id: 'pers_p15_310',
+      canonicalName: 'ዓዶ ዑመር',
+      status: 'verified',
+      branch: 'ትዕበ',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockChild1: Person = {
+      id: 'pers_p15_313',
+      canonicalName: 'ሓጎስ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockChild2: Person = {
+      id: 'pers_p15_314',
+      canonicalName: 'ለምለም',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockRels: Relationship[] = [
+      {
+        id: 'rel_1',
+        fromPersonId: 'pers_p15_310',
+        toPersonId: 'pers_p15_313',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 15,
+        sourceWording: 'ዓዲዑማር ዝወለዶም',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'rel_2',
+        fromPersonId: 'pers_p15_310',
+        toPersonId: 'pers_p15_314',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 15,
+        sourceWording: 'ዓዲዑማር ዝወለዶም',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    const handleReload = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <PersonDetailModal
+        person={mockParent}
+        people={[mockParent, mockChild1, mockChild2]}
+        relationships={mockRels}
+        isAdmin={true}
+        onClose={vi.fn()}
+        onUpdatePerson={vi.fn().mockResolvedValue(undefined)}
+        onDeletePerson={vi.fn().mockResolvedValue(undefined)}
+        onAddRelationship={vi.fn()}
+        onDeleteRelationship={vi.fn().mockResolvedValue(undefined)}
+        onReload={handleReload}
+      />
+    );
+
+    // Initial state: 2 children shown
+    expect(screen.getByText(/ውሉዳት \(2\)/)).toBeDefined();
+    expect(screen.getByText('ሓጎስ')).toBeDefined();
+    expect(screen.getByText('ለምለም')).toBeDefined();
+
+    // Check that the "+ ውሉድ ወስኽ / ኣስፍሕ" button is present
+    const expandBtn = screen.getByRole('button', { name: /\+ ውሉድ ወስኽ \/ ኣስፍሕ/ });
+    expect(expandBtn).toBeDefined();
+
+    // Click to open children expansion panel
+    fireEvent.click(expandBtn);
+
+    // Check expansion panel rendered with heading and batch entry options
+    expect(screen.getByText(/ውሉዳት ምዕባይን ምምዝጋብን/)).toBeDefined();
+    expect(screen.getByText('ብጅምላ ወስኽ')).toBeDefined();
+    expect(screen.getByText('ካብ ዝርዝር ምረጽ')).toBeDefined();
+
+    // Enter comma-separated names into the quick input
+    const quickInput = screen.getByPlaceholderText(/ንኣብነት፡ ሓጎስ፣ ለምለም፣ ኣብርሃ/);
+    fireEvent.change(quickInput, { target: { value: 'ኣብርሃ፣ በርሀ፣ መሓሪ፣ ኣስመላሽ' } });
+
+    // Click split button
+    const splitBtn = screen.getByRole('button', { name: 'ኣከፋፍል' });
+    fireEvent.click(splitBtn);
+
+    // Should indicate expansion from 2 to 6!
+    expect(screen.getByText(/ካብ 2 ናብ 6 ክዓቢ እዩ/)).toBeDefined();
+
+    // Submit batch
+    const submitBtn = screen.getByRole('button', { name: /4 ውሉዳት መዝግብን ኣራኽብን/ });
+    expect(submitBtn).toBeDefined();
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(handleReload).toHaveBeenCalled();
     });
   });
 });

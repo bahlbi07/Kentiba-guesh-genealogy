@@ -609,6 +609,45 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
       expect(handleReload).toHaveBeenCalled();
     });
   });
+
+  it('12. RecordEditorView: automatically extracts and transfers names after space from canonicalName to fatherName', async () => {
+    const mockPerson: Person = {
+      id: 'pers_1791650900376_uipv',
+      canonicalName: 'ባህልቢ ሃይለ',
+      fatherName: '', // empty initially, just like in user screenshot
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+
+    render(
+      <RecordEditorView
+        people={[mockPerson]}
+        relationships={[]}
+        onUpdatePerson={vi.fn().mockResolvedValue(undefined)}
+        onDeletePerson={vi.fn().mockResolvedValue(undefined)}
+        onSaveRelationship={vi.fn().mockResolvedValue({ success: true })}
+        onDeleteRelationship={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    // Open edit modal for person
+    const editBtn = screen.getByRole('button', { name: /ኣስተኻኽል/ });
+    fireEvent.click(editBtn);
+
+    // 1. Father name should have been automatically detected as "ሃይለ" from "ባህልቢ ሃይለ" on modal open!
+    const fatherInput = screen.getByPlaceholderText('ስም ኣቦ...') as HTMLInputElement;
+    expect(fatherInput.value).toBe('ሃይለ');
+
+    // 2. When user modifies canonicalName to add grandfather name e.g. "ባህልቢ ሃይለ ገብረሚካኤል"
+    const canonicalInput = screen.getByPlaceholderText('ምሉእ ስም የእትዉ...') as HTMLInputElement;
+    fireEvent.change(canonicalInput, { target: { value: 'ባህልቢ ሃይለ ገብረሚካኤል' } });
+
+    // Everything after the first space automatically transfers to fatherInput!
+    expect(fatherInput.value).toBe('ሃይለ ገብረሚካኤል');
+  });
 });
 
 

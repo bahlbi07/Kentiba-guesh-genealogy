@@ -129,7 +129,20 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
     setEditingPerson(p);
     setFormCanonicalName(p.canonicalName);
     setFormDisplayName(p.displayName || '');
-    setFormFatherName(p.fatherName || '');
+
+    // Auto-detect father's name (and grandfather's) if fatherName is empty and canonicalName has space
+    let initialFather = p.fatherName || '';
+    if (!initialFather && p.canonicalName) {
+      const trimmed = p.canonicalName.trimStart();
+      const firstSpaceIdx = trimmed.indexOf(' ');
+      if (firstSpaceIdx !== -1) {
+        const extracted = trimmed.slice(firstSpaceIdx + 1).trim();
+        if (extracted) {
+          initialFather = extracted;
+        }
+      }
+    }
+    setFormFatherName(initialFather);
     setFormMotherName(p.motherName || '');
     setFormGender(p.gender || 'unknown');
     
@@ -151,6 +164,19 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
     setSaveError(null);
     setSaveSuccessMsg(null);
     setConfirmDeleteId(null);
+  };
+
+  // Handle Canonical Name Change with Automatic Transfer of Father/Grandfather Names
+  const handleCanonicalNameChange = (val: string) => {
+    setFormCanonicalName(val);
+    const trimmed = val.trimStart();
+    const firstSpaceIdx = trimmed.indexOf(' ');
+    if (firstSpaceIdx !== -1) {
+      const extractedFatherName = trimmed.slice(firstSpaceIdx + 1).trimStart();
+      if (extractedFatherName) {
+        setFormFatherName(extractedFatherName);
+      }
+    }
   };
 
   // Close Edit Modal
@@ -544,11 +570,23 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                       <input
                         type="text"
                         value={formCanonicalName}
-                        onChange={(e) => setFormCanonicalName(e.target.value)}
+                        onChange={(e) => handleCanonicalNameChange(e.target.value)}
                         placeholder="ምሉእ ስም የእትዉ..."
                         required
                         className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white font-ethiopic text-stone-900 focus:ring-2 focus:ring-amber-500"
                       />
+                      {formCanonicalName.trim().indexOf(' ') !== -1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const firstName = formCanonicalName.trim().split(/\s+/)[0];
+                            setFormCanonicalName(firstName);
+                          }}
+                          className="text-[11px] text-amber-600 hover:text-amber-800 underline font-ethiopic mt-1 cursor-pointer block"
+                        >
+                          ስም በዓል ዋና ጥራይ ግበር ("{formCanonicalName.trim().split(/\s+/)[0]}")
+                        </button>
+                      )}
                     </div>
 
                     <div>
@@ -567,9 +605,16 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-stone-700 mb-1">
-                        ስም ኣቦ
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-stone-700">
+                          ስም ኣቦ
+                        </label>
+                        {formFatherName && formCanonicalName.trim().indexOf(' ') !== -1 && (
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-ethiopic">
+                            ብኣውቶማቲክ ዝተረኽበ
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={formFatherName}
@@ -577,6 +622,11 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                         placeholder="ስም ኣቦ..."
                         className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white font-ethiopic text-stone-900 focus:ring-2 focus:ring-amber-500"
                       />
+                      {formFatherName && formCanonicalName.trim().indexOf(' ') !== -1 && (
+                        <p className="text-[11px] text-amber-800 font-ethiopic mt-1">
+                          💡 ድሕሪ ስፔስ ዘሎ ሽም (<strong>{formFatherName}</strong>) ናብ ስም ኣቦ ሓሊፉ ኣሎ።
+                        </p>
+                      )}
                     </div>
 
                     <div>

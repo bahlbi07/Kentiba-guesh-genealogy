@@ -54,7 +54,19 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [canonicalName, setCanonicalName] = useState(person.canonicalName);
   const [displayName, setDisplayName] = useState(person.displayName || '');
-  const [fatherName, setFormFatherName] = useState(person.fatherName || '');
+
+  // Auto-detect father's name (and grandfather's) if fatherName is empty and canonicalName has space
+  const initialFatherName = useMemo(() => {
+    if (person.fatherName) return person.fatherName;
+    const trimmed = (person.canonicalName || '').trimStart();
+    const firstSpaceIdx = trimmed.indexOf(' ');
+    if (firstSpaceIdx !== -1) {
+      return trimmed.slice(firstSpaceIdx + 1).trim();
+    }
+    return '';
+  }, [person.fatherName, person.canonicalName]);
+
+  const [fatherName, setFormFatherName] = useState(initialFatherName);
   const [motherName, setFormMotherName] = useState(person.motherName || '');
   const [gender, setGender] = useState<'male' | 'female' | 'unknown'>(person.gender || 'unknown');
   const [branch, setBranch] = useState(person.branch || '');
@@ -62,6 +74,19 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
   const [status, setStatus] = useState<RecordStatus>(person.status);
   const [reviewerNote, setReviewerNote] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Handle Canonical Name Change with Automatic Transfer of Father/Grandfather Names
+  const handleCanonicalNameChange = (val: string) => {
+    setCanonicalName(val);
+    const trimmed = val.trimStart();
+    const firstSpaceIdx = trimmed.indexOf(' ');
+    if (firstSpaceIdx !== -1) {
+      const extractedFatherName = trimmed.slice(firstSpaceIdx + 1).trimStart();
+      if (extractedFatherName) {
+        setFormFatherName(extractedFatherName);
+      }
+    }
+  };
 
   // Children expansion & batch management state
   const [showAddChildrenPanel, setShowAddChildrenPanel] = useState(false);
@@ -491,9 +516,21 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                 <input
                   type="text"
                   value={canonicalName}
-                  onChange={(e) => setCanonicalName(e.target.value)}
+                  onChange={(e) => handleCanonicalNameChange(e.target.value)}
                   className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
                 />
+                {canonicalName.trim().indexOf(' ') !== -1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const firstName = canonicalName.trim().split(/\s+/)[0];
+                      setCanonicalName(firstName);
+                    }}
+                    className="text-[11px] text-amber-600 hover:text-amber-800 underline font-ethiopic mt-1 cursor-pointer block"
+                  >
+                    ስም በዓል ዋና ጥራይ ግበር ("{canonicalName.trim().split(/\s+/)[0]}")
+                  </button>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">
@@ -508,7 +545,14 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-stone-700 mb-1">ስም ኣቦ</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-stone-700">ስም ኣቦ</label>
+                    {fatherName && canonicalName.trim().indexOf(' ') !== -1 && (
+                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                        ብኣውቶማቲክ ዝተረኽበ
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={fatherName}
@@ -516,6 +560,11 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                     placeholder="ስም ኣቦ..."
                     className="w-full px-3 py-1.5 text-sm rounded-lg border border-stone-300 bg-white font-ethiopic"
                   />
+                  {fatherName && canonicalName.trim().indexOf(' ') !== -1 && (
+                    <p className="text-[10px] text-amber-800 font-ethiopic mt-1">
+                      💡 ድሕሪ ስፔስ ዘሎ ሽም (<strong>{fatherName}</strong>) ናብ ስም ኣቦ ሓሊፉ ኣሎ።
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-stone-700 mb-1">ስም ኣደ</label>

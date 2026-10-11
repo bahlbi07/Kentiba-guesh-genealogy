@@ -140,6 +140,9 @@ export async function apiSaveBatch(
   token?: string
 ): Promise<{ success: boolean; count?: { people: number; relationships: number }; error?: string }> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -150,9 +153,11 @@ export async function apiSaveBatch(
 
     const res = await fetch(`${getBackendBaseUrl()}/api/batch`, {
       method: 'POST',
+      signal: controller.signal,
       headers,
       body: JSON.stringify({ people, relationships }),
     });
+    clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json();
@@ -173,6 +178,9 @@ export async function apiSaveRelationship(
   token?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -183,9 +191,11 @@ export async function apiSaveRelationship(
 
     const res = await fetch(`${getBackendBaseUrl()}/api/relationship`, {
       method: 'POST',
+      signal: controller.signal,
       headers,
       body: JSON.stringify(relationship),
     });
+    clearTimeout(timeoutId);
 
     if (res.ok) {
       return { success: true };

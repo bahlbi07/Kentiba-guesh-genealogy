@@ -461,7 +461,9 @@ export const App: React.FC = () => {
           onSavePerson={async (p) => {
             await savePerson(p, 'Admin');
           }}
-          onSaveRelationship={handleSaveRelationship}
+          onSaveRelationship={async (r) => {
+            return await saveRelationship(r, 'Admin');
+          }}
           onComplete={reloadData}
         />
       )}

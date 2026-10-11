@@ -1176,18 +1176,20 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         }
       }
 
-      // 6. Immediately synchronize all created records with server backend (Requirement 5)
-      try {
-        const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
-        await apiSaveBatch(createdPeopleBatch, createdRelationshipsBatch, token);
-      } catch (syncErr) {
-        console.warn('Server batch synchronization note:', syncErr);
-      }
-
-      // 7. Clean draft and reload
+      // 6. Clean draft, reload, and close modal IMMEDIATELY (Sub-second local response!)
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       await onComplete();
       onClose();
+
+      // 7. Non-blocking background synchronization with server backend
+      try {
+        const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+        apiSaveBatch(createdPeopleBatch, createdRelationshipsBatch, token).catch((syncErr) => {
+          console.warn('Background server sync note:', syncErr);
+        });
+      } catch (syncErr) {
+        console.warn('Server batch synchronization note:', syncErr);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'ምምዝጋብ ኣይተዓወተን።';
       setSubmitError(message);

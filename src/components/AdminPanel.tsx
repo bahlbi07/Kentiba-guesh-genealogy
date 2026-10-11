@@ -10,7 +10,6 @@ import {
   Lock,
   LogOut,
   Users,
-  GitFork,
   AlertTriangle,
   History,
   Download,
@@ -45,7 +44,7 @@ interface AdminPanelProps {
   onSaveRelationship: (rel: Relationship) => Promise<{ success: boolean; error?: string }>;
   onDeleteRelationship: (id: string) => Promise<void>;
   onAddNewPerson: () => void;
-  onAddNewRelationship: (fromPersonId?: string) => void;
+  onAddNewRelationship?: (fromPersonId?: string) => void;
   onImportCommitted: () => Promise<void>;
   onOpenPdfExport?: () => void;
   onDeduplicate?: () => Promise<{ mergedCount: number; details: string[] }>;
@@ -248,14 +247,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>ሓድሽ ሰብ ወስኽ</span>
-          </button>
-
-          <button
-            onClick={() => onAddNewRelationship()}
-            className="px-3 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <GitFork className="w-4 h-4 rotate-180" />
-            <span>ዝምድና ወስኽ</span>
           </button>
 
           <button

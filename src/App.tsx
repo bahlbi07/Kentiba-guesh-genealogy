@@ -30,7 +30,6 @@ import { FamilyInformationView } from './components/FamilyInformationView';
 import { AboutArchive } from './components/AboutArchive';
 import { AdminPanel } from './components/AdminPanel';
 import { PersonDetailModal } from './components/PersonDetailModal';
-import { RelationshipModal } from './components/RelationshipModal';
 import { AddPersonGuidedModal } from './components/AddPersonGuidedModal';
 import { GenealogyPdfExportModal } from './components/GenealogyPdfExportModal';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
@@ -66,8 +65,6 @@ export const App: React.FC = () => {
     );
   });
   const [showPersonModal, setShowPersonModal] = useState(false);
-  const [showRelationshipModal, setShowRelationshipModal] = useState(false);
-  const [initialRelFromId, setInitialRelFromId] = useState<string | undefined>(undefined);
   const [showAddPersonModal, setShowAddPersonModal] = useState(false);
   const [showPdfExportModal, setShowPdfExportModal] = useState(false);
 
@@ -276,11 +273,6 @@ export const App: React.FC = () => {
     await reloadData();
   };
 
-  const handleOpenAddRelationship = (fromPersonId?: string) => {
-    setInitialRelFromId(fromPersonId);
-    setShowRelationshipModal(true);
-  };
-
   const handleAdminLogin = (token: string, username: string) => {
     sessionStorage.setItem('kinteba_admin_auth', 'true');
     sessionStorage.setItem('kinteba_admin_user', username);
@@ -438,7 +430,6 @@ export const App: React.FC = () => {
             onSaveRelationship={handleSaveRelationship}
             onDeleteRelationship={handleDeleteRelationship}
             onAddNewPerson={() => setShowAddPersonModal(true)}
-            onAddNewRelationship={() => handleOpenAddRelationship()}
             onImportCommitted={reloadData}
             onOpenPdfExport={() => setShowPdfExportModal(true)}
             onDeduplicate={handleManualDeduplication}
@@ -459,21 +450,9 @@ export const App: React.FC = () => {
           onClose={() => setShowPersonModal(false)}
           onUpdatePerson={handleUpdatePerson}
           onDeletePerson={handleDeletePerson}
-          onAddRelationship={(fromId) => handleOpenAddRelationship(fromId)}
           onDeleteRelationship={handleDeleteRelationship}
           onSelectPerson={(p) => setSelectedPerson(p)}
           onReload={reloadData}
-        />
-      )}
-
-      {/* Add / Edit Relationship Modal */}
-      {showRelationshipModal && (
-        <RelationshipModal
-          people={people}
-          relationships={relationships}
-          initialFromPersonId={initialRelFromId}
-          onClose={() => setShowRelationshipModal(false)}
-          onSaveRelationship={handleSaveRelationship}
         />
       )}
 

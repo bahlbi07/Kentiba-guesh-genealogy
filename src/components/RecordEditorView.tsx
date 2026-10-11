@@ -333,16 +333,6 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
             </button>
           )}
 
-          {onAddNewRelationship && (
-            <button
-              onClick={() => onAddNewRelationship()}
-              className="px-3.5 py-2 min-h-[40px] bg-stone-800 hover:bg-stone-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <GitFork className="w-4 h-4 rotate-180" />
-              <span>ዝምድና ወስኽ</span>
-            </button>
-          )}
-
           {onDeduplicate && (
             <button
               onClick={handleRunDeduplication}
@@ -816,19 +806,6 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                     <GitFork className="w-4 h-4 text-amber-600" />
                     <span>ተተሓሓዝቲ ዝምድናታት</span>
                   </h4>
-
-                  {onAddNewRelationship && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onAddNewRelationship(editingPerson.id);
-                      }}
-                      className="px-2.5 py-1.5 min-h-[32px] bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>ዝምድና ወስኽ</span>
-                    </button>
-                  )}
                 </div>
 
                 {/* Parents */}

@@ -30,7 +30,7 @@ interface PersonDetailModalProps {
   onClose: () => void;
   onUpdatePerson: (updated: Person) => Promise<void>;
   onDeletePerson: (id: string) => Promise<void>;
-  onAddRelationship: (fromPersonId: string) => void;
+  onAddRelationship?: (fromPersonId: string) => void;
   onDeleteRelationship: (relId: string) => Promise<void>;
   onSelectPerson?: (person: Person) => void;
   onReload?: () => Promise<void>;
@@ -697,7 +697,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                 <GitCommit className="w-4 h-4 text-amber-600" />
                 <span>ዝተመዝገቡ ዝምድናታት</span>
               </h3>
-              {isAdmin && (
+              {isAdmin && onAddRelationship && (
                 <button
                   onClick={() => onAddRelationship(person.id)}
                   className="px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg font-medium flex items-center space-x-1"

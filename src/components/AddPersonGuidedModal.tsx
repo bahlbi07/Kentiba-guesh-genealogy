@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Person, Relationship } from '../types/genealogy';
 import { validateParentChildCycle } from '../services/cycleDetector';
 import { apiSaveBatch } from '../services/apiClient';
+import { parseRelationshipPhrase } from '../services/importParser';
 import {
   X,
   User,
@@ -272,6 +273,121 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     [people, relationships]
   );
 
+  // Helper to retrieve auto-detected or registered spouse for an ancestor/person
+  const getSpouseForPerson = useCallback(
+    (personId?: string | null, personName?: string): { spouseName: string; spouseId?: string; source: string } | null => {
+      if (!personId && !personName) return null;
+
+      // 1. If personId is provided, look up by ID
+      let targetPerson: Person | undefined;
+      if (personId) {
+        targetPerson = people.find((p) => p.id === personId && !p.isArchived);
+      }
+
+      // 2. If not found by ID, look up by canonicalName
+      const cleanName = (personName || targetPerson?.canonicalName || '').trim();
+      if (!targetPerson && cleanName) {
+        const cleanLower = cleanName.toLowerCase();
+        targetPerson = people.find(
+          (p) => !p.isArchived && p.canonicalName.trim().toLowerCase() === cleanLower
+        );
+      }
+
+      // 3. Search relationships for partner_or_union
+      if (targetPerson) {
+        for (const rel of relationships) {
+          if (rel.type === 'partner_or_union') {
+            if (rel.fromPersonId === targetPerson.id || rel.toPersonId === targetPerson.id) {
+              const otherId = rel.fromPersonId === targetPerson.id ? rel.toPersonId : rel.fromPersonId;
+              const spouse = people.find((p) => p.id === otherId && !p.isArchived);
+              if (spouse && spouse.canonicalName.trim()) {
+                return {
+                  spouseName: spouse.canonicalName.trim(),
+                  spouseId: spouse.id,
+                  source: 'relationship',
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Search by targetPerson's spouseNote or notes
+      if (targetPerson?.spouseNote) {
+        const parsed = parseRelationshipPhrase(targetPerson.spouseNote);
+        if (parsed.partnerName) {
+          return {
+            spouseName: parsed.partnerName.trim(),
+            source: 'spouseNote',
+          };
+        }
+        const noteMatch = targetPerson.spouseNote.match(/(?:መጻምድቲ|ምስ)\s*[:፡]?\s*([^\n,፡]+)/);
+        if (noteMatch && noteMatch[1].trim()) {
+          return {
+            spouseName: noteMatch[1].trim(),
+            source: 'spouseNote_regex',
+          };
+        }
+      }
+
+      if (targetPerson?.notes) {
+        const noteMatch = targetPerson.notes.match(/(?:መጻምድቲ|ምስ)\s*[:፡]?\s*([^\n,፡]+)/);
+        if (noteMatch && noteMatch[1].trim()) {
+          return {
+            spouseName: noteMatch[1].trim(),
+            source: 'notes_regex',
+          };
+        }
+      }
+
+      // 5. Look for children of targetPerson where co-parent is recorded
+      if (targetPerson) {
+        for (const p of people) {
+          if (p.isArchived) continue;
+          if (p.fatherName && p.fatherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
+            if (p.motherName && p.motherName.trim()) {
+              return {
+                spouseName: p.motherName.trim(),
+                source: 'child_mother',
+              };
+            }
+          }
+          if (p.motherName && p.motherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
+            if (p.fatherName && p.fatherName.trim()) {
+              return {
+                spouseName: p.fatherName.trim(),
+                source: 'child_father',
+              };
+            }
+          }
+        }
+      }
+
+      // 6. If targetPerson wasn't matched directly, check child records by cleanName
+      if (cleanName) {
+        const cleanLower = cleanName.toLowerCase();
+        for (const p of people) {
+          if (p.isArchived) continue;
+          if (p.fatherName && p.fatherName.trim().toLowerCase() === cleanLower && p.motherName?.trim()) {
+            return {
+              spouseName: p.motherName.trim(),
+              source: 'child_mother',
+            };
+          }
+          if (p.motherName && p.motherName.trim().toLowerCase() === cleanLower && p.fatherName?.trim()) {
+            return {
+              spouseName: p.fatherName.trim(),
+              source: 'child_father',
+            };
+          }
+        }
+      }
+
+      return null;
+    },
+    [people, relationships]
+  );
+
   // Synchronize cascading descendant steps into form.lineageChain (from bottom up)
   const syncCascadeToLineage = useCallback(
     (steps: CascadeStep[], branchName: string) => {
@@ -283,11 +399,16 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       // Step 1 up to last step in reverse order: lowest child first (immediate parent)
       for (let i = validSteps.length - 1; i >= 0; i--) {
         const s = validSteps[i];
+        let spouse = s.spouseName?.trim() || '';
+        if (!spouse) {
+          const sp = getSpouseForPerson(s.selectedPersonId, s.name);
+          if (sp?.spouseName) spouse = sp.spouseName;
+        }
         chain.push({
           id: `gen_casc_${i}_${s.name.trim()}`,
           name: s.name.trim(),
           parentType: i === validSteps.length - 1 ? 'mother' : 'father',
-          spouseName: s.spouseName?.trim() || '',
+          spouseName: spouse,
           existingPersonId: s.selectedPersonId || null,
         });
       }
@@ -295,11 +416,12 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       // Add branch anchor at top of chain
       if (branchName && !chain.some((g) => g.name.trim() === branchName.trim())) {
         const rootPerson = getBranchRootPerson(branchName);
+        const rootSpouse = getSpouseForPerson(rootPerson?.id, branchName);
         chain.push({
           id: `gen_casc_branch_${branchName}`,
           name: branchName.trim(),
           parentType: 'father',
-          spouseName: '',
+          spouseName: rootSpouse?.spouseName || '',
           existingPersonId: rootPerson?.id || null,
         });
       }
@@ -310,7 +432,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         cascadeSteps: steps,
       }));
     },
-    [getBranchRootPerson]
+    [getBranchRootPerson, getSpouseForPerson]
   );
 
   // When branch is selected
@@ -321,12 +443,13 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       return;
     }
     const rootPerson = getBranchRootPerson(newBranch);
+    const rootSpouse = getSpouseForPerson(rootPerson?.id, newBranch);
     const initialStep: CascadeStep = {
       id: `step_${Date.now()}_0`,
       parentName: newBranch,
       parentId: rootPerson?.id,
       name: '',
-      spouseName: '',
+      spouseName: rootSpouse?.spouseName || '',
       isCustom: false,
     };
     setCascadeSteps([initialStep]);
@@ -369,12 +492,15 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     const selectedPerson = people.find((p) => p.id === childPersonId);
     if (!selectedPerson) return;
 
+    const spouseInfo = getSpouseForPerson(selectedPerson.id, selectedPerson.canonicalName);
+
     setCascadeSteps((prev) => {
       const next = prev.slice(0, stepIndex + 1);
       next[stepIndex] = {
         ...next[stepIndex],
         name: selectedPerson.canonicalName,
         selectedPersonId: selectedPerson.id,
+        spouseName: spouseInfo?.spouseName || '',
         isCustom: false,
       };
 
@@ -401,13 +527,21 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       const matchedChild = trimmed
         ? existingChildren.find(
             (c) => c.canonicalName.trim().toLowerCase() === trimmed.toLowerCase()
+          ) ||
+          people.find(
+            (p) => !p.isArchived && p.canonicalName.trim().toLowerCase() === trimmed.toLowerCase()
           )
         : undefined;
+
+      const spouseInfo = trimmed
+        ? getSpouseForPerson(matchedChild?.id, trimmed)
+        : null;
 
       next[stepIndex] = {
         ...next[stepIndex],
         name,
         selectedPersonId: matchedChild ? matchedChild.id : undefined,
+        spouseName: next[stepIndex].spouseName || spouseInfo?.spouseName || '',
         isCustom: !matchedChild,
       };
       syncCascadeToLineage(next, form.branch);
@@ -546,10 +680,62 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
   };
 
   const handleUpdateGeneration = (id: string, updates: Partial<LineageGeneration>) => {
+    let augmented = { ...updates };
+    if (updates.name !== undefined && updates.spouseName === undefined) {
+      const trimmed = updates.name.trim();
+      if (trimmed) {
+        const spouseInfo = getSpouseForPerson(updates.existingPersonId, trimmed);
+        if (spouseInfo?.spouseName) {
+          augmented.spouseName = spouseInfo.spouseName;
+        }
+      }
+    }
     updateForm((prev) => ({
       ...prev,
-      lineageChain: prev.lineageChain.map((g) => (g.id === id ? { ...g, ...updates } : g))
+      lineageChain: prev.lineageChain.map((g) => (g.id === id ? { ...g, ...augmented } : g))
     }));
+  };
+
+  // Auto-detect patronymic & ancestral lineage from full name input
+  const handleCanonicalNameChange = (val: string) => {
+    updateForm((prev) => {
+      const trimmed = val.trim();
+      const words = trimmed ? trimmed.split(/\s+/) : [];
+
+      let nextChain = [...prev.lineageChain];
+      if (words.length > 1) {
+        const ancestorWords = words.slice(1);
+        while (nextChain.length < ancestorWords.length) {
+          nextChain.push({
+            id: `gen_${Date.now()}_${nextChain.length}`,
+            name: '',
+            parentType: 'father',
+            spouseName: '',
+          });
+        }
+
+        for (let i = 0; i < ancestorWords.length; i++) {
+          const ancName = ancestorWords[i];
+          const existingSpouse = nextChain[i]?.spouseName;
+          const spouseInfo = getSpouseForPerson(nextChain[i]?.existingPersonId, ancName);
+          nextChain[i] = {
+            ...nextChain[i],
+            name: ancName,
+            spouseName: existingSpouse || spouseInfo?.spouseName || '',
+          };
+        }
+      }
+
+      // Check if this person themselves has a spouse registered in records
+      const selfSpouse = !prev.spouseName && trimmed ? getSpouseForPerson(undefined, trimmed) : null;
+
+      return {
+        ...prev,
+        canonicalName: val,
+        spouseName: prev.spouseName || selfSpouse?.spouseName || '',
+        lineageChain: nextChain,
+      };
+    });
   };
 
   // Children management
@@ -679,6 +865,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             status: 'verified',
             isArchived: false,
             notes: `ወለዶ ስድራቤት: ${form.canonicalName}`,
+            spouseNote: gen.spouseName?.trim() ? `መጻምድቲ: ${gen.spouseName.trim()}` : undefined,
             createdAt: now,
             updatedAt: now,
           };
@@ -707,6 +894,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               status: 'verified',
               isArchived: false,
               notes: `መጻምድቲ ${trimmedGenName}`,
+              spouseNote: `መጻምድቲ: ${trimmedGenName}`,
               createdAt: now,
               updatedAt: now,
             };
@@ -745,6 +933,18 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             };
             await onSaveRelationship(spouseRel);
             createdRelationshipsBatch.push(spouseRel);
+          }
+
+          // Permanently record spouseNote on the ancestor person record
+          const matchedAncestor = people.find((p) => p.id === ancestorId);
+          if (matchedAncestor) {
+            const updatedAncestor: Person = {
+              ...matchedAncestor,
+              spouseNote: `መጻምድቲ: ${trimmedSpouseName}`,
+              updatedAt: now,
+            };
+            await onSavePerson(updatedAncestor);
+            createdPeopleBatch.push(updatedAncestor);
           }
         }
       }
@@ -847,6 +1047,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         status: 'verified',
         isArchived: false,
         notes: form.notes?.trim() || undefined,
+        spouseNote: form.spouseName?.trim() ? `መጻምድቲ: ${form.spouseName.trim()}` : undefined,
         createdAt: now,
         updatedAt: now
       };
@@ -886,6 +1087,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           status: 'verified',
           isArchived: false,
           notes: `መጻምድቲ ${form.canonicalName}`,
+          spouseNote: `መጻምድቲ: ${form.canonicalName.trim()}`,
           createdAt: now,
           updatedAt: now
         };
@@ -1071,7 +1273,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                   required
                   placeholder="ንኣብነት: ባህልቢ ሃይለ..."
                   value={form.canonicalName}
-                  onChange={(e) => updateForm((p) => ({ ...p, canonicalName: e.target.value }))}
+                  onChange={(e) => handleCanonicalNameChange(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 font-ethiopic"
                 />
               </div>
@@ -1185,9 +1387,22 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                                 />
                               </div>
                               <div>
-                                <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                                  መጻምድቲ (ሓዳር) እንተሃልዩ
-                                </label>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-[11px] text-stone-600 font-medium">
+                                    መጻምድቲ (ሓዳር) እንተሃልዩ
+                                  </label>
+                                  {(() => {
+                                    const recorded = getSpouseForPerson(step.selectedPersonId, step.name);
+                                    const isAutoMatched =
+                                      Boolean(recorded && step.spouseName && recorded.spouseName.trim().toLowerCase() === step.spouseName.trim().toLowerCase());
+                                    return isAutoMatched ? (
+                                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-medium inline-flex items-center gap-1 shadow-2xs">
+                                        <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                        ካብ መዝገብ ዝተረኽበ
+                                      </span>
+                                    ) : null;
+                                  })()}
+                                </div>
                                 <input
                                   type="text"
                                   placeholder="ስም መጻምድቲ..."
@@ -1367,9 +1582,22 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                          መጻምድቲ (ሓዳር) እንተሃልዩ
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] text-stone-600 font-medium">
+                            መጻምድቲ (ሓዳር) እንተሃልዩ
+                          </label>
+                          {(() => {
+                            const recorded = getSpouseForPerson(gen.existingPersonId, gen.name);
+                            const isAutoMatched =
+                              Boolean(recorded && gen.spouseName && recorded.spouseName.trim().toLowerCase() === gen.spouseName.trim().toLowerCase());
+                            return isAutoMatched ? (
+                              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-medium inline-flex items-center gap-1 shadow-2xs">
+                                <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                ካብ መዝገብ ዝተረኽበ
+                              </span>
+                            ) : null;
+                          })()}
+                        </div>
                         <input
                           type="text"
                           placeholder={idx === 0 ? 'ንኣብነት: ሃይለ...' : 'ስም መጻምድቲ...'}
@@ -1467,14 +1695,37 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                 <GitFork className="w-4 h-4 rotate-180 text-amber-700" />
                 <span>4. ውሉዳት ({form.children.length})</span>
               </h3>
-              <button
-                type="button"
-                onClick={handleAddChildRow}
-                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ ቆልዓ ወስኽ</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddChildRow}
+                  className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ ቆልዓ ወስኽ</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateForm((prev) => ({
+                      ...prev,
+                      children: [
+                        ...prev.children,
+                        ...Array.from({ length: 4 }, (_, i) => ({
+                          id: `c_${Date.now()}_${prev.children.length + i}`,
+                          name: '',
+                          notes: '',
+                        })),
+                      ],
+                    }));
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                  title="4 መስመራት ውሉዳት ብሓባር ወስኽ"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ 4 ውሉዳት</span>
+                </button>
+              </div>
             </div>
 
             {form.children.length === 0 ? (
@@ -1583,9 +1834,11 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                       key={p.id}
                       type="button"
                       onClick={() => {
+                        const spouseInfo = getSpouseForPerson(p.id, p.canonicalName);
                         handleUpdateGeneration(pickerTargetGenId, {
                           name: p.canonicalName,
-                          existingPersonId: p.id
+                          existingPersonId: p.id,
+                          spouseName: spouseInfo?.spouseName || '',
                         });
                         setPickerTargetGenId(null);
                       }}

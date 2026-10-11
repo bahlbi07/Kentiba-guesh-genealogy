@@ -650,6 +650,72 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     // Everything after the first space automatically transfers to fatherInput!
     expect(fatherInput.value).toBe('ሃይለ ገብረሚካኤል');
   });
+
+  it('13. AddPersonGuidedModal: automatically retrieves and pre-fills recorded spouse for ancestors across generations and supports +4 children', async () => {
+    const mockAncestor: Person = {
+      id: 'pers_p15_halibo',
+      canonicalName: 'ሓሊቦ',
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      spouseNote: 'መጻምድቲ: ደስታ ወልደ ሚካኤል',
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockSpouse: Person = {
+      id: 'pers_desta_wm',
+      canonicalName: 'ደስታ ወልደ ሚካኤል',
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockSpouseRel: Relationship = {
+      id: 'rel_halibo_desta',
+      fromPersonId: 'pers_p15_halibo',
+      toPersonId: 'pers_desta_wm',
+      type: 'partner_or_union',
+      status: 'verified',
+      sourceFile: 'ከሰተ-ብርሃነ.pdf',
+      sourcePage: 15,
+      sourceWording: 'ሓሊቦ ዝተመርዓዉ ምስ ደስታ ወልደ ሚካኤል',
+      isBiologicalConfirmed: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+
+    render(
+      <AddPersonGuidedModal
+        people={[mockAncestor, mockSpouse]}
+        relationships={[mockSpouseRel]}
+        onClose={vi.fn()}
+        onSavePerson={vi.fn().mockResolvedValue(undefined)}
+        onSaveRelationship={vi.fn().mockResolvedValue({ success: true })}
+        onComplete={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    // 1. Enter parent name "ሓሊቦ" into generation 1 input
+    const parentInput = screen.getByPlaceholderText('ንኣብነት: ደሃብ...') as HTMLInputElement;
+    fireEvent.change(parentInput, { target: { value: 'ሓሊቦ' } });
+
+    // The spouse input should automatically be populated with "ደስታ ወልደ ሚካኤል"!
+    const spouseInput = screen.getByPlaceholderText('ንኣብነት: ሃይለ...') as HTMLInputElement;
+    expect(spouseInput.value).toBe('ደስታ ወልደ ሚካኤል');
+
+    // And the badge "ካብ መዝገብ ዝተረኽበ" should be rendered!
+    expect(screen.getByText('ካብ መዝገብ ዝተረኽበ')).toBeDefined();
+
+    // 2. Click "+ 4 ውሉዳት" button in children section
+    const add4Btn = screen.getByRole('button', { name: /\+ 4 ውሉዳት/ });
+    expect(add4Btn).toBeDefined();
+    fireEvent.click(add4Btn);
+
+    // Now 4 children rows should be rendered!
+    expect(screen.getByText('4. ውሉዳት (4)')).toBeDefined();
+  });
 });
+
 
 

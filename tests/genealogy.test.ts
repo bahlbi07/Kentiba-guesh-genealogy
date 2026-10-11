@@ -19,6 +19,7 @@ import {
 } from '../src/services/exportService';
 import { isCloudConfigured } from '../src/services/supabaseClient';
 import { Person, Relationship } from '../src/types/genealogy';
+import { cleanCandidateSpouseName } from '../src/components/AddPersonGuidedModal';
 
 describe('Kinteba Guush Family Genealogy Test Suite', () => {
   beforeEach(async () => {
@@ -581,6 +582,23 @@ describe('Kinteba Guush Family Genealogy Test Suite', () => {
     expect(result.stats.pagesTranscribedCount).toBe(29);
     expect(result.stats.confirmedContinuationsCount).toBe(19);
     expect(result.stats.duplicateNameOccurrences.length).toBe(92);
+  });
+
+  // Test 19: cleanCandidateSpouseName strictly rejects narrative phrases and junk text
+  it('Requirement 19: cleanCandidateSpouseName strictly rejects narrative phrases like "ጉን ኮኾባይ ኣትያ ዝወለደቶም ድማ`" and accepts clean person names', () => {
+    // Rejects narrative sentences that were accidentally captured from PDF notes
+    expect(cleanCandidateSpouseName('ጉን ኮኾባይ ኣትያ ዝወለደቶም ድማ`')).toBe('');
+    expect(cleanCandidateSpouseName('ለትማርያም ናብ ሸቃ ምስጉን ኮኾባይ ኣትያ ዝወለደቶም ድማ')).toBe('');
+    expect(cleanCandidateSpouseName('ኣትያ ዝወለደቶም ድማ')).toBe('');
+    expect(cleanCandidateSpouseName('Source relationship: `...`')).toBe('');
+    expect(cleanCandidateSpouseName(null)).toBe('');
+    expect(cleanCandidateSpouseName(undefined)).toBe('');
+
+    // Accepts and cleans valid person names
+    expect(cleanCandidateSpouseName('ሸቃ ምስጉን ኮኾባይ')).toBe('ሸቃ ምስጉን ኮኾባይ');
+    expect(cleanCandidateSpouseName('ደስታ ወልደ ሚካኤል')).toBe('ደስታ ወልደ ሚካኤል');
+    expect(cleanCandidateSpouseName('ናብ ኣረጋሽ')).toBe('ኣረጋሽ');
+    expect(cleanCandidateSpouseName('ምስ ተኽለ')).toBe('ተኽለ');
   });
 });
 

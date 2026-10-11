@@ -83,6 +83,42 @@ const initialDraft: DraftState = {
   cascadeSteps: []
 };
 
+/**
+ * Sanitizes candidate spouse names and strictly rejects narrative phrases.
+ * Any string containing 'ኣትያ', 'ዝወለደቶም', 'ድማ', backticks, etc., is rejected and returns ''.
+ */
+export function cleanCandidateSpouseName(raw?: string | null): string {
+  if (!raw) return '';
+  let clean = raw.trim().replace(/[`'"፡,:;`]/g, '').trim();
+
+  // If candidate contains narrative keywords, it is a statement, not a person name!
+  const narrativeKeywords = [
+    'ኣትያ', 'ኣትዩ', 'ተኣትያ', 'ዝወለደ', 'ዝወለደት', 'ዝወለዱ', 'ዝወለዶም', 'ዝወለደቶም', 'ወሊዳ',
+    'ድማ', 'source', 'relationship', 'page', 'recorded', 'pdf', 'ስድራ', 'ሓዳር'
+  ];
+  for (const kw of narrativeKeywords) {
+    if (clean.toLowerCase().includes(kw.toLowerCase())) {
+      return ''; // Reject narrative phrases completely!
+    }
+  }
+
+  // Reject cut-off fragments like "ጉን ኮኾባይ..."
+  if (/^ጉን\s+/i.test(clean)) {
+    return '';
+  }
+
+  // Strip prefixes like "ናብ", "ምስ", "ን" (only if standalone prefix)
+  clean = clean.replace(/^(?:ናብ|ምስ|ን)\s+/, '').trim();
+
+  // A name shouldn't be overly long or multiple sentences
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 5 || clean.length > 40) {
+    return '';
+  }
+
+  return clean;
+}
+
 // Levenshtein distance for fuzzy matching typos
 function levenshteinDistance(a: string, b: string): number {
   const an = a.trim().toLowerCase();
@@ -152,6 +188,9 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        if (parsed.spouseName) {
+          parsed.spouseName = cleanCandidateSpouseName(parsed.spouseName);
+        }
         if (
           parsed.canonicalName ||
           parsed.branch ||
@@ -188,10 +227,23 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        setForm(parsed);
+        if (parsed.spouseName) {
+          parsed.spouseName = cleanCandidateSpouseName(parsed.spouseName);
+        }
+        if (parsed.lineageChain && Array.isArray(parsed.lineageChain)) {
+          parsed.lineageChain = parsed.lineageChain.map((g: any) => ({
+            ...g,
+            spouseName: cleanCandidateSpouseName(g.spouseName),
+          }));
+        }
         if (parsed.cascadeSteps && parsed.cascadeSteps.length > 0) {
+          parsed.cascadeSteps = parsed.cascadeSteps.map((s: any) => ({
+            ...s,
+            spouseName: cleanCandidateSpouseName(s.spouseName),
+          }));
           setCascadeSteps(parsed.cascadeSteps);
         }
+        setForm(parsed);
       }
     } catch {
       // Ignore
@@ -301,11 +353,14 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               const otherId = rel.fromPersonId === targetPerson.id ? rel.toPersonId : rel.fromPersonId;
               const spouse = people.find((p) => p.id === otherId && !p.isArchived);
               if (spouse && spouse.canonicalName.trim()) {
-                return {
-                  spouseName: spouse.canonicalName.trim(),
-                  spouseId: spouse.id,
-                  source: 'relationship',
-                };
+                const cleaned = cleanCandidateSpouseName(spouse.canonicalName);
+                if (cleaned) {
+                  return {
+                    spouseName: cleaned,
+                    spouseId: spouse.id,
+                    source: 'relationship',
+                  };
+                }
               }
             }
           }
@@ -315,28 +370,47 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       // 4. Search by targetPerson's spouseNote or notes
       if (targetPerson?.spouseNote) {
         const parsed = parseRelationshipPhrase(targetPerson.spouseNote);
-        if (parsed.partnerName) {
+        const cleanPartner = cleanCandidateSpouseName(parsed.partnerName);
+        if (cleanPartner) {
           return {
-            spouseName: parsed.partnerName.trim(),
+            spouseName: cleanPartner,
             source: 'spouseNote',
           };
         }
-        const noteMatch = targetPerson.spouseNote.match(/(?:መጻምድቲ|ምስ)\s*[:፡]?\s*([^\n,፡]+)/);
-        if (noteMatch && noteMatch[1].trim()) {
-          return {
-            spouseName: noteMatch[1].trim(),
-            source: 'spouseNote_regex',
-          };
+        const noteMatch = targetPerson.spouseNote.match(/(?:^|\s)(?:መጻምድቲ|ምስ)\s*[:፡]?\s*([^\n,፡]+)/);
+        if (noteMatch) {
+          const cleanMatch = cleanCandidateSpouseName(noteMatch[1]);
+          if (cleanMatch) {
+            return {
+              spouseName: cleanMatch,
+              source: 'spouseNote_regex',
+            };
+          }
         }
       }
 
       if (targetPerson?.notes) {
-        const noteMatch = targetPerson.notes.match(/(?:መጻምድቲ|ምስ)\s*[:፡]?\s*([^\n,፡]+)/);
-        if (noteMatch && noteMatch[1].trim()) {
-          return {
-            spouseName: noteMatch[1].trim(),
-            source: 'notes_regex',
-          };
+        // If notes contains a quoted/backtick source relationship, parse properly
+        const backtickMatch = targetPerson.notes.match(/`([^`]+)`/);
+        if (backtickMatch) {
+          const parsed = parseRelationshipPhrase(backtickMatch[1]);
+          const cleanPartner = cleanCandidateSpouseName(parsed.partnerName);
+          if (cleanPartner) {
+            return {
+              spouseName: cleanPartner,
+              source: 'notes_backtick',
+            };
+          }
+        }
+        const noteMatch = targetPerson.notes.match(/(?:^|\s)መጻምድቲ\s*[:፡]?\s*([^\n,፡]+)/);
+        if (noteMatch) {
+          const cleanMatch = cleanCandidateSpouseName(noteMatch[1]);
+          if (cleanMatch) {
+            return {
+              spouseName: cleanMatch,
+              source: 'notes_regex',
+            };
+          }
         }
       }
 
@@ -346,18 +420,24 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           if (p.isArchived) continue;
           if (p.fatherName && p.fatherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
             if (p.motherName && p.motherName.trim()) {
-              return {
-                spouseName: p.motherName.trim(),
-                source: 'child_mother',
-              };
+              const cleanMom = cleanCandidateSpouseName(p.motherName);
+              if (cleanMom) {
+                return {
+                  spouseName: cleanMom,
+                  source: 'child_mother',
+                };
+              }
             }
           }
           if (p.motherName && p.motherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
             if (p.fatherName && p.fatherName.trim()) {
-              return {
-                spouseName: p.fatherName.trim(),
-                source: 'child_father',
-              };
+              const cleanDad = cleanCandidateSpouseName(p.fatherName);
+              if (cleanDad) {
+                return {
+                  spouseName: cleanDad,
+                  source: 'child_father',
+                };
+              }
             }
           }
         }
@@ -369,16 +449,22 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         for (const p of people) {
           if (p.isArchived) continue;
           if (p.fatherName && p.fatherName.trim().toLowerCase() === cleanLower && p.motherName?.trim()) {
-            return {
-              spouseName: p.motherName.trim(),
-              source: 'child_mother',
-            };
+            const cleanMom = cleanCandidateSpouseName(p.motherName);
+            if (cleanMom) {
+              return {
+                spouseName: cleanMom,
+                source: 'child_mother',
+              };
+            }
           }
           if (p.motherName && p.motherName.trim().toLowerCase() === cleanLower && p.fatherName?.trim()) {
-            return {
-              spouseName: p.fatherName.trim(),
-              source: 'child_father',
-            };
+            const cleanDad = cleanCandidateSpouseName(p.fatherName);
+            if (cleanDad) {
+              return {
+                spouseName: cleanDad,
+                source: 'child_father',
+              };
+            }
           }
         }
       }
@@ -716,23 +802,26 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
         for (let i = 0; i < ancestorWords.length; i++) {
           const ancName = ancestorWords[i];
-          const existingSpouse = nextChain[i]?.spouseName;
+          const existingSpouse = cleanCandidateSpouseName(nextChain[i]?.spouseName);
           const spouseInfo = getSpouseForPerson(nextChain[i]?.existingPersonId, ancName);
+          const detectedSpouse = cleanCandidateSpouseName(spouseInfo?.spouseName);
           nextChain[i] = {
             ...nextChain[i],
             name: ancName,
-            spouseName: existingSpouse || spouseInfo?.spouseName || '',
+            spouseName: existingSpouse || detectedSpouse || '',
           };
         }
       }
 
       // Check if this person themselves has a spouse registered in records
       const selfSpouse = !prev.spouseName && trimmed ? getSpouseForPerson(undefined, trimmed) : null;
+      const cleanSelfSpouse = cleanCandidateSpouseName(selfSpouse?.spouseName);
+      const cleanPrevSpouse = cleanCandidateSpouseName(prev.spouseName);
 
       return {
         ...prev,
         canonicalName: val,
-        spouseName: prev.spouseName || selfSpouse?.spouseName || '',
+        spouseName: cleanPrevSpouse || cleanSelfSpouse || '',
         lineageChain: nextChain,
       };
     });

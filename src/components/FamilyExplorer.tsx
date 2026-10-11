@@ -6,7 +6,6 @@ import {
   User,
   Heart,
   Users,
-  Search,
   RotateCcw,
   ShieldCheck,
   AlertTriangle,
@@ -66,10 +65,6 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
   // In-place expanded child branches
   const [expandedChildIds, setExpandedChildIds] = useState<Set<string>>(new Set());
-
-  // Search input for quick jump
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // History trail / breadcrumbs
   const [historyTrail, setHistoryTrail] = useState<string[]>([]);
@@ -161,8 +156,6 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     setHistoryTrail((prev) => [...prev, focusedPersonId]);
     setFocusedPersonId(personId);
     setExpandedChildIds(new Set());
-    setSearchQuery('');
-    setShowSearchResults(false);
     const p = peopleMap.get(personId);
     if (p) onSelectPerson(p);
   };
@@ -193,21 +186,6 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     });
   };
 
-  // Search filter
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return people
-      .filter(
-        (p) =>
-          p.canonicalName.toLowerCase().includes(q) ||
-          (p.fatherName && p.fatherName.toLowerCase().includes(q)) ||
-          (p.displayName && p.displayName.toLowerCase().includes(q)) ||
-          (p.branch && p.branch.toLowerCase().includes(q))
-      )
-      .slice(0, 10);
-  }, [searchQuery, people]);
-
   if (!focusedPerson) {
     return (
       <div className="p-8 text-center bg-stone-100 rounded-2xl border border-stone-200">
@@ -220,55 +198,51 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Controls: Search and Breadcrumb Trail */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Quick Search Jump */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-stone-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setShowSearchResults(true);
-              }}
-              onFocus={() => setShowSearchResults(true)}
-              placeholder="ስም ወይ ኣቦ ጽሒፍካ ቀጥታ ድለ... (ንኣብነት: ጎብሩ፣ ሃብቱ)"
-              className="w-full pl-11 pr-4 py-3 rounded-xl border border-stone-300 bg-stone-50 text-stone-900 placeholder:text-stone-400 text-base font-ethiopic focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
-              aria-label="ስም ድለ"
-            />
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white rounded-xl border border-stone-200 shadow-xl overflow-hidden max-h-72 overflow-y-auto">
-                {searchResults.map((result) => (
+      {/* Top Controls: Breadcrumb Trail and Action Buttons */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          {/* Trail / Breadcrumb */}
+          <div className="flex items-center gap-2 overflow-x-auto text-sm font-ethiopic py-1 w-full sm:w-auto">
+            <span className="text-stone-400 font-semibold shrink-0">መስመር:</span>
+            <button
+              onClick={handleResetToRoot}
+              className={`font-bold hover:underline shrink-0 ${
+                focusedPerson.id === rootPerson?.id ? 'text-amber-800' : 'text-stone-600'
+              }`}
+            >
+              {rootPerson?.canonicalName}
+            </button>
+            {historyTrail.map((pId) => {
+              const p = peopleMap.get(pId);
+              if (!p || p.id === rootPerson?.id) return null;
+              return (
+                <React.Fragment key={p.id}>
+                  <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
                   <button
-                    key={result.id}
-                    onClick={() => handleFocusPerson(result.id)}
-                    className="w-full text-left px-4 py-3.5 hover:bg-amber-50 border-b border-stone-100 last:border-0 flex items-center justify-between text-base font-ethiopic transition-colors"
+                    onClick={() => handleFocusPerson(p.id)}
+                    className="hover:underline text-stone-600 shrink-0 font-medium"
                   >
-                    <div>
-                      <div className="font-bold text-stone-900">{result.canonicalName}</div>
-                      {result.fatherName && (
-                        <div className="text-xs text-stone-500">ወዲ/ጓል {result.fatherName}</div>
-                      )}
-                    </div>
-                    {result.branch && (
-                      <span className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded font-ethiopic">
-                        ጨንፈር {result.branch === 'Main Ancestor' ? 'ቀንዲ መበቆል' : result.branch}
-                      </span>
-                    )}
+                    {p.canonicalName}
                   </button>
-                ))}
-              </div>
+                </React.Fragment>
+              );
+            })}
+            {focusedPerson.id !== rootPerson?.id && (
+              <>
+                <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
+                <span className="font-bold text-amber-900 shrink-0 bg-amber-100/60 px-2.5 py-0.5 rounded-lg">
+                  {focusedPerson.canonicalName}
+                </span>
+              </>
             )}
           </div>
 
           {/* Action Buttons: Reset & Back */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {historyTrail.length > 0 && (
               <button
                 onClick={handleBackOneStep}
-                className="px-4 py-2.5 min-h-[44px] rounded-xl text-stone-700 bg-stone-100 hover:bg-stone-200 text-sm font-ethiopic font-semibold flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 min-h-[40px] rounded-xl text-stone-700 bg-stone-100 hover:bg-stone-200 text-sm font-ethiopic font-semibold flex items-center gap-1.5 transition-colors"
                 title="ሓደ ደረጃ ተመለስ"
               >
                 <span>&larr; ተመለስ</span>
@@ -277,49 +251,13 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
             <button
               onClick={handleResetToRoot}
-              className="px-4 py-2.5 min-h-[44px] rounded-xl text-stone-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-sm font-ethiopic font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2 min-h-[40px] rounded-xl text-stone-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-sm font-ethiopic font-semibold flex items-center gap-1.5 transition-colors"
               title="ናብ መበቆል ኣቦ ተመለስ"
             >
               <RotateCcw className="w-4 h-4 text-amber-700" />
               <span>ናብ ቀንድን መበቆልን</span>
             </button>
           </div>
-        </div>
-
-        {/* Trail / Breadcrumb */}
-        <div className="pt-2 border-t border-stone-100 flex items-center gap-2 overflow-x-auto text-sm font-ethiopic">
-          <span className="text-stone-400 font-semibold shrink-0">መስመር:</span>
-          <button
-            onClick={handleResetToRoot}
-            className={`font-bold hover:underline shrink-0 ${
-              focusedPerson.id === rootPerson?.id ? 'text-amber-800' : 'text-stone-600'
-            }`}
-          >
-            {rootPerson?.canonicalName}
-          </button>
-          {historyTrail.map((pId) => {
-            const p = peopleMap.get(pId);
-            if (!p || p.id === rootPerson?.id) return null;
-            return (
-              <React.Fragment key={p.id}>
-                <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
-                <button
-                  onClick={() => handleFocusPerson(p.id)}
-                  className="hover:underline text-stone-600 shrink-0 font-medium"
-                >
-                  {p.canonicalName}
-                </button>
-              </React.Fragment>
-            );
-          })}
-          {focusedPerson.id !== rootPerson?.id && (
-            <>
-              <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
-              <span className="font-bold text-amber-900 shrink-0 bg-amber-100/60 px-2.5 py-0.5 rounded-lg">
-                {focusedPerson.canonicalName}
-              </span>
-            </>
-          )}
         </div>
       </div>
 

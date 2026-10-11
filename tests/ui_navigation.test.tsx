@@ -10,6 +10,7 @@ import { RecordEditorView } from '../src/components/RecordEditorView';
 import { AddPersonGuidedModal } from '../src/components/AddPersonGuidedModal';
 import { UncertainRecordsView } from '../src/components/UncertainRecordsView';
 import { PersonDetailModal } from '../src/components/PersonDetailModal';
+import { GenealogyPdfExportModal } from '../src/components/GenealogyPdfExportModal';
 import App from '../src/App';
 import { Person, Relationship } from '../src/types/genealogy';
 
@@ -714,6 +715,128 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
 
     // Now 4 children rows should be rendered!
     expect(screen.getByText('4. ውሉዳት (4)')).toBeDefined();
+  });
+
+  it('13. GenealogyPdfExportModal: renders hierarchical generational descent tables with lineage breadcrumbs and branch themes', () => {
+    const mockAncestor: Person = {
+      id: 'pers_root_kinteba_guush',
+      canonicalName: 'ከንቲባ ጉዕሽ ሓጎስ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockGobru: Person = {
+      id: 'pers_gobru',
+      canonicalName: 'ጎብሩ',
+      branch: 'ጎብሩ',
+      fatherName: 'ከንቲባ ጉዕሽ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockTela: Person = {
+      id: 'pers_tela',
+      canonicalName: 'ተላ',
+      branch: 'ጎብሩ',
+      fatherName: 'ጎብሩ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockSpouseTela: Person = {
+      id: 'pers_spouse_tela',
+      canonicalName: 'ኣረጋሽ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const mockHagosChild: Person = {
+      id: 'pers_hagos',
+      canonicalName: 'ሓጎስ ተላ',
+      branch: 'ጎብሩ',
+      fatherName: 'ተላ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+
+    const mockRels: Relationship[] = [
+      {
+        id: 'rel_1',
+        fromPersonId: 'pers_gobru',
+        toPersonId: 'pers_tela',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'register.md',
+        sourcePage: 1,
+        sourceWording: 'ጎብሩ ተላ ዝወለደ',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'rel_2',
+        fromPersonId: 'pers_tela',
+        toPersonId: 'pers_spouse_tela',
+        type: 'partner_or_union',
+        status: 'verified',
+        sourceFile: 'register.md',
+        sourcePage: 1,
+        sourceWording: 'ተላ ምስ ኣረጋሽ',
+        isBiologicalConfirmed: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'rel_3',
+        fromPersonId: 'pers_tela',
+        toPersonId: 'pers_hagos',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'register.md',
+        sourcePage: 1,
+        sourceWording: 'ተላ ሓጎስ ዝወለደ',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    render(
+      <GenealogyPdfExportModal
+        people={[mockAncestor, mockGobru, mockTela, mockSpouseTela, mockHagosChild]}
+        relationships={mockRels}
+        onClose={vi.fn()}
+      />
+    );
+
+    // Verify Title & Branches
+    expect(screen.getByText('ተወለድ እንዳቦይ ከንትባ ጉዕሽ ሓጎስ')).toBeDefined();
+    expect(screen.getAllByText('ጨንፈር ጎብሩ').length).toBeGreaterThan(0);
+
+    // Verify Generations rendered
+    expect(screen.getByText('ደረጃ 1 (መስራቲ)')).toBeDefined();
+    expect(screen.getByText('ደረጃ 2 (ውሉድ)')).toBeDefined();
+    expect(screen.getByText('ደረጃ 3 (ደቂ-ደቂ)')).toBeDefined();
+
+    // Verify Lineage breadcrumb is rendered for ሓጎስ ተላ: "ከንቲባ ጉዕሽ › ጎብሩ › ተላ › ሓጎስ ተላ"
+    expect(screen.getAllByText('ከንቲባ ጉዕሽ').length).toBeGreaterThan(0);
+
+    // Verify Spouse is displayed with heart indicator
+    expect(screen.getByText('ኣረጋሽ')).toBeDefined();
+
+    // Verify Children badge
+    expect(screen.getAllByText('1 ውሉዳት').length).toBeGreaterThan(0);
+
+    // Verify view toggle works
+    const treeViewBtn = screen.getByTitle('ተዋረድ ሓረግ (Tree View)');
+    fireEvent.click(treeViewBtn);
+    expect(screen.getAllByText(/ሰንሰለት: ከንቲባ ጉዕሽ › ጎብሩ › ተላ/).length).toBe(2);
   });
 });
 

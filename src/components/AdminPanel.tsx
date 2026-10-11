@@ -48,6 +48,7 @@ interface AdminPanelProps {
   onAddNewRelationship: (fromPersonId?: string) => void;
   onImportCommitted: () => Promise<void>;
   onOpenPdfExport?: () => void;
+  onDeduplicate?: () => Promise<{ mergedCount: number; details: string[] }>;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -67,6 +68,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddNewRelationship,
   onImportCommitted,
   onOpenPdfExport,
+  onDeduplicate,
 }) => {
   // Login form state
   const [username, setUsername] = useState('');
@@ -369,6 +371,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </button>
           </div>
 
+          {/* Quick Action: Smart Deduplication */}
+          {onDeduplicate && (
+            <div className="bg-linear-to-r from-emerald-500/10 via-emerald-500/5 to-transparent p-5 sm:p-6 rounded-3xl border border-emerald-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-stone-900">
+                    ምጽራይን ምውህሃድን ተደገምቲ መዛግብቲ (Smart Deduplication)
+                  </h4>
+                  <p className="text-xs text-stone-600 mt-0.5 leading-relaxed">
+                    ኣብ ትሕቲ ሓደ ወላዲ ተደጊሞም ዝተመዝገቡ ኣስማት ወይ ዝምድናታት ብኣውቶማቲክ ንምውህሃድን ንምጽራይን ተጠቐሙ።
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  const res = await onDeduplicate();
+                  if (res.mergedCount > 0) {
+                    alert(`${res.mergedCount} ተደገምቲ መዛግብቲ ብዓወት ተወሃሂዶም ጸሪዮም!`);
+                  } else {
+                    alert('ምንም ተደገምቲ መዛግብቲ የለዉን - ኩሉ መዝገብ ብትኽክል ዝተወደበ እዩ።');
+                  }
+                }}
+                className="px-4 py-2.5 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>ተደገምቲ መዛግብቲ ኣጻሪ</span>
+              </button>
+            </div>
+          )}
+
           {/* Quick Management Instructions */}
           <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-xs space-y-3">
             <h3 className="font-bold text-stone-900 font-ethiopic text-lg">
@@ -376,7 +412,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </h3>
             <ul className="space-y-2 text-xs sm:text-sm text-stone-700 font-ethiopic list-disc list-inside leading-relaxed">
               <li>
-                <strong>ምዕራይ መዛግብቲ:</strong> ኣብ ዝኾነ ስም ወይ ሓበሬታ ስሕተት እንተተረኺቡ፡ ኣብቲ &ldquo;መመዓራረዪ መዝገብ&rdquo; ዝብል ክፍሊ ብምእታው ብቐሊሉ ኣስተኻኽሉ።
+                <strong>ምዕራይ መዛግብቲ:</strong> ኣብ ዝኾነ ስም ወይ ሓበሬታ ስሕተት እንተተረኺቡ፡ ኣብቲ &ldquo;መመዓራረዪ መዝገብ&rdquo; ዝብል ክፍሊ ብምእታው ብቐሊሉ ኣስተኽክሉ።
               </li>
               <li>
                 <strong>ምድላው መዝገብ:</strong> እቲ ናይ መበቆል ሰነድ ዳታ ቅድሚ ምእታዉ፡ ኣብቲ &ldquo;መዝገብ ምእታው&rdquo; ዝብል ክፍሊ ብንጹር ተረጋጊጹ ብፍቓድካ ጥራይ ይኣቱ።
@@ -406,6 +442,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onAddNewPerson={onAddNewPerson}
           onAddNewRelationship={onAddNewRelationship}
           onSelectPerson={onSelectPerson}
+          onDeduplicate={onDeduplicate}
         />
       )}
 

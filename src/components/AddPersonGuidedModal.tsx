@@ -396,10 +396,19 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
   const handleUpdateCascadeCustomName = (stepIndex: number, name: string) => {
     setCascadeSteps((prev) => {
       const next = [...prev];
+      const trimmed = name.trim();
+      const existingChildren = getChildrenForPerson(next[stepIndex].parentId, next[stepIndex].parentName);
+      const matchedChild = trimmed
+        ? existingChildren.find(
+            (c) => c.canonicalName.trim().toLowerCase() === trimmed.toLowerCase()
+          )
+        : undefined;
+
       next[stepIndex] = {
         ...next[stepIndex],
         name,
-        isCustom: true,
+        selectedPersonId: matchedChild ? matchedChild.id : undefined,
+        isCustom: !matchedChild,
       };
       syncCascadeToLineage(next, form.branch);
       return next;
@@ -617,17 +626,51 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         const gen = validGenerations[i];
         const trimmedGenName = gen.name.trim();
 
-        // Check if ancestor exists in the database
-        let ancestorId: string;
-        const existingPerson = people.find(
-          (p) =>
-            p.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase() &&
-            (!form.branch || !p.branch || p.branch.trim() === form.branch.trim())
-        );
+        // Check if ancestor already exists in the database
+        let ancestorId: string | null = null;
 
-        if (existingPerson) {
-          ancestorId = existingPerson.id;
+        // 1. Check by explicit existingPersonId if selected from dropdown or auto-matched
+        if (gen.existingPersonId) {
+          const matchedById = people.find((p) => p.id === gen.existingPersonId);
+          if (matchedById) {
+            ancestorId = matchedById.id;
+          }
+        }
+
+        // 2. Check if the parent generation (validGenerations[i + 1]) already has a child with this name
+        if (!ancestorId && i < validGenerations.length - 1) {
+          const parentGen = validGenerations[i + 1];
+          const parentCandidateId = parentGen.existingPersonId;
+          const parentChildren = getChildrenForPerson(parentCandidateId || undefined, parentGen.name);
+          const childMatch = parentChildren.find(
+            (c) => c.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase()
+          );
+          if (childMatch) {
+            ancestorId = childMatch.id;
+          }
+        }
+
+        // 3. Check across all database people by canonicalName (branch insensitive or matching)
+        if (!ancestorId) {
+          const matchedByName =
+            people.find(
+              (p) =>
+                p.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase() &&
+                (!form.branch || !p.branch || p.branch.trim() === form.branch.trim())
+            ) ||
+            people.find(
+              (p) => p.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase()
+            );
+
+          if (matchedByName) {
+            ancestorId = matchedByName.id;
+          }
+        }
+
+        if (ancestorId) {
+          // Ancestor exists! Reuse existing record without duplication
         } else {
+          // Genuinely new ancestor: create record
           ancestorId = `pers_${Date.now()}_anc_${i}_${Math.random().toString(36).substring(2, 5)}`;
           const newAncestor: Person = {
             id: ancestorId,
@@ -637,7 +680,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             isArchived: false,
             notes: `ወለዶ ስድራቤት: ${form.canonicalName}`,
             createdAt: now,
-            updatedAt: now
+            updatedAt: now,
           };
           await onSavePerson(newAncestor);
           createdPeopleBatch.push(newAncestor);
@@ -665,28 +708,44 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               isArchived: false,
               notes: `መጻምድቲ ${trimmedGenName}`,
               createdAt: now,
-              updatedAt: now
+              updatedAt: now,
             };
             await onSavePerson(newSpouse);
             createdPeopleBatch.push(newSpouse);
           }
 
-          // Link ancestor to their spouse
-          const spouseRel: Relationship = {
-            id: `rel_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 5)}`,
-            fromPersonId: ancestorId,
-            toPersonId: genSpouseId,
-            type: 'partner_or_union',
-            status: 'verified',
-            sourceFile: 'ከሰተ-ብርሃነ.pdf',
-            sourcePage: null,
-            sourceWording: `${trimmedGenName} ዝተመርዓዉ ምስ ${trimmedSpouseName}`,
-            isBiologicalConfirmed: false,
-            createdAt: now,
-            updatedAt: now
-          };
-          await onSaveRelationship(spouseRel);
-          createdRelationshipsBatch.push(spouseRel);
+          // Link ancestor to their spouse if not already linked
+          const alreadySpouseLinked =
+            relationships.some(
+              (r) =>
+                r.type === 'partner_or_union' &&
+                ((r.fromPersonId === ancestorId && r.toPersonId === genSpouseId) ||
+                  (r.fromPersonId === genSpouseId && r.toPersonId === ancestorId))
+            ) ||
+            createdRelationshipsBatch.some(
+              (r) =>
+                r.type === 'partner_or_union' &&
+                ((r.fromPersonId === ancestorId && r.toPersonId === genSpouseId) ||
+                  (r.fromPersonId === genSpouseId && r.toPersonId === ancestorId))
+            );
+
+          if (!alreadySpouseLinked) {
+            const spouseRel: Relationship = {
+              id: `rel_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 5)}`,
+              fromPersonId: ancestorId,
+              toPersonId: genSpouseId,
+              type: 'partner_or_union',
+              status: 'verified',
+              sourceFile: 'ከሰተ-ብርሃነ.pdf',
+              sourcePage: null,
+              sourceWording: `${trimmedGenName} ዝተመርዓዉ ምስ ${trimmedSpouseName}`,
+              isBiologicalConfirmed: false,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await onSaveRelationship(spouseRel);
+            createdRelationshipsBatch.push(spouseRel);
+          }
         }
       }
 
@@ -695,23 +754,40 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         const childGenId = createdAncestorIds[i];
         const parentGenId = createdAncestorIds[i + 1];
 
-        const cycleCheck = validateParentChildCycle(relationships, parentGenId, childGenId);
-        if (cycleCheck.isValid) {
-          const chainRel: Relationship = {
-            id: `rel_${Date.now()}_chain_${i}_${Math.random().toString(36).substring(2, 5)}`,
-            fromPersonId: parentGenId,
-            toPersonId: childGenId,
-            type: 'parent_child',
-            status: 'verified',
-            sourceFile: 'ከሰተ-ብርሃነ.pdf',
-            sourcePage: null,
-            sourceWording: `${validGenerations[i].name} ወዲ/ጓል ${validGenerations[i + 1].name}`,
-            isBiologicalConfirmed: true,
-            createdAt: now,
-            updatedAt: now
-          };
-          await onSaveRelationship(chainRel);
-          createdRelationshipsBatch.push(chainRel);
+        // Check if link already exists in database or batch
+        const alreadyLinked =
+          relationships.some(
+            (r) =>
+              r.type === 'parent_child' &&
+              r.fromPersonId === parentGenId &&
+              r.toPersonId === childGenId
+          ) ||
+          createdRelationshipsBatch.some(
+            (r) =>
+              r.type === 'parent_child' &&
+              r.fromPersonId === parentGenId &&
+              r.toPersonId === childGenId
+          );
+
+        if (!alreadyLinked) {
+          const cycleCheck = validateParentChildCycle(relationships, parentGenId, childGenId);
+          if (cycleCheck.isValid) {
+            const chainRel: Relationship = {
+              id: `rel_${Date.now()}_chain_${i}_${Math.random().toString(36).substring(2, 5)}`,
+              fromPersonId: parentGenId,
+              toPersonId: childGenId,
+              type: 'parent_child',
+              status: 'verified',
+              sourceFile: 'ከሰተ-ብርሃነ.pdf',
+              sourcePage: null,
+              sourceWording: `${validGenerations[i].name} ወዲ/ጓል ${validGenerations[i + 1].name}`,
+              isBiologicalConfirmed: true,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await onSaveRelationship(chainRel);
+            createdRelationshipsBatch.push(chainRel);
+          }
         }
       }
 
@@ -722,23 +798,39 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
         const isBranchTop = OFFICIAL_BRANCHES.some((b) => topGenName.includes(b));
         if (isBranchTop && topAncestorId !== rootPatriarch.id) {
-          const cycleCheck = validateParentChildCycle(relationships, rootPatriarch.id, topAncestorId);
-          if (cycleCheck.isValid) {
-            const rootRel: Relationship = {
-              id: `rel_${Date.now()}_root_${topAncestorId}`,
-              fromPersonId: rootPatriarch.id,
-              toPersonId: topAncestorId,
-              type: 'parent_child',
-              status: 'verified',
-              sourceFile: 'ከሰተ-ብርሃነ.pdf',
-              sourcePage: null,
-              sourceWording: `${topGenName} ወዲ ከንቲባ ጉዑሽ ሓጎስ`,
-              isBiologicalConfirmed: true,
-              createdAt: now,
-              updatedAt: now
-            };
-            await onSaveRelationship(rootRel);
-            createdRelationshipsBatch.push(rootRel);
+          const alreadyRootLinked =
+            relationships.some(
+              (r) =>
+                r.type === 'parent_child' &&
+                r.fromPersonId === rootPatriarch.id &&
+                r.toPersonId === topAncestorId
+            ) ||
+            createdRelationshipsBatch.some(
+              (r) =>
+                r.type === 'parent_child' &&
+                r.fromPersonId === rootPatriarch.id &&
+                r.toPersonId === topAncestorId
+            );
+
+          if (!alreadyRootLinked) {
+            const cycleCheck = validateParentChildCycle(relationships, rootPatriarch.id, topAncestorId);
+            if (cycleCheck.isValid) {
+              const rootRel: Relationship = {
+                id: `rel_${Date.now()}_root_${topAncestorId}`,
+                fromPersonId: rootPatriarch.id,
+                toPersonId: topAncestorId,
+                type: 'parent_child',
+                status: 'verified',
+                sourceFile: 'ከሰተ-ብርሃነ.pdf',
+                sourcePage: null,
+                sourceWording: `${topGenName} ወዲ ከንቲባ ጉዑሽ ሓጎስ`,
+                isBiologicalConfirmed: true,
+                createdAt: now,
+                updatedAt: now,
+              };
+              await onSaveRelationship(rootRel);
+              createdRelationshipsBatch.push(rootRel);
+            }
           }
         }
       }
@@ -820,36 +912,66 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       // 5. Save Children
       for (const child of form.children) {
         if (!child.name.trim()) continue;
-        const childId = `pers_${Date.now()}_c_${Math.random().toString(36).substring(2, 5)}`;
-        const childPerson: Person = {
-          id: childId,
-          canonicalName: child.name.trim(),
-          branch: form.branch || undefined,
-          fatherName: form.canonicalName.trim(),
-          status: 'verified',
-          isArchived: false,
-          notes: child.notes?.trim() || undefined,
-          createdAt: now,
-          updatedAt: now
-        };
-        await onSavePerson(childPerson);
-        createdPeopleBatch.push(childPerson);
+        const trimmedChildName = child.name.trim();
 
-        const childRel: Relationship = {
-          id: `rel_${Date.now()}_c_${childId}`,
-          fromPersonId: mainPersonId,
-          toPersonId: childId,
-          type: 'parent_child',
-          status: 'verified',
-          sourceFile: 'ከሰተ-ብርሃነ.pdf',
-          sourcePage: null,
-          sourceWording: `${child.name.trim()} ወዲ/ጓል ${form.canonicalName.trim()}`,
-          isBiologicalConfirmed: true,
-          createdAt: now,
-          updatedAt: now
-        };
-        await onSaveRelationship(childRel);
-        createdRelationshipsBatch.push(childRel);
+        const existingChild = people.find(
+          (p) =>
+            p.canonicalName.trim().toLowerCase() === trimmedChildName.toLowerCase() &&
+            (p.fatherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase() ||
+              p.motherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase())
+        );
+
+        let childId: string;
+        if (existingChild) {
+          childId = existingChild.id;
+        } else {
+          childId = `pers_${Date.now()}_c_${Math.random().toString(36).substring(2, 5)}`;
+          const childPerson: Person = {
+            id: childId,
+            canonicalName: trimmedChildName,
+            branch: form.branch || undefined,
+            fatherName: form.canonicalName.trim(),
+            status: 'verified',
+            isArchived: false,
+            notes: child.notes?.trim() || undefined,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await onSavePerson(childPerson);
+          createdPeopleBatch.push(childPerson);
+        }
+
+        const alreadyChildLinked =
+          relationships.some(
+            (r) =>
+              r.type === 'parent_child' &&
+              r.fromPersonId === mainPersonId &&
+              r.toPersonId === childId
+          ) ||
+          createdRelationshipsBatch.some(
+            (r) =>
+              r.type === 'parent_child' &&
+              r.fromPersonId === mainPersonId &&
+              r.toPersonId === childId
+          );
+
+        if (!alreadyChildLinked) {
+          const childRel: Relationship = {
+            id: `rel_${Date.now()}_c_${childId}`,
+            fromPersonId: mainPersonId,
+            toPersonId: childId,
+            type: 'parent_child',
+            status: 'verified',
+            sourceFile: 'ከሰተ-ብርሃነ.pdf',
+            sourcePage: null,
+            sourceWording: `${trimmedChildName} ወዲ/ጓል ${form.canonicalName.trim()}`,
+            isBiologicalConfirmed: true,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await onSaveRelationship(childRel);
+          createdRelationshipsBatch.push(childRel);
+        }
       }
 
       // 6. Immediately synchronize all created records with server backend (Requirement 5)

@@ -20,6 +20,7 @@ import {
 import { isCloudConfigured } from './services/supabaseClient';
 import { apiFetchTree, apiSaveBatch, apiSaveRelationship } from './services/apiClient';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
+import { deduplicateFamilyRecords } from './services/deduplicator';
 
 import { Navbar, AppDestination } from './components/Navbar';
 import { FamilyExplorer } from './components/FamilyExplorer';
@@ -147,6 +148,33 @@ export const App: React.FC = () => {
         // Silently proceed with local offline database
       }
 
+      // Automatically detect and merge duplicate family records (e.g. duplicate siblings with identical names)
+      const dedupResult = deduplicateFamilyRecords(storedPeople, storedRels);
+      if (dedupResult.removedPersonIds.length > 0 || dedupResult.removedRelationshipIds.length > 0) {
+        for (const remId of dedupResult.removedPersonIds) {
+          await deletePerson(remId, 'Deduplicator');
+        }
+        for (const remRelId of dedupResult.removedRelationshipIds) {
+          await deleteRelationship(remRelId, 'Deduplicator');
+        }
+        for (const p of dedupResult.people) {
+          await savePerson(p, 'Deduplicator');
+        }
+        for (const r of dedupResult.relationships) {
+          await saveRelationship(r, 'Deduplicator');
+        }
+
+        storedPeople = dedupResult.people;
+        storedRels = dedupResult.relationships;
+
+        try {
+          const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+          await apiSaveBatch(storedPeople, storedRels, token);
+        } catch {
+          // Proceed with local
+        }
+      }
+
       setPeople(storedPeople);
       setRelationships(storedRels);
       setOccurrences(storedOccs);
@@ -233,6 +261,35 @@ export const App: React.FC = () => {
     sessionStorage.setItem('kinteba_admin_user', username);
     sessionStorage.setItem('kinteba_admin_token', token);
     setIsAdminAuthenticated(true);
+  };
+
+  const handleManualDeduplication = async (): Promise<{ mergedCount: number; details: string[] }> => {
+    const dedupResult = deduplicateFamilyRecords(people, relationships);
+    if (dedupResult.removedPersonIds.length > 0 || dedupResult.removedRelationshipIds.length > 0) {
+      for (const remId of dedupResult.removedPersonIds) {
+        await deletePerson(remId, 'Deduplicator');
+      }
+      for (const remRelId of dedupResult.removedRelationshipIds) {
+        await deleteRelationship(remRelId, 'Deduplicator');
+      }
+      for (const p of dedupResult.people) {
+        await savePerson(p, 'Deduplicator');
+      }
+      for (const r of dedupResult.relationships) {
+        await saveRelationship(r, 'Deduplicator');
+      }
+
+      setPeople(dedupResult.people);
+      setRelationships(dedupResult.relationships);
+
+      try {
+        const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+        await apiSaveBatch(dedupResult.people, dedupResult.relationships, token);
+      } catch {
+        // Proceed
+      }
+    }
+    return { mergedCount: dedupResult.mergedCount, details: dedupResult.details };
   };
 
   const handleAdminLogout = () => {
@@ -359,6 +416,7 @@ export const App: React.FC = () => {
             onAddNewRelationship={() => handleOpenAddRelationship()}
             onImportCommitted={reloadData}
             onOpenPdfExport={() => setShowPdfExportModal(true)}
+            onDeduplicate={handleManualDeduplication}
           />
         )}
       </main>

@@ -22,7 +22,8 @@ import {
   Filter,
   Check,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 
 interface RecordEditorViewProps {
@@ -35,6 +36,7 @@ interface RecordEditorViewProps {
   onAddNewPerson?: () => void;
   onAddNewRelationship?: (fromPersonId?: string) => void;
   onSelectPerson?: (person: Person) => void;
+  onDeduplicate?: () => Promise<{ mergedCount: number; details: string[] }>;
 }
 
 export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
@@ -47,6 +49,7 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
   onAddNewPerson,
   onAddNewRelationship,
   onSelectPerson,
+  onDeduplicate,
 }) => {
   // Search and Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,6 +76,29 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Deduplication state
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
+  const [dedupFeedback, setDedupFeedback] = useState<string | null>(null);
+
+  const handleRunDeduplication = async () => {
+    if (!onDeduplicate || isDeduplicating) return;
+    setIsDeduplicating(true);
+    setDedupFeedback(null);
+    try {
+      const res = await onDeduplicate();
+      if (res.mergedCount > 0) {
+        setDedupFeedback(`${res.mergedCount} ተደገምቲ መዛግብቲ ብዓወት ተወሃሂዶም ጸሪዮም!`);
+      } else {
+        setDedupFeedback('ምንም ተደገምቲ መዛግብቲ የለዉን - ኩሉ መዝገብ ብትኽክል ዝተወደበ እዩ።');
+      }
+    } catch {
+      setDedupFeedback('ምጽራይ ተደገምቲ መዛግብቲ ክካየድ ኣይከኣለን። በጃኹም ደጊምኩም ፈትኑ።');
+    } finally {
+      setIsDeduplicating(false);
+      setTimeout(() => setDedupFeedback(null), 6000);
+    }
+  };
 
   // Fast person lookup map
   const peopleMap = useMemo(() => {
@@ -316,8 +342,35 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
               <span>ዝምድና ወስኽ</span>
             </button>
           )}
+
+          {onDeduplicate && (
+            <button
+              onClick={handleRunDeduplication}
+              disabled={isDeduplicating}
+              className="px-3.5 py-2 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              title="ተደገምቲ ኣስማትን ሰባትን ብኣውቶማቲክ ኣዋህድ"
+            >
+              <RefreshCw className={`w-4 h-4 ${isDeduplicating ? 'animate-spin' : ''}`} />
+              <span>ተደገምቲ ኣዋህድ / ኣጻሪ</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {dedupFeedback && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-bold">{dedupFeedback}</span>
+          </div>
+          <button
+            onClick={() => setDedupFeedback(null)}
+            className="text-emerald-600 hover:text-emerald-800 p-1 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-stone-200 shadow-xs space-y-3">

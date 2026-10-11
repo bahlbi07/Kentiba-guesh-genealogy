@@ -7,6 +7,7 @@ import { FamilyInformationView } from '../src/components/FamilyInformationView';
 import { AboutArchive } from '../src/components/AboutArchive';
 import { AdminPanel } from '../src/components/AdminPanel';
 import { RecordEditorView } from '../src/components/RecordEditorView';
+import { AddPersonGuidedModal } from '../src/components/AddPersonGuidedModal';
 import App from '../src/App';
 import { Person, Relationship } from '../src/types/genealogy';
 
@@ -283,6 +284,103 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
         canonicalName: 'ሓረግ ወለዶ ዝተዓረየ',
       })
     );
+  });
+
+  it('8. AddPersonGuidedModal: supports cascading branch descendants, guidance box, fuzzy match, and clean spouse input', () => {
+    const handleSavePerson = vi.fn().mockResolvedValue(undefined);
+    const handleSaveRel = vi.fn().mockResolvedValue({ success: true });
+    const handleComplete = vi.fn().mockResolvedValue(undefined);
+    const handleClose = vi.fn();
+
+    const samplePeople: Person[] = [
+      {
+        id: 'pers_root_kinteba_guush',
+        canonicalName: 'ከንቲባ ጉዑሽ ሓጎስ',
+        branch: 'ቀንዲ መበቆል',
+        status: 'verified',
+        isArchived: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'pers_p1_9',
+        canonicalName: 'ትዕበ',
+        branch: 'ትዕበ',
+        status: 'verified',
+        isArchived: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'pers_p15_310',
+        canonicalName: 'ዑመር',
+        branch: 'ትዕበ',
+        motherName: 'ትዕበ',
+        status: 'verified',
+        isArchived: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    const sampleRels: Relationship[] = [
+      {
+        id: 'rel_pc_t_o',
+        fromPersonId: 'pers_p1_9',
+        toPersonId: 'pers_p15_310',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 15,
+        sourceWording: 'ትዕበ ዝወለደቶም',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    render(
+      <AddPersonGuidedModal
+        people={samplePeople}
+        relationships={sampleRels}
+        onClose={handleClose}
+        onSavePerson={handleSavePerson}
+        onSaveRelationship={handleSaveRel}
+        onComplete={handleComplete}
+      />
+    );
+
+    // Requirement 2: Historical notes textarea must NOT exist
+    expect(screen.queryByText('መተሓሳሰቢ ወይ ታሪኻዊ መረዳእታ')).toBeNull();
+
+    // Requirement 3: Professional Lineage Guidance Box must exist
+    expect(screen.getByText('ፕሮፌሽናል መዘኻኸሪ ንሰንሰለታዊ ወለዶ፦')).toBeDefined();
+
+    // Requirement 4: Section 3 should have spouse name, but NO "መግለጺ ሓዳር / ዝምድና"
+    expect(screen.getByText('ስም መጻምድቲ')).toBeDefined();
+    expect(screen.queryByText('መግለጺ ሓዳር / ዝምድና')).toBeNull();
+    expect(screen.queryByText('መግለፂ ሓዳር / ዝምድና')).toBeNull();
+
+    // Requirement 1: Cascading branch selector
+    const branchSelect = screen.getByRole('combobox');
+    fireEvent.change(branchSelect, { target: { value: 'ትዕበ' } });
+
+    // Cascading container appears
+    expect(screen.getByText(/ተዋረድ ወለዶ ሓረግ «ትዕበ»/)).toBeDefined();
+    expect(screen.getByText(/ደቂ «ትዕበ»/)).toBeDefined();
+
+    // Requirement 3: Fuzzy typo matching
+    const quickInput = screen.getByPlaceholderText(/ንኣብነት: ደሃብ ሓሊቦ ሓጎስ ዓዶ ዑመር ትዕበ/);
+    fireEvent.change(quickInput, { target: { value: 'ትእበ' } });
+
+    // Typo suggestion chip should appear proposing «ትዕበ»
+    expect(screen.getByText(/ኣብ መዝገብና ተመሳሳሊ ስም ሓረግ/)).toBeDefined();
+    expect(screen.getAllByText(/«ትዕበ»/).length).toBeGreaterThan(0);
+    const useSuggestionBtn = screen.getByRole('button', { name: /እወ ተጠቐም/ });
+    fireEvent.click(useSuggestionBtn);
+
+    // After clicking "እወ ተጠቐም", value changes to ትዕበ
+    expect((quickInput as HTMLInputElement).value).toBe('ትዕበ');
   });
 });
 

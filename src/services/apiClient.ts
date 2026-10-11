@@ -1,4 +1,4 @@
-import { AuditEvent } from '../types/genealogy';
+import { AuditEvent, Person, Relationship } from '../types/genealogy';
 
 /**
  * Typed API Client for Kinteba Guush Netlify / Serverless Backend API
@@ -9,7 +9,11 @@ import { AuditEvent } from '../types/genealogy';
 const API_BASE_URL = ((import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 export function isBackendConfigured(): boolean {
-  return typeof API_BASE_URL === 'string' && API_BASE_URL.trim().length > 0;
+  if (typeof API_BASE_URL === 'string' && API_BASE_URL.trim().length > 0) {
+    return true;
+  }
+  // Browser environment supports relative /api endpoints via Netlify redirects
+  return typeof window !== 'undefined' && typeof window.fetch === 'function';
 }
 
 export function getBackendBaseUrl(): string {
@@ -125,4 +129,102 @@ export async function apiFetchAuditLog(token: string): Promise<AuditEvent[]> {
     // Return empty on error
   }
   return [];
+}
+
+/**
+ * Save people and relationships in batch to backend
+ */
+export async function apiSaveBatch(
+  people: Person[],
+  relationships: Relationship[],
+  token?: string
+): Promise<{ success: boolean; count?: { people: number; relationships: number }; error?: string }> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${getBackendBaseUrl()}/api/batch`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ people, relationships }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, count: data.count };
+    }
+    return { success: false, error: `Server returned HTTP ${res.status}` };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Save a single relationship to backend
+ */
+export async function apiSaveRelationship(
+  relationship: Relationship,
+  token?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${getBackendBaseUrl()}/api/relationship`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(relationship),
+    });
+
+    if (res.ok) {
+      return { success: true };
+    }
+    return { success: false, error: `Server returned HTTP ${res.status}` };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Fetch full genealogy tree from backend
+ */
+export async function apiFetchTree(): Promise<{
+  people: Person[];
+  relationships: Relationship[];
+} | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const res = await fetch(`${getBackendBaseUrl()}/api/tree`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.people) && Array.isArray(data.relationships)) {
+        return {
+          people: data.people,
+          relationships: data.relationships,
+        };
+      }
+    }
+  } catch {
+    // Offline or server unavailable
+  }
+  return null;
 }

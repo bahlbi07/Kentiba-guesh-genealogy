@@ -18,6 +18,7 @@ import {
   bulkLoadData
 } from './services/db';
 import { isCloudConfigured } from './services/supabaseClient';
+import { apiFetchTree } from './services/apiClient';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
 
 import { Navbar, AppDestination } from './components/Navbar';
@@ -86,6 +87,40 @@ export const App: React.FC = () => {
         storedOccs = await getAllOccurrences();
         storedAudits = await getAllAuditEvents();
         mode = 'real';
+      }
+
+      // Synchronize with server backend for live updates across all family members
+      try {
+        const serverTree = await apiFetchTree();
+        if (serverTree && serverTree.people && serverTree.people.length > 0) {
+          let hasNewServerData = false;
+          const localPersonMap = new Map(storedPeople.map((p) => [p.id, p]));
+          for (const sp of serverTree.people) {
+            const existing = localPersonMap.get(sp.id);
+            if (!existing || (sp.updatedAt && existing.updatedAt && sp.updatedAt > existing.updatedAt)) {
+              await savePerson(sp, 'ServerSync');
+              localPersonMap.set(sp.id, sp);
+              hasNewServerData = true;
+            }
+          }
+
+          const localRelMap = new Map(storedRels.map((r) => [r.id, r]));
+          for (const sr of serverTree.relationships) {
+            const existing = localRelMap.get(sr.id);
+            if (!existing || (sr.updatedAt && existing.updatedAt && sr.updatedAt > existing.updatedAt)) {
+              await saveRelationship(sr, 'ServerSync');
+              localRelMap.set(sr.id, sr);
+              hasNewServerData = true;
+            }
+          }
+
+          if (hasNewServerData) {
+            storedPeople = await getAllPeople(true);
+            storedRels = await getAllRelationships();
+          }
+        }
+      } catch (syncErr) {
+        // Silently proceed with local offline database
       }
 
       setPeople(storedPeople);

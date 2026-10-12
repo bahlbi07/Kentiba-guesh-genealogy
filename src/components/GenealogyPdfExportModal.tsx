@@ -28,11 +28,11 @@ export const OFFICIAL_BRANCH_ORDER = [
   'ተስፉ',
   'ደስታ',
   'ወለገርግስ',
-  'ይሕደጋ',
+  'ይሕደጎ',
   'ብስራት',
   'ትዕበ',
   'በርሀ',
-  'መድሂን',
+  'መድህን',
   'ግብፂት',
   'ተፈሪ',
 ];
@@ -129,8 +129,23 @@ export const BRANCH_THEMES: Record<string, BranchTheme> = {
     badgeText: 'text-teal-900',
     accentHex: '#0f766e',
   },
+  ይሕደጎ: {
+    name: 'ይሕደጎ',
+    themeColor: 'rose',
+    headerGradient: 'from-rose-600 via-rose-700 to-pink-800',
+    headerBadge: 'bg-rose-800/80 text-rose-100 border-rose-400/40',
+    tableHeadBg: 'bg-rose-100/90',
+    tableHeadText: 'text-rose-950',
+    borderCol: 'border-rose-300',
+    lightBg: 'bg-rose-50/40',
+    accentText: 'text-rose-800',
+    badgeBg: 'bg-rose-100',
+    badgeBorder: 'border-rose-300',
+    badgeText: 'text-rose-900',
+    accentHex: '#be123c',
+  },
   ይሕደጋ: {
-    name: 'ይሕደጋ',
+    name: 'ይሕደጎ',
     themeColor: 'rose',
     headerGradient: 'from-rose-600 via-rose-700 to-pink-800',
     headerBadge: 'bg-rose-800/80 text-rose-100 border-rose-400/40',
@@ -189,8 +204,23 @@ export const BRANCH_THEMES: Record<string, BranchTheme> = {
     badgeText: 'text-sky-900',
     accentHex: '#0369a1',
   },
+  መድህን: {
+    name: 'መድህን',
+    themeColor: 'fuchsia',
+    headerGradient: 'from-fuchsia-600 via-fuchsia-700 to-pink-800',
+    headerBadge: 'bg-fuchsia-800/80 text-fuchsia-100 border-fuchsia-400/40',
+    tableHeadBg: 'bg-fuchsia-100/90',
+    tableHeadText: 'text-fuchsia-950',
+    borderCol: 'border-fuchsia-300',
+    lightBg: 'bg-fuchsia-50/40',
+    accentText: 'text-fuchsia-800',
+    badgeBg: 'bg-fuchsia-100',
+    badgeBorder: 'border-fuchsia-300',
+    badgeText: 'text-fuchsia-900',
+    accentHex: '#a21caf',
+  },
   መድሂን: {
-    name: 'መድሂን',
+    name: 'መድህን',
     themeColor: 'fuchsia',
     headerGradient: 'from-fuchsia-600 via-fuchsia-700 to-pink-800',
     headerBadge: 'bg-fuchsia-800/80 text-fuchsia-100 border-fuchsia-400/40',
@@ -366,26 +396,10 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
     );
   }, [people]);
 
-  // Dynamic list of all branch names from official order plus any children of Kinteba Guush in dataset
+  // The exact 12 official branches of Patriarch Kinteba Guush Hagos
   const allBranchNames = useMemo(() => {
-    const list: string[] = [...OFFICIAL_BRANCH_ORDER];
-    for (const p of people) {
-      if (p.isArchived) continue;
-      if (
-        p.fatherName &&
-        (p.fatherName.includes('ከንቲባ ጉዑሽ') || p.fatherName.includes('ከንቲባ ጉዕሽ')) &&
-        p.canonicalName
-      ) {
-        const name = p.canonicalName.trim();
-        if (!list.includes(name)) list.push(name);
-      }
-      if (p.branch && p.branch !== 'ቀንዲ መበቆል') {
-        const b = p.branch.trim();
-        if (!list.includes(b)) list.push(b);
-      }
-    }
-    return list;
-  }, [people]);
+    return OFFICIAL_BRANCH_ORDER;
+  }, []);
 
   // Build hierarchical descent order per branch
   const branchData = useMemo<BranchHierarchicalData[]>(() => {
@@ -615,7 +629,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
               className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all cursor-pointer active:scale-95"
             >
               <Printer className="w-4 h-4" />
-              <span>ሕተም / Save as PDF</span>
+              <span>ሕተም / ብፒዲኤፍ (PDF) ኣውርድ</span>
             </button>
             <button
               type="button"
@@ -768,7 +782,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-wider text-amber-950 font-black flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>ቀዳማይ መበቆል ኣቦሓጎ (Patriarch)</span>
+                  <span>ቀዳማይ መበቆል ኣቦሓጎ</span>
                 </span>
                 <span className="text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
                   ደረጃ 1 - መበቆል
@@ -861,39 +875,39 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                     ) : viewMode === 'table' ? (
                       /* Table View - Highly Structured, Legible & Color-Coded */
                       <div className="overflow-x-auto bg-white">
-                        <table className="w-full text-left text-xs border-collapse">
+                        <table className="w-full text-left text-sm border-collapse font-ethiopic">
                           <thead>
                             <tr
-                              className={`${theme.tableHeadBg} ${theme.tableHeadText} border-b-2 font-bold text-[11px] uppercase tracking-wider`}
+                              className={`${theme.tableHeadBg} ${theme.tableHeadText} border-b-2 font-black text-xs sm:text-sm uppercase tracking-wider`}
                               style={{ borderBottomColor: theme.accentHex }}
                             >
-                              <th className="py-2.5 px-3 text-center w-12 font-black border-r border-stone-200">
+                              <th className="py-3 px-3.5 text-center w-12 font-black border-r border-stone-200">
                                 ተ.ቁ
                               </th>
-                              <th className="py-2.5 px-3 w-32 border-r border-stone-200">
+                              <th className="py-3 px-3.5 w-32 border-r border-stone-200">
                                 ደረጃ ወለዶ
                               </th>
-                              <th className="py-2.5 px-3 min-w-[140px] border-r border-stone-200">
+                              <th className="py-3 px-3.5 min-w-[150px] border-r border-stone-200">
                                 ምሉእ ስም
                               </th>
-                              <th className="py-2.5 px-3 min-w-[200px] border-r border-stone-200">
-                                ተዋረድ ሰንሰለት (Lineage)
+                              <th className="py-3 px-3.5 min-w-[220px] border-r border-stone-200">
+                                ተዋረድ ሰንሰለት
                               </th>
-                              <th className="py-2.5 px-3 w-28 border-r border-stone-200">
+                              <th className="py-3 px-3.5 w-32 border-r border-stone-200">
                                 ወላዲ / ኣቦ
                               </th>
-                              <th className="py-2.5 px-3 min-w-[130px] border-r border-stone-200">
+                              <th className="py-3 px-3.5 min-w-[140px] border-r border-stone-200">
                                 መጻምድቲ / ሓዳር
                               </th>
-                              <th className="py-2.5 px-3 min-w-[150px] border-r border-stone-200">
+                              <th className="py-3 px-3.5 min-w-[160px] border-r border-stone-200">
                                 ውሉዳት
                               </th>
-                              <th className="py-2.5 px-3 min-w-[120px]">
+                              <th className="py-3 px-3.5 min-w-[130px]">
                                 ዓዲ / መተሓሳሰቢ
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-stone-200 text-stone-800">
+                          <tbody className="divide-y divide-stone-200 text-stone-900">
                             {branch.hierarchicalMembers.map((member, mIdx) => {
                               const isEven = mIdx % 2 === 0;
                               const rowBg = isEven ? 'bg-white' : theme.lightBg;
@@ -904,16 +918,16 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                                   className={`${rowBg} hover:bg-stone-50 transition-colors print:break-inside-avoid`}
                                 >
                                   {/* 1. ተ.ቁ (Index) */}
-                                  <td className="py-2 px-3 text-center font-bold text-stone-500 border-r border-stone-200 text-[11px]">
+                                  <td className="py-2.5 px-3 text-center font-bold text-stone-600 border-r border-stone-200 text-xs sm:text-sm">
                                     {mIdx + 1}
                                   </td>
 
                                   {/* 2. ደረጃ ወለዶ (Generation Badge with Depth indentation) */}
-                                  <td className="py-2 px-3 border-r border-stone-200 whitespace-nowrap">
+                                  <td className="py-2.5 px-3 border-r border-stone-200 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5">
                                       {/* Visual depth guide */}
                                       {member.depth > 0 && (
-                                        <span className="text-stone-400 font-mono text-[10px]">
+                                        <span className="text-stone-400 font-mono text-xs font-bold">
                                           {'—'.repeat(Math.min(member.depth, 3))}↳
                                         </span>
                                       )}
@@ -922,16 +936,16 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                                   </td>
 
                                   {/* 3. ምሉእ ስም (Full Name) */}
-                                  <td className="py-2 px-3 font-bold text-stone-950 border-r border-stone-200 text-sm">
+                                  <td className="py-2.5 px-3 font-black text-stone-950 border-r border-stone-200 text-base sm:text-lg">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <span>{member.person.canonicalName}</span>
                                       {member.person.gender === 'female' && (
-                                        <span className="text-[10px] font-normal px-1 py-0.2 bg-rose-100 text-rose-800 rounded border border-rose-200">
+                                        <span className="text-xs font-bold px-2 py-0.5 bg-rose-100 text-rose-900 rounded-md border border-rose-300">
                                           ኣንስትዮ
                                         </span>
                                       )}
                                       {member.person.gender === 'male' && (
-                                        <span className="text-[10px] font-normal px-1 py-0.2 bg-blue-100 text-blue-800 rounded border border-blue-200">
+                                        <span className="text-xs font-bold px-2 py-0.5 bg-blue-100 text-blue-900 rounded-md border border-blue-300">
                                           ተባዕታይ
                                         </span>
                                       )}
@@ -939,22 +953,22 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                                   </td>
 
                                   {/* 4. ተዋረድ ሰንሰለት (Descent Breadcrumb) */}
-                                  <td className="py-2 px-3 border-r border-stone-200">
-                                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                                  <td className="py-2.5 px-3 border-r border-stone-200">
+                                    <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
                                       {member.lineagePath.map((step, pIdx) => {
                                         const isLast = pIdx === member.lineagePath.length - 1;
                                         return (
                                           <React.Fragment key={pIdx}>
                                             {pIdx > 0 && (
-                                              <span className="text-stone-400 font-bold text-[10px]">
+                                              <span className="text-stone-400 font-black text-xs">
                                                 ›
                                               </span>
                                             )}
                                             <span
-                                              className={`px-1.5 py-0.2 rounded ${
+                                              className={`px-2 py-0.5 rounded-md ${
                                                 isLast
-                                                  ? 'font-bold bg-stone-900 text-white text-[10px]'
-                                                  : 'bg-stone-100 text-stone-700 text-[10.5px] border border-stone-200'
+                                                  ? 'font-black bg-stone-900 text-white text-xs'
+                                                  : 'bg-stone-100 text-stone-800 text-xs border border-stone-300 font-bold'
                                               }`}
                                             >
                                               {step}
@@ -966,31 +980,31 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                                   </td>
 
                                   {/* 5. ወላዲ / ኣቦ (Father/Parent) */}
-                                  <td className="py-2 px-3 text-stone-700 font-medium border-r border-stone-200 text-[11px]">
+                                  <td className="py-2.5 px-3 text-stone-900 font-bold border-r border-stone-200 text-xs sm:text-sm">
                                     {member.person.fatherName || '-'}
                                   </td>
 
                                   {/* 6. መጻምድቲ / ሓዳር (Spouse) */}
-                                  <td className="py-2 px-3 border-r border-stone-200">
+                                  <td className="py-2.5 px-3 border-r border-stone-200">
                                     {member.spouses.length > 0 ? (
                                       <div className="space-y-1">
                                         {member.spouses.map((s, sIdx) => (
                                           <div
                                             key={sIdx}
-                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-900 border border-rose-200 text-[10.5px] font-bold"
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-950 border border-rose-300 text-xs font-bold"
                                           >
-                                            <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+                                            <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" />
                                             <span>{s.person.canonicalName}</span>
                                           </div>
                                         ))}
                                         {member.person.spouseNote && (
-                                          <p className="text-[10px] text-stone-500 italic leading-tight">
+                                          <p className="text-xs text-stone-600 italic leading-tight">
                                             {member.person.spouseNote}
                                           </p>
                                         )}
                                       </div>
                                     ) : member.person.spouseNote ? (
-                                      <p className="text-[10px] text-stone-600 italic">
+                                      <p className="text-xs text-stone-700 italic font-medium">
                                         {member.person.spouseNote}
                                       </p>
                                     ) : (
@@ -999,18 +1013,18 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                                   </td>
 
                                   {/* 7. ውሉዳት (Children) */}
-                                  <td className="py-2 px-3 border-r border-stone-200">
+                                  <td className="py-2.5 px-3 border-r border-stone-200">
                                     {member.children.length > 0 ? (
                                       <div className="space-y-1">
-                                        <div className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-900 bg-sky-100/70 px-1.5 py-0.5 rounded border border-sky-200">
-                                          <Baby className="w-3 h-3 text-sky-700" />
+                                        <div className="inline-flex items-center gap-1 text-xs font-bold text-sky-950 bg-sky-100/90 px-2 py-0.5 rounded-lg border border-sky-300">
+                                          <Baby className="w-3.5 h-3.5 text-sky-700" />
                                           <span>{member.children.length} ውሉዳት</span>
                                         </div>
-                                        <div className="flex flex-wrap gap-1 text-[10px]">
+                                        <div className="flex flex-wrap gap-1 text-xs font-semibold">
                                           {member.children.map((child, cIdx) => (
                                             <span
                                               key={cIdx}
-                                              className="bg-stone-100 text-stone-700 px-1.5 py-0.2 rounded border border-stone-200"
+                                              className="bg-stone-100 text-stone-800 px-2 py-0.5 rounded-md border border-stone-300"
                                             >
                                               {child.canonicalName}
                                             </span>
@@ -1023,7 +1037,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                                   </td>
 
                                   {/* 8. ዓዲ / መተሓሳሰቢ (Village / Notes) */}
-                                  <td className="py-2 px-3 text-[11px] text-stone-600">
+                                  <td className="py-2.5 px-3 text-xs sm:text-sm text-stone-700 font-medium">
                                     {cleanDisplayNote(member.person.notes) ? (
                                       <span className="line-clamp-2">{cleanDisplayNote(member.person.notes)}</span>
                                     ) : (

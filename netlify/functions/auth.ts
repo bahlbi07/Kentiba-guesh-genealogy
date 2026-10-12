@@ -72,7 +72,13 @@ export function verifyToken(token: string): { valid: boolean; payload?: any } {
 }
 
 function verifyPassword(password: string): boolean {
-  if (password === 'Kentibaguesh0909' || password === 'KintebaGuush2026!') {
+  const clean = (password || '').trim();
+  if (
+    clean === 'Kentibaguesh0909' ||
+    clean.toLowerCase() === 'kentibaguesh0909' ||
+    clean.toLowerCase() === 'kintebaguush0909' ||
+    clean === 'KintebaGuush2026!'
+  ) {
     return true;
   }
 

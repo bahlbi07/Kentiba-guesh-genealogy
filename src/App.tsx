@@ -3,7 +3,8 @@ import {
   Person,
   Relationship,
   SourceOccurrence,
-  AuditEvent
+  AuditEvent,
+  UserRole
 } from './types/genealogy';
 import {
   getAllPeople,
@@ -22,6 +23,7 @@ import { isCloudConfigured } from './services/supabaseClient';
 import { apiFetchTree, apiSaveBatch, apiSaveRelationship } from './services/apiClient';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
 import { deduplicateFamilyRecords } from './services/deduplicator';
+import { syncPersonToGoogleSheets } from './services/googleSheetsService';
 
 import { Navbar, AppDestination } from './components/Navbar';
 import { FamilyExplorer } from './components/FamilyExplorer';
@@ -37,7 +39,7 @@ import { RotateCw } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.12.v6_auto_sync_ultra_speed';
+export const CURRENT_DATASET_VERSION = '2026.10.12.v8_clean_english_annotations';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -71,6 +73,12 @@ export const App: React.FC = () => {
   // Admin authentication state
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('kinteba_admin_auth') === 'true';
+  });
+
+  const [adminRole, setAdminRole] = useState<UserRole>(() => {
+    const stored = sessionStorage.getItem('kinteba_admin_role') as UserRole;
+    if (stored === 'superadmin' || stored === 'admin') return stored;
+    return sessionStorage.getItem('kinteba_admin_auth') === 'true' ? 'admin' : 'guest';
   });
 
   // Background Auto-Sync Worker: automatically checks "ሓድሽ ሓበሬታ ኣሎ ድዩ?" on launch and tab activation
@@ -291,10 +299,68 @@ export const App: React.FC = () => {
   };
 
   const handleDeletePerson = async (id: string) => {
-    await deletePerson(id, 'Admin');
+    if (adminRole === 'superadmin') {
+      // Super Admin permanently deletes immediately
+      await deletePerson(id, 'SuperAdmin');
+      await reloadData();
+      if (selectedPerson?.id === id) {
+        setSelectedPerson(null);
+      }
+    } else {
+      // Regular Admin: marks deletionPending = true and isArchived = true for Super Admin review
+      const target = people.find((p) => p.id === id);
+      if (target) {
+        const updated: Person = {
+          ...target,
+          isArchived: true,
+          deletionPending: true,
+          deletionRequestedBy: 'ኣድሚን',
+          deletionRequestedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        await savePerson(updated, 'Admin');
+        try {
+          const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+          await apiSaveBatch([updated], [], token);
+        } catch {
+          // offline fallback
+        }
+        await reloadData();
+        if (selectedPerson?.id === id) {
+          setSelectedPerson(null);
+        }
+        alert('እዚ ናይ ምድማስ ጠለብ ተመዝጊቡ ኣሎ። ንውሕስነት ዳታ፡ ናይ መወዳእታ ውሳነ ምድማስ ብሱፐር ኣድሚን (Super Admin) ክረጋገጽ እዩ።');
+      }
+    }
+  };
+
+  const handlePermanentDeletePerson = async (id: string) => {
+    await deletePerson(id, 'SuperAdmin');
     await reloadData();
     if (selectedPerson?.id === id) {
       setSelectedPerson(null);
+    }
+  };
+
+  const handleRestorePerson = async (id: string) => {
+    const target = people.find((p) => p.id === id);
+    if (target) {
+      const restored: Person = {
+        ...target,
+        isArchived: false,
+        deletionPending: false,
+        deletionRequestedBy: undefined,
+        deletionRequestedAt: undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      await savePerson(restored, 'SuperAdmin');
+      try {
+        const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+        await apiSaveBatch([restored], [], token);
+      } catch {
+        // offline fallback
+      }
+      await reloadData();
     }
   };
 
@@ -318,11 +384,13 @@ export const App: React.FC = () => {
     await reloadData();
   };
 
-  const handleAdminLogin = (token: string, username: string) => {
+  const handleAdminLogin = (token: string, username: string, role: 'admin' | 'superadmin' = 'admin') => {
     sessionStorage.setItem('kinteba_admin_auth', 'true');
     sessionStorage.setItem('kinteba_admin_user', username);
     sessionStorage.setItem('kinteba_admin_token', token);
+    sessionStorage.setItem('kinteba_admin_role', role);
     setIsAdminAuthenticated(true);
+    setAdminRole(role);
   };
 
   const handleManualDeduplication = async (): Promise<{ mergedCount: number; details: string[] }> => {
@@ -358,48 +426,41 @@ export const App: React.FC = () => {
     sessionStorage.removeItem('kinteba_admin_auth');
     sessionStorage.removeItem('kinteba_admin_user');
     sessionStorage.removeItem('kinteba_admin_token');
+    sessionStorage.removeItem('kinteba_admin_role');
     setIsAdminAuthenticated(false);
+    setAdminRole('guest');
   };
 
-  // Quick Force-Refresh & Cache-Clear Utility (for family members to purge any old cache)
+  // Quick Live Refresh & Sync Utility (In-place live sync with instant feedback)
   const handleForceRefresh = async () => {
     setIsSyncing(true);
+    setLastSyncBadge('ሓድሽ ሓበሬታ ይምርመር ኣሎ...');
     try {
+      // 1. Proactively check for Service Worker updates
       if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (const reg of registrations) {
-          await reg.unregister();
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update().catch(() => {});
         }
       }
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        for (const key of keys) {
-          await caches.delete(key);
-        }
-      }
+
+      // 2. Force re-sync with authoritative dataset
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('kinteba_authoritative_dataset_version');
       }
 
-      // Proactively reload authoritative dataset directly into IndexedDB before reloading
-      await bulkLoadData(
-        {
-          people: INITIAL_PEOPLE,
-          relationships: INITIAL_RELATIONSHIPS,
-          occurrences: INITIAL_OCCURRENCES,
-          mode: 'real',
-        },
-        'ForceRefreshClean'
-      );
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('kinteba_authoritative_dataset_version', CURRENT_DATASET_VERSION);
-      }
+      // 3. Run full in-place reload and background server synchronization
+      await reloadData();
 
-      // Hard redirect with cache-busting timestamp to bust HTTP disk cache
-      const bust = window.location.origin + window.location.pathname + '?reload=' + Date.now();
-      window.location.replace(bust);
+      // 4. Immediate clear visual confirmation
+      const refreshedList = await getAllPeople(true);
+      setLastSyncBadge(`መዝገብ ብዓወት ተሓዲሱ! (${refreshedList.length} ኣባላት - 12 ጨናፍር)`);
+      setTimeout(() => setLastSyncBadge(null), 6000);
     } catch {
-      window.location.reload();
+      setLastSyncBadge('መዝገብ እዋናዊ እዩ');
+      setTimeout(() => setLastSyncBadge(null), 4000);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -430,11 +491,12 @@ export const App: React.FC = () => {
         totalPeopleCount={people.length}
         hasSelectedPerson={!!selectedPerson}
         isAdminAuthenticated={isAdminAuthenticated}
+        adminRole={adminRole}
         onOpenPdfExport={() => setShowPdfExportModal(true)}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 py-3 sm:px-6 sm:py-6 lg:px-8 overflow-x-hidden">
         {/* Core Tab 1: Progressive Family Explorer */}
         {activeTab === 'tree' && (
           <FamilyExplorer
@@ -482,6 +544,7 @@ export const App: React.FC = () => {
             occurrences={occurrences}
             auditEvents={auditEvents}
             isAuthenticated={isAdminAuthenticated}
+            role={adminRole}
             onLogin={handleAdminLogin}
             onLogout={handleAdminLogout}
             onSelectPerson={(p) => {
@@ -490,6 +553,8 @@ export const App: React.FC = () => {
             }}
             onUpdatePerson={handleUpdatePerson}
             onDeletePerson={handleDeletePerson}
+            onPermanentDeletePerson={handlePermanentDeletePerson}
+            onRestorePerson={handleRestorePerson}
             onSaveRelationship={handleSaveRelationship}
             onDeleteRelationship={handleDeleteRelationship}
             onAddNewPerson={() => setShowAddPersonModal(true)}
@@ -541,7 +606,12 @@ export const App: React.FC = () => {
             // 2. Persist to IndexedDB in a single lightning-fast atomic transaction
             await saveBatchData(batchPeople, batchRelationships, 'Admin');
 
-            // 3. Non-blocking asynchronous remote sync in the background
+            // 3. Asynchronously forward each new person to Google Sheets Webhook!
+            for (const p of batchPeople) {
+              syncPersonToGoogleSheets(p, people, relationships);
+            }
+
+            // 4. Non-blocking asynchronous remote sync in the background
             try {
               const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
               apiSaveBatch(batchPeople, batchRelationships, token).catch((e) => {
@@ -571,29 +641,31 @@ export const App: React.FC = () => {
       )}
 
       {/* Footer with App Version and Quick Force-Refresh / Cache Clear button */}
-      <footer className="mt-auto border-t border-stone-200 bg-white/70 py-4 pb-20 md:pb-4 px-4 text-center text-xs text-stone-500 font-ethiopic">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
-          <p>© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንቲባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-stone-400">ስሪት 6.0 ({people.length} ኣባላት)</span>
+      <footer className="mt-auto border-t border-stone-200 bg-white/80 py-4 pb-20 md:pb-4 px-4 text-center text-sm text-stone-600 font-ethiopic">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="font-medium">© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንቲባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
+          <div className="flex items-center flex-wrap justify-center gap-3">
+            <span className="text-xs sm:text-sm font-bold text-stone-600 bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200">
+              ስሪት 6.0 ({people.length} ኣባላት)
+            </span>
             {isSyncing && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-300">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
                 <span>ሓድሽ ሓበሬታ ይምርመር ኣሎ...</span>
               </span>
             )}
             {!isSyncing && lastSyncBadge && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 transition-opacity">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-900 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-300 transition-opacity">
                 <span>✓ {lastSyncBadge}</span>
               </span>
             )}
             <button
               type="button"
               onClick={handleForceRefresh}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg cursor-pointer transition-colors active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-extrabold text-amber-900 bg-amber-100/80 hover:bg-amber-200 border border-amber-300 rounded-xl cursor-pointer transition-colors active:scale-95 shadow-xs"
               title="ካሽ ኣጽሪኻ ሓድሽ መዝገብ ጽዓን"
             >
-              <RotateCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-amber-600' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-600' : ''}`} />
               <span>ዳታ ሓድስ / Refresh</span>
             </button>
           </div>

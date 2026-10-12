@@ -149,7 +149,7 @@ export const TreeListAlternative: React.FC<TreeListAlternativeProps> = ({
           <Search className="w-4 h-4 absolute left-3 top-3 text-stone-400" />
           <input
             type="text"
-            placeholder="Search within accessible list..."
+            placeholder="ኣብ ውሽጢ ዝርዝር ድለ..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 text-sm rounded-md border border-stone-300 bg-white focus:ring-2 focus:ring-amber-500 font-ethiopic"
@@ -160,15 +160,15 @@ export const TreeListAlternative: React.FC<TreeListAlternativeProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={expandAll}
-            className="px-2.5 py-1 text-xs bg-white border border-stone-300 rounded hover:bg-stone-100 text-stone-700 font-medium"
+            className="px-2.5 py-1 text-xs bg-white border border-stone-300 rounded hover:bg-stone-100 text-stone-700 font-medium font-ethiopic cursor-pointer"
           >
-            Expand All
+            ኩሉ ዘርግሕ
           </button>
           <button
             onClick={collapseAll}
-            className="px-2.5 py-1 text-xs bg-white border border-stone-300 rounded hover:bg-stone-100 text-stone-700 font-medium"
+            className="px-2.5 py-1 text-xs bg-white border border-stone-300 rounded hover:bg-stone-100 text-stone-700 font-medium font-ethiopic cursor-pointer"
           >
-            Collapse All
+            ኩሉ ዕጾ
           </button>
         </div>
       </div>

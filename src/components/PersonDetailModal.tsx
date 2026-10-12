@@ -4,6 +4,7 @@ import { savePerson, saveRelationship } from '../services/db';
 import { apiSaveBatch } from '../services/apiClient';
 import { validateParentChildCycle } from '../services/cycleDetector';
 import { cleanDisplayNote } from './GenealogyPdfExportModal';
+import { syncPersonToGoogleSheets } from '../services/googleSheetsService';
 import {
   X,
   CheckCircle,
@@ -267,6 +268,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
 
         await savePerson(newPerson, 'Admin');
         createdPeople.push(newPerson);
+        syncPersonToGoogleSheets(newPerson, people, relationships);
 
         const mainRel: Relationship = {
           id: `rel_pc_${person.id}_${childId}`,
@@ -640,40 +642,40 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-ethiopic">
-              <div className="p-3 bg-white rounded-lg border border-stone-200">
-                <span className="text-xs text-stone-400 block">ምሉእ ስም</span>
-                <span className="font-bold text-stone-900 font-ethiopic text-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-base font-ethiopic">
+              <div className="p-4 bg-white rounded-xl border border-stone-200">
+                <span className="text-sm font-bold text-stone-600 block mb-1">ምሉእ ስም</span>
+                <span className="font-black text-stone-950 font-ethiopic text-xl sm:text-2xl">
                   {person.canonicalName}
                 </span>
                 {person.displayName && (
-                  <span className="text-xs text-stone-500 block font-sans mt-0.5">
+                  <span className="text-sm font-semibold text-stone-600 block font-sans mt-0.5">
                     ({person.displayName})
                   </span>
                 )}
               </div>
 
-              <div className="p-3 bg-white rounded-lg border border-stone-200">
-                <span className="text-xs text-stone-400 block">ጨንፈር / ሓረግ</span>
-                <span className="font-semibold text-stone-800 font-ethiopic">
+              <div className="p-4 bg-white rounded-xl border border-stone-200">
+                <span className="text-sm font-bold text-stone-600 block mb-1">ጨንፈር / ሓረግ</span>
+                <span className="font-extrabold text-stone-900 font-ethiopic text-lg sm:text-xl">
                   {person.branch || 'ከንቲባ ጉዕሽ ሓጎስ'}
                 </span>
               </div>
 
               {(person.fatherName || person.motherName) && (
-                <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">
-                  <span className="text-xs text-stone-400 block mb-1">ወለዲ (ኣቦን ኣደን)</span>
-                  <div className="flex flex-wrap gap-4 text-xs">
+                <div className="p-4 bg-white rounded-xl border border-stone-200 md:col-span-2">
+                  <span className="text-sm font-bold text-stone-600 block mb-1.5">ወለዲ (ኣቦን ኣደን)</span>
+                  <div className="flex flex-wrap gap-5 text-base">
                     {person.fatherName && (
-                      <div className="text-stone-800">
-                        <span className="text-stone-500">ኣቦ: </span>
-                        <span className="font-bold">{person.fatherName}</span>
+                      <div className="text-stone-900">
+                        <span className="text-stone-500 font-medium">ኣቦ: </span>
+                        <span className="font-bold text-stone-950">{person.fatherName}</span>
                       </div>
                     )}
                     {person.motherName && (
-                      <div className="text-stone-800">
-                        <span className="text-stone-500">ኣደ: </span>
-                        <span className="font-bold">{person.motherName}</span>
+                      <div className="text-stone-900">
+                        <span className="text-stone-500 font-medium">ኣደ: </span>
+                        <span className="font-bold text-stone-950">{person.motherName}</span>
                       </div>
                     )}
                   </div>
@@ -681,9 +683,9 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               )}
 
               {cleanDisplayNote(person.notes) && (
-                <div className="p-3 bg-white rounded-lg border border-stone-200 md:col-span-2">
-                  <span className="text-xs text-stone-400 block mb-1">መተሓሳሰቢ</span>
-                  <p className="text-xs text-stone-700 whitespace-pre-line">
+                <div className="p-4 bg-white rounded-xl border border-stone-200 md:col-span-2">
+                  <span className="text-sm font-bold text-stone-600 block mb-1">መተሓሳሰቢ</span>
+                  <p className="text-sm sm:text-base text-stone-800 whitespace-pre-line font-medium leading-relaxed">
                     {cleanDisplayNote(person.notes)}
                   </p>
                 </div>
@@ -1076,17 +1078,17 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                     return (
                       <div
                         key={rel.id}
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 hover:bg-stone-100/80 border border-stone-200 transition-colors text-xs"
+                        className="flex items-center justify-between p-3 rounded-2xl bg-stone-50 hover:bg-stone-100/80 border border-stone-200 transition-colors text-sm sm:text-base"
                       >
                         <div className="flex items-center space-x-2.5 flex-1 min-w-0 mr-2">
                           {/* Gender Indicator Icon */}
                           <span
-                            className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] shrink-0 font-bold ${
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0 font-black ${
                               childPerson.gender === 'female'
-                                ? 'bg-rose-100 text-rose-700'
+                                ? 'bg-rose-100 text-rose-800'
                                 : childPerson.gender === 'male'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-stone-200 text-stone-600'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-stone-200 text-stone-700'
                             }`}
                             title={
                               childPerson.gender === 'female'
@@ -1109,52 +1111,52 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
                                 type="text"
                                 value={editingChildName}
                                 onChange={(e) => setEditingChildName(e.target.value)}
-                                className="px-2 py-1 bg-white border border-stone-300 rounded text-xs font-ethiopic font-bold flex-1"
+                                className="px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-sm font-ethiopic font-bold flex-1"
                                 autoFocus
                               />
                               <button
                                 type="button"
                                 onClick={() => handleSaveEditChild(childPerson)}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-ethiopic flex items-center space-x-1 cursor-pointer"
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-ethiopic font-bold flex items-center space-x-1 cursor-pointer"
                               >
-                                <Check className="w-3 h-3" />
+                                <Check className="w-3.5 h-3.5" />
                                 <span>ኣጽድቕ</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setEditingChildId(null)}
-                                className="px-2 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded text-xs font-ethiopic cursor-pointer"
+                                className="px-2.5 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg text-xs font-ethiopic font-medium cursor-pointer"
                               >
                                 ሰርዝ
                               </button>
                             </div>
                           ) : (
-                            <div className="flex items-center space-x-2 truncate">
+                            <div className="flex items-center space-x-2.5 truncate">
                               {onSelectPerson ? (
                                 <button
                                   type="button"
                                   onClick={() => onSelectPerson(childPerson)}
-                                  className="font-bold font-ethiopic text-stone-900 hover:text-amber-700 hover:underline flex items-center space-x-1 truncate cursor-pointer text-left"
+                                  className="font-black font-ethiopic text-stone-950 text-base sm:text-lg hover:text-amber-700 hover:underline flex items-center space-x-1.5 truncate cursor-pointer text-left"
                                   title="ናይዚ ውሉድ መረዳእታ ኽፈት"
                                 >
                                   <span className="truncate">{childPerson.canonicalName}</span>
-                                  <ExternalLink className="w-3 h-3 text-stone-400 shrink-0 inline" />
+                                  <ExternalLink className="w-3.5 h-3.5 text-stone-400 shrink-0 inline" />
                                 </button>
                               ) : (
-                                <span className="font-bold font-ethiopic text-stone-900 truncate">
+                                <span className="font-black font-ethiopic text-stone-950 text-base sm:text-lg truncate">
                                   {childPerson.canonicalName}
                                 </span>
                               )}
 
                               {/* Descendant count badge */}
                               {childCount > 0 && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-stone-200/80 text-stone-700 font-medium shrink-0 font-ethiopic">
+                                <span className="px-2 py-0.5 rounded-md text-xs bg-stone-200 text-stone-800 font-bold shrink-0 font-ethiopic">
                                   {childCount} ውሉድ
                                 </span>
                               )}
 
                               {rel.status === 'needs_review' && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 shrink-0">
+                                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
                                   ምምርማር ዘድልዮ
                                 </span>
                               )}

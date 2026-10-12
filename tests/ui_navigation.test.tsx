@@ -265,6 +265,68 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(screen.queryByText('ጠቕላላ ዝምድናታት')).toBeNull();
   });
 
+  it('5c. AdminPanel: logs in Super Admin with exact credentials and renders Super Admin Portal', async () => {
+    const handleLogin = vi.fn();
+    render(
+      <AdminPanel
+        people={mockPeople}
+        relationships={mockRelationships}
+        occurrences={[]}
+        auditEvents={[]}
+        isAuthenticated={false}
+        onLogin={handleLogin}
+        onLogout={vi.fn()}
+        onSelectPerson={vi.fn()}
+        onUpdatePerson={vi.fn()}
+        onDeletePerson={vi.fn()}
+        onSaveRelationship={vi.fn()}
+        onDeleteRelationship={vi.fn()}
+        onAddNewPerson={vi.fn()}
+        onImportCommitted={vi.fn()}
+      />
+    );
+
+    const usernameInput = screen.getByPlaceholderText('ስም ተጠቃሚ የእትዉ...');
+    const passwordInput = screen.getByPlaceholderText('••••••••');
+    const submitBtn = screen.getByRole('button', { name: /ብደሓን እቶ/ });
+
+    fireEvent.change(usernameInput, { target: { value: 'kentibaguesh0909superadmin@gmail.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'Kentibaguesh#0909' } });
+    fireEvent.click(submitBtn);
+
+    expect(handleLogin).toHaveBeenCalledWith(
+      expect.any(String),
+      'kentibaguesh0909superadmin@gmail.com',
+      'superadmin'
+    );
+  });
+
+  it('5d. AdminPanel: renders Super Admin tabs including Pending Deletions and Google Sheets', () => {
+    render(
+      <AdminPanel
+        people={mockPeople}
+        relationships={mockRelationships}
+        occurrences={[]}
+        auditEvents={[]}
+        isAuthenticated={true}
+        role="superadmin"
+        onLogin={vi.fn()}
+        onLogout={vi.fn()}
+        onSelectPerson={vi.fn()}
+        onUpdatePerson={vi.fn()}
+        onDeletePerson={vi.fn()}
+        onSaveRelationship={vi.fn()}
+        onDeleteRelationship={vi.fn()}
+        onAddNewPerson={vi.fn()}
+        onImportCommitted={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/ዋና ኣካያዲ \/ ሱፐር ኣድሚን/)).toBeDefined();
+    expect(screen.getAllByText(/ናይ ምድማስ ውሳነታት/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Google Sheets መላገቢ/)).toBeDefined();
+  });
+
   it('6. App: renders complete application root without crashing', async () => {
     render(<App />);
     const elements = await screen.findAllByText(/ተወለድ እንዳቦይ ከንቲባ ጉዕሽ/);

@@ -126,10 +126,10 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
   const layoutData = useMemo(() => {
     if (!activeRootId || !peopleMap.has(activeRootId)) return null;
 
-    const NODE_WIDTH = 220;
-    const NODE_HEIGHT = 90;
-    const HORIZONTAL_GAP = 30;
-    const VERTICAL_GAP = 90;
+    const NODE_WIDTH = 250;
+    const NODE_HEIGHT = 105;
+    const HORIZONTAL_GAP = 36;
+    const VERTICAL_GAP = 95;
 
     let currentX = 50;
 
@@ -254,9 +254,9 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
     return (
       <div className="text-center py-16 px-4 bg-white rounded-xl shadow-sm border border-stone-200">
         <Sparkles className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-        <h3 className="text-lg font-semibold text-stone-800">No Family Records Yet</h3>
-        <p className="text-sm text-stone-500 max-w-md mx-auto mt-1">
-          You can run a staged import from the source files or load demo records to preview the interactive tree.
+        <h3 className="text-lg font-bold text-stone-800 font-ethiopic">ዝኾነ መዝገብ ስድራ የለን</h3>
+        <p className="text-sm text-stone-600 max-w-md mx-auto mt-1 font-ethiopic">
+          ካብ ሰነድ ሓበሬታ ብምእታው ወይ ድማ መወከሲ መዝገባት ብምርኣይ ሓረግ ወለዶ ክትዕዘቡ ትኽእሉ ኢኹም።
         </p>
       </div>
     );
@@ -267,14 +267,14 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
       {/* Top Tree Controls Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white border-b border-stone-200 z-10 text-stone-700">
         <div className="flex items-center space-x-2">
-          <label htmlFor="root-select" className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
-            Root:
+          <label htmlFor="root-select" className="text-sm font-bold text-stone-700 font-ethiopic">
+            መሰረት ወለዶ:
           </label>
           <select
             id="root-select"
             value={activeRootId}
             onChange={(e) => setSelectedRootId(e.target.value)}
-            className="text-xs sm:text-sm font-ethiopic py-1.5 px-2.5 rounded-lg border border-stone-300 bg-stone-50 text-stone-800 focus:ring-2 focus:ring-amber-500 font-medium"
+            className="text-sm sm:text-base font-ethiopic py-2 px-3 rounded-xl border border-stone-300 bg-stone-50 text-stone-900 focus:ring-2 focus:ring-amber-500 font-bold"
           >
             {candidateRoots.map((r) => (
               <option key={r.id} value={r.id}>
@@ -434,15 +434,15 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
 
                 if (node.person.status === 'needs_review') {
                   borderColor = 'border-amber-400';
-                  bgColor = 'bg-amber-50/50';
+                  bgColor = 'bg-amber-50/60';
                   statusBadge = (
-                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 font-ethiopic">
+                    <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 font-ethiopic">
                       ምምርማር ዘድልዮ
                     </span>
                   );
                 } else if (node.person.status === 'verified') {
                   statusBadge = (
-                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 font-ethiopic">
+                    <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 font-ethiopic">
                       ዝተረጋገጸ
                     </span>
                   );
@@ -463,51 +463,46 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                   >
                     <foreignObject width={node.width} height={node.height}>
                       <div
-                        className={`h-full w-full rounded-xl border-2 ${
+                        className={`h-full w-full rounded-2xl border-2 ${
                           isSelectedRoot ? 'border-amber-600 ring-2 ring-amber-400/50 shadow-md' : borderColor
-                        } ${bgColor} shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between text-left`}
+                        } ${bgColor} shadow-sm hover:shadow-md transition-all p-3 flex flex-col justify-between text-left`}
                       >
                         {/* Header: Status */}
-                        <div className="flex items-center justify-between text-[11px] text-stone-500">
+                        <div className="flex items-center justify-between text-xs text-stone-600">
                           <div className="flex items-center space-x-1">
                             {statusBadge}
                           </div>
                         </div>
 
                         {/* Name (Ethiopic) */}
-                        <div>
-                          <h4 className="font-bold text-sm sm:text-base text-stone-900 font-ethiopic leading-snug line-clamp-1">
+                        <div className="my-0.5">
+                          <h4 className="font-extrabold text-base sm:text-lg text-stone-950 font-ethiopic leading-tight line-clamp-1">
                             {node.person.canonicalName}
                           </h4>
                           {node.person.branch && (
-                            <p className="text-[11px] text-stone-500 line-clamp-1 font-ethiopic">
-                              {node.person.branch}
+                            <p className="text-xs sm:text-sm font-semibold text-stone-600 line-clamp-1 font-ethiopic">
+                              ጨንፈር {node.person.branch}
                             </p>
                           )}
                         </div>
 
                         {/* Footer: branch and collapse toggle */}
-                        <div className="flex items-center justify-between text-[10px] text-stone-400 pt-0.5 border-t border-stone-100 font-ethiopic">
-                          <span className="truncate max-w-[120px]">
+                        <div className="flex items-center justify-between text-xs text-stone-600 pt-1 border-t border-stone-200 font-ethiopic">
+                          <span className="truncate max-w-[130px] font-bold">
                             {node.children.length > 0 ? `${node.children.length} ውሉዳት` : ''}
                           </span>
 
                           {hasChildren && (
                             <button
                               onClick={(e) => toggleCollapse(node.person.id, e)}
-                              className="px-1.5 py-0.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center space-x-0.5 text-[10px]"
+                              className="w-7 h-7 rounded-md bg-stone-200/80 hover:bg-stone-300 text-stone-800 flex items-center justify-center transition-colors cursor-pointer"
                               title={isCollapsed ? 'ውሉዳት ኣርእይ' : 'ውሉዳት ሕባእ'}
+                              aria-label={isCollapsed ? 'ውሉዳት ኣርእይ' : 'ውሉዳት ሕባእ'}
                             >
                               {isCollapsed ? (
-                                <>
-                                  <ChevronRight className="w-3 h-3" />
-                                  <span>ዘርግሕ</span>
-                                </>
+                                <ChevronRight className="w-4 h-4" />
                               ) : (
-                                <>
-                                  <ChevronDown className="w-3 h-3" />
-                                  <span>ዓጽፍ</span>
-                                </>
+                                <ChevronDown className="w-4 h-4" />
                               )}
                             </button>
                           )}

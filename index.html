@@ -20,7 +20,19 @@
     <!-- Preconnect & Load Noto Sans Ethiopic and Inter fonts for reliable Tigrinya/Ge'ez typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Ethiopic:wght@300;400;500;600;700;800&family=Noto+Serif+Ethiopic:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700;800;900&family=Noto+Serif+Ethiopic:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Instant Elder Font Scale Preference Restore (prevents layout flash) -->
+    <script>
+      try {
+        const savedScale = localStorage.getItem('kinteba_font_scale');
+        if (savedScale === 'large') {
+          document.documentElement.classList.add('font-scale-large');
+        } else if (savedScale === 'xlarge') {
+          document.documentElement.classList.add('font-scale-xlarge');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body class="bg-stone-50 text-stone-900 font-sans antialiased selection:bg-amber-100 selection:text-amber-900 pb-16 md:pb-0">
     <div id="root"></div>

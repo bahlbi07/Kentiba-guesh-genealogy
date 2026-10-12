@@ -5,12 +5,81 @@
 @layer base {
   html {
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-size: 18px;
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+  }
+
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+  }
+
+  #root {
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  @media (min-width: 768px) {
+    html {
+      font-size: 19px;
+    }
+  }
+
+  /* User-selectable accessibility font scaling presets */
+  html.font-scale-large {
+    font-size: 19.5px;
+  }
+  @media (min-width: 768px) {
+    html.font-scale-large {
+      font-size: 21.5px;
+    }
+  }
+
+  html.font-scale-xlarge {
+    font-size: 21px;
+  }
+  @media (min-width: 768px) {
+    html.font-scale-xlarge {
+      font-size: 24px;
+    }
+  }
+
+  /* Universal word-wrapping on large fonts to prevent horizontal overflow */
+  html.font-scale-large *,
+  html.font-scale-xlarge * {
+    overflow-wrap: break-word;
+  }
+
+  body {
+    font-weight: 450;
+    color: #1c1917; /* stone-900: strong contrast, easy on mature eyes */
   }
   
-  /* Optimize Ge'ez typography rendering */
+  /* Optimize Ge'ez typography rendering: robust, crisp, bold-friendly */
   .font-ethiopic {
     font-family: 'Noto Sans Ethiopic', 'Nyala', 'Abyssinica SIL', -apple-system, sans-serif;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.015em;
+  }
+
+  /* Universal elder accessibility: Strictly prevent any micro/tiny font from collapsing below readable size */
+  .text-\[9px\],
+  .text-\[9\.5px\],
+  .text-\[10px\],
+  .text-\[10\.5px\],
+  .text-\[11px\],
+  .text-\[12px\] {
+    font-size: 0.85rem !important;
+    line-height: 1.35rem !important;
+    font-weight: 600 !important;
   }
 }
 

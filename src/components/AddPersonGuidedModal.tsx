@@ -27,11 +27,11 @@ export const OFFICIAL_BRANCHES = [
   'ተስፉ',
   'ደስታ',
   'ወለገርግስ',
-  'ይሕደጋ',
+  'ይሕደጎ',
   'ብስራት',
   'ትዕበ',
   'በርሀ',
-  'መድሂን',
+  'መድህን',
   'ግብፂት',
   'ተፈሪ'
 ];
@@ -301,26 +301,10 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     setShowDraftRecoveryDialog(false);
   };
 
-  // Dynamic list of branches including official branches plus any additional children of Kinteba Guush
+  // Strictly the 12 official branches of Patriarch Kinteba Guush
   const availableBranches = useMemo(() => {
-    const list: string[] = [...OFFICIAL_BRANCHES];
-    for (const p of people) {
-      if (p.isArchived) continue;
-      if (
-        p.fatherName &&
-        (p.fatherName.includes('ከንቲባ ጉዑሽ') || p.fatherName.includes('ከንቲባ ጉዕሽ')) &&
-        p.canonicalName
-      ) {
-        const name = p.canonicalName.trim();
-        if (!list.includes(name)) list.push(name);
-      }
-      if (p.branch && p.branch !== 'ቀንዲ መበቆል') {
-        const b = p.branch.trim();
-        if (!list.includes(b)) list.push(b);
-      }
-    }
-    return list;
-  }, [people]);
+    return OFFICIAL_BRANCHES;
+  }, []);
 
   // Root patriarch Kinteba Guush
   const rootPatriarch = useMemo(() => {

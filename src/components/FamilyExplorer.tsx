@@ -197,9 +197,9 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   const isRepeatedName = (name: string) => (repeatedNameCounts.get(name) || 0) > 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 w-full min-w-0 max-w-full overflow-hidden">
       {/* Top Controls: Breadcrumb Trail and Action Buttons */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm">
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs w-full min-w-0 max-w-full overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           {/* Trail / Breadcrumb */}
           <div className="flex items-center gap-2 overflow-x-auto text-sm font-ethiopic py-1 w-full sm:w-auto">
@@ -302,15 +302,15 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       )}
 
       {/* SECTION 2: THE FOCUSED PERSON (Active Center Stage) */}
-      <div className="bg-linear-to-b from-amber-50/60 to-white p-5 sm:p-7 rounded-3xl border-2 border-amber-500/70 shadow-md">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-amber-700 text-white flex items-center justify-center font-bold text-2xl shrink-0 shadow-sm font-ethiopic">
+      <div className="bg-linear-to-b from-amber-50/60 to-white p-3.5 sm:p-6 rounded-2xl border-2 border-amber-500/70 shadow-sm w-full min-w-0 max-w-full overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-amber-700 text-white flex items-center justify-center font-bold text-xl sm:text-2xl shrink-0 shadow-xs font-ethiopic">
               {focusedPerson.canonicalName.charAt(0)}
             </div>
-            <div>
-              <div className="flex items-center flex-wrap gap-2.5">
-                <h2 className="text-2xl sm:text-3xl font-bold text-stone-950 font-ethiopic tracking-tight">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center flex-wrap gap-2">
+                <h2 className="text-xl sm:text-3xl font-bold text-stone-950 font-ethiopic tracking-tight break-words">
                   {focusedPerson.canonicalName}
                 </h2>
                 {focusedPerson.status === 'verified' && (
@@ -430,17 +430,17 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       </div>
 
       {/* SECTION 3: CHILDREN & DESCENDANTS (Descending generation) */}
-      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-6 h-6 text-amber-700" />
-            <h3 className="text-xl font-bold text-stone-900 font-ethiopic">
+      <div className="bg-white p-3.5 sm:p-6 rounded-2xl border border-stone-200 shadow-2xs space-y-3.5 w-full min-w-0 max-w-full overflow-hidden">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-amber-700 shrink-0" />
+            <h3 className="text-lg sm:text-xl font-bold text-stone-900 font-ethiopic truncate">
               ውሉዳት ({childrenIds.length})
             </h3>
           </div>
           {childrenIds.length > 0 && (
-            <span className="text-xs text-stone-500 font-ethiopic">
-              ጨንፈር ንምርኣይ ጠውቑ
+            <span className="text-xs text-stone-500 font-ethiopic shrink-0">
+              ጨንፈር ንምርኣይ ጠውቕ
             </span>
           )}
         </div>
@@ -457,60 +457,74 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
             return (
               <div
                 key={personId}
-                className={`rounded-2xl border transition-all ${
+                className={`rounded-2xl border transition-all w-full min-w-0 max-w-full overflow-hidden ${
                   depth === 1
-                    ? 'bg-stone-50/90 hover:bg-stone-50 border-stone-200 p-4 space-y-3'
-                    : 'bg-white hover:bg-amber-50/20 border-stone-200 p-3.5 space-y-2.5 shadow-2xs'
+                    ? 'bg-stone-50/95 hover:bg-stone-100/95 border-stone-200/90 p-3 sm:p-4 shadow-2xs'
+                    : 'bg-white hover:bg-amber-50/30 border-stone-200 p-2.5 sm:p-3 shadow-2xs'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 min-w-0 w-full">
                   {/* Clicking name/card opens their dedicated generational page */}
                   <button
+                    type="button"
                     onClick={() => handleFocusPerson(personId)}
-                    className="text-left flex items-center gap-3.5 min-h-[48px] flex-1 group"
+                    className="text-left flex items-center gap-2.5 sm:gap-3.5 min-h-[44px] min-w-0 flex-1 group cursor-pointer"
                     title={`ናይ ${p.canonicalName} ገጽ ርአ`}
+                    aria-label={`ናይ ${p.canonicalName} ገጽ ርአ`}
                   >
                     <div
-                      className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold shrink-0 transition-colors ${
+                      className={`rounded-xl flex items-center justify-center font-bold shrink-0 transition-colors ${
                         depth === 1
-                          ? 'bg-amber-100 text-amber-800 group-hover:bg-amber-200'
-                          : 'bg-stone-100 text-stone-700 group-hover:bg-amber-100 group-hover:text-amber-800'
+                          ? 'w-10 h-10 sm:w-11 sm:h-11 bg-amber-100 text-amber-800 group-hover:bg-amber-200'
+                          : 'w-8 h-8 sm:w-9 sm:h-9 bg-stone-100 text-stone-700 group-hover:bg-amber-100 group-hover:text-amber-800'
                       }`}
                     >
-                      <User className="w-5 h-5" />
+                      <User className={depth === 1 ? 'w-5 h-5' : 'w-4 h-4'} />
                     </div>
-                    <div>
-                      <div className="font-bold text-stone-900 font-ethiopic text-base sm:text-lg group-hover:text-amber-800 transition-colors flex items-center gap-2">
-                        <span>{p.canonicalName}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-stone-900 font-ethiopic text-sm sm:text-base group-hover:text-amber-800 transition-colors truncate block">
+                          {p.canonicalName}
+                        </span>
+                        {depth > 1 && (
+                          <span className="text-[10.5px] font-extrabold text-amber-900 bg-amber-100/80 px-1.5 py-0.5 rounded-md shrink-0 border border-amber-200/60 font-ethiopic">
+                            ደረጃ {depth}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-stone-600 font-ethiopic flex items-center gap-2 mt-0.5">
+                      <div className="text-xs text-stone-600 font-ethiopic flex items-center gap-2 mt-0.5 min-w-0">
                         {p.spouseNote && (
-                          <span className="text-amber-900 truncate max-w-[200px]">
+                          <span className="text-amber-900/90 truncate max-w-[170px] sm:max-w-[280px]">
                             {p.spouseNote}
                           </span>
                         )}
                         {hasKids ? (
-                          <span className="text-amber-700 font-bold">
+                          <span className="text-amber-700 font-bold shrink-0">
                             {kids.length} ውሉዳት
                           </span>
                         ) : (
-                          <span className="text-stone-400">
-                            ገጽ ንምርኣይ ጠውቕ
+                          <span className="text-stone-400 shrink-0">
+                            ገጽ ርአ &rarr;
                           </span>
                         )}
                       </div>
                     </div>
                   </button>
 
-                  <div className="flex items-center gap-1.5">
-                    {/* Dedicated in-place expand/collapse button if has kids */}
+                  <div className="flex items-center shrink-0 pl-1">
+                    {/* Dedicated in-place expand/collapse button - ONLY ICON, NO TEXT */}
                     {hasKids ? (
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleChildExpansion(personId);
                         }}
-                        className="px-3 py-2 min-h-[44px] rounded-xl text-sm font-ethiopic font-bold text-stone-700 bg-stone-100 hover:bg-amber-100 hover:text-amber-900 flex items-center gap-1 transition-colors"
+                        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                          isExpanded
+                            ? 'bg-amber-700 text-white shadow-xs'
+                            : 'bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 border border-stone-200'
+                        }`}
                         title={isExpanded ? 'ጨንፈር ዓጽፍ' : 'ጨንፈር ዘርግሕ'}
                         aria-label={
                           isExpanded
@@ -519,36 +533,48 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                         }
                       >
                         {isExpanded ? (
-                          <>
-                            <ChevronDown className="w-5 h-5 text-amber-700" />
-                            <span className="text-xs">ዕጾ</span>
-                          </>
+                          <ChevronDown className="w-5 h-5 text-white" />
                         ) : (
-                          <>
-                            <ChevronRight className="w-5 h-5 text-stone-600" />
-                            <span className="text-xs">ዘርግሕ</span>
-                          </>
+                          <ChevronRight className="w-5 h-5 text-stone-600" />
                         )}
                       </button>
                     ) : (
                       <button
+                        type="button"
                         onClick={() => handleFocusPerson(personId)}
-                        className="px-2.5 py-1.5 min-h-[40px] rounded-xl text-xs font-ethiopic font-semibold text-stone-600 hover:bg-stone-100 hover:text-amber-800 flex items-center gap-1 transition-colors"
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 text-stone-400 hover:text-amber-800 hover:bg-stone-100 transition-colors cursor-pointer"
                         title={`ናይ ${p.canonicalName} ገጽ ክፈት`}
+                        aria-label={`ናይ ${p.canonicalName} ገጽ ክፈት`}
                       >
-                        <span>ገጽ ርአ &rarr;</span>
+                        <ChevronRight className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Multi-generational nested branches in-place */}
+                {/* Multi-generational nested branches in-place: controlled minimal indent */}
                 {isExpanded && hasKids && (
-                  <div className="pl-3 sm:pl-4 pt-3 border-l-2 border-amber-400 ml-4 sm:ml-5 space-y-2.5 font-ethiopic">
-                    <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
-                      ናይ {p.canonicalName} ውሉዳት ({kids.length}):
-                    </span>
-                    <div className="space-y-2.5">
+                  <div
+                    className={`pt-2.5 mt-2 border-l-2 border-amber-400/80 font-ethiopic space-y-2 ${
+                      depth === 1
+                        ? 'ml-2 sm:ml-3 pl-2 sm:pl-3'
+                        : 'ml-1 sm:ml-2 pl-1.5 sm:pl-2'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs text-stone-600 font-bold px-1 pb-0.5">
+                      <span className="truncate">
+                        ናይ {p.canonicalName} ውሉዳት ({kids.length}):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleFocusPerson(personId)}
+                        className="text-amber-800 hover:underline shrink-0 font-extrabold text-[11.5px] ml-2"
+                        title={`ናይ ${p.canonicalName} ገጽ ብምሉእ ርአ`}
+                      >
+                        ናብዚ ኣተኩር &rarr;
+                      </button>
+                    </div>
+                    <div className="space-y-2">
                       {kids.map((kidId) => renderBranchNode(kidId, depth + 1))}
                     </div>
                   </div>
@@ -566,7 +592,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
           }
 
           return (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {childrenIds.map((childId) => renderBranchNode(childId, 1))}
             </div>
           );

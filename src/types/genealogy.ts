@@ -2,6 +2,8 @@ export type RecordStatus = 'unverified' | 'verified' | 'needs_review' | 'rejecte
 
 export type RelationshipType = 'parent_child' | 'partner_or_union' | 'other_source_statement';
 
+export type UserRole = 'guest' | 'admin' | 'superadmin';
+
 export interface Person {
   id: string; // Unique stable ID (e.g. "pers_abc123")
   canonicalName: string; // Exact name as written in the source (Tigrinya/Ge'ez characters preserved)
@@ -17,6 +19,9 @@ export interface Person {
   sourceOccurrenceId?: string;
   status: RecordStatus;
   isArchived: boolean;
+  deletionPending?: boolean;
+  deletionRequestedBy?: string;
+  deletionRequestedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +37,7 @@ export interface Relationship {
   sourceWording: string; // Exact phrase, e.g., "ጎብሩ ከንቲባ ጉዕሽ ዝወለዶም"
   reviewerNotes?: string;
   isBiologicalConfirmed: boolean; // false for union or ambiguous statements
+  deletionPending?: boolean;
   createdAt: string;
   updatedAt: string;
 }

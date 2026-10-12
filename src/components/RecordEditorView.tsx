@@ -109,16 +109,10 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
     return map;
   }, [people]);
 
-  // Unique branches extracted from database
+  // The 12 official branches
   const availableBranches = useMemo(() => {
-    const set = new Set<string>(OFFICIAL_BRANCHES);
-    for (const p of people) {
-      if (p.branch && p.branch.trim()) {
-        set.add(p.branch.trim());
-      }
-    }
-    return Array.from(set).sort();
-  }, [people]);
+    return OFFICIAL_BRANCHES;
+  }, []);
 
   // Filtered people list
   const filteredPeople = useMemo(() => {
@@ -448,8 +442,8 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-stone-200 text-xs text-left">
-              <thead className="bg-stone-50/70 font-semibold text-stone-700">
+            <table className="min-w-full divide-y divide-stone-200 text-sm sm:text-base text-left font-ethiopic">
+              <thead className="bg-stone-50/90 font-bold text-stone-800 text-sm sm:text-base">
                 <tr>
                   <th className="px-4 py-3.5">ምሉእ ስም</th>
                   <th className="px-4 py-3.5">ስም ኣቦ / ኣደ</th>
@@ -459,53 +453,53 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                   <th className="px-4 py-3.5 text-right">ስጉምቲ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100 text-stone-800">
+              <tbody className="divide-y divide-stone-100 text-stone-900">
                 {filteredPeople.map((p) => {
                   return (
                     <tr key={p.id} className="hover:bg-amber-50/40 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-stone-900 text-sm">
+                      <td className="px-4 py-3.5">
+                        <div className="font-black text-stone-950 text-base sm:text-lg">
                           {p.canonicalName}
                         </div>
                         {p.displayName && (
-                          <div className="text-[11px] text-stone-500">
+                          <div className="text-xs sm:text-sm font-semibold text-stone-600">
                             ({p.displayName})
                           </div>
                         )}
-                        <div className="text-[10px] text-stone-400 font-mono">
+                        <div className="text-xs text-stone-400 font-mono">
                           {p.id}
                         </div>
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         {p.fatherName && (
-                          <div className="text-stone-700">
-                            <span className="text-stone-400 text-[10px]">ኣቦ: </span>
-                            <span className="font-medium">{p.fatherName}</span>
+                          <div className="text-stone-800 text-sm sm:text-base">
+                            <span className="text-stone-500 text-xs sm:text-sm">ኣቦ: </span>
+                            <span className="font-bold text-stone-950">{p.fatherName}</span>
                           </div>
                         )}
                         {p.motherName && (
-                          <div className="text-stone-700 mt-0.5">
-                            <span className="text-stone-400 text-[10px]">ኣደ: </span>
-                            <span className="font-medium">{p.motherName}</span>
+                          <div className="text-stone-800 text-sm sm:text-base mt-0.5">
+                            <span className="text-stone-500 text-xs sm:text-sm">ኣደ: </span>
+                            <span className="font-bold text-stone-950">{p.motherName}</span>
                           </div>
                         )}
                         {!p.fatherName && !p.motherName && (
-                          <span className="text-stone-400 italic text-[11px]">ዘይተመዝገበ</span>
+                          <span className="text-stone-400 italic text-xs sm:text-sm">ዘይተመዝገበ</span>
                         )}
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         {p.branch ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-800 border border-stone-200">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs sm:text-sm font-bold bg-stone-100 text-stone-900 border border-stone-300">
                             {p.branch}
                           </span>
                         ) : (
-                          <span className="text-stone-400 italic text-[11px]">-</span>
+                          <span className="text-stone-400 italic text-xs sm:text-sm">-</span>
                         )}
                       </td>
 
-                      <td className="px-4 py-3 text-stone-600">
+                      <td className="px-4 py-3.5 text-stone-800 font-medium text-sm sm:text-base">
                         {p.gender === 'male' && 'ተባዕታይ'}
                         {p.gender === 'female' && 'ኣንስተይቲ'}
                         {(!p.gender || p.gender === 'unknown') && (
@@ -513,21 +507,21 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                         )}
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         {p.status === 'verified' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
                             <span>ዝተረጋገጸ</span>
                           </span>
                         )}
                         {p.status === 'needs_review' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-300">
-                            <AlertTriangle className="w-3 h-3 text-amber-600" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
                             <span>ምምርማር ዘድልዮ</span>
                           </span>
                         )}
                         {p.status === 'unverified' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs sm:text-sm font-bold bg-stone-200 text-stone-800 border border-stone-300">
                             ዘይተረጋገጸ
                           </span>
                         )}

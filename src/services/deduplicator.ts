@@ -130,39 +130,6 @@ export function findDuplicateCandidates(
     }
   }
 
-  // 2. Detect global identical name + fatherName matches not caught under direct parent
-  const globalNameMap = new Map<string, Person[]>();
-  for (const p of people) {
-    if (p.isArchived || handledDuplicateIds.has(p.id)) continue;
-    const normName = normalizeEthiopicName(p.canonicalName);
-    const normFather = normalizeEthiopicName(p.fatherName || '');
-    if (!normName) continue;
-    const key = `${normName}:::${normFather}`;
-    const list = globalNameMap.get(key) || [];
-    list.push(p);
-    globalNameMap.set(key, list);
-  }
-
-  for (const [, candidates] of globalNameMap.entries()) {
-    if (candidates.length > 1) {
-      // Check if they also share branch or if one has branch and other is identical
-      const sorted = [...candidates].sort(
-        (a, b) =>
-          calculateKeeperScore(b, relationships) -
-          calculateKeeperScore(a, relationships)
-      );
-      const keeper = sorted[0];
-      const duplicates = sorted.slice(1);
-
-      groups.push({
-        name: keeper.canonicalName,
-        parentName: keeper.fatherName || undefined,
-        keeper,
-        duplicates,
-      });
-    }
-  }
-
   return groups;
 }
 

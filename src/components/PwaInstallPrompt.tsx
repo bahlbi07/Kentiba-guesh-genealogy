@@ -121,13 +121,13 @@ export const PwaInstallPrompt: React.FC = () => {
 
             <ol className="space-y-3 text-xs sm:text-sm text-stone-700 font-ethiopic list-decimal list-inside">
               <li>
-                ኣብ Safari ናይ <strong>Share</strong> ምልክት (<Share className="w-4 h-4 inline text-amber-700" />) ጠውቑ።
+                ኣብ Safari ናይ <strong>Share</strong> ምልክት (<Share className="w-4 h-4 inline text-amber-700" />) ተንክፉ።
               </li>
               <li>
                 ንታሕቲ ብምውራድ <strong>&ldquo;Add to Home Screen&rdquo;</strong> (ናብ ዋና ገጽ ወስኽ) ዝብል ምረጹ።
               </li>
               <li>
-                ኣብ ላዕሊ <strong>&ldquo;Add&rdquo;</strong> ጠውቑ። እታ ኣፕሊኬሽን ኣብ ሞባይልኩም ከም ናጻ ኣፕ ክትኣቱ እያ።
+                ኣብ ላዕሊ <strong>&ldquo;Add&rdquo;</strong> ተንክፉ። እታ ኣፕሊኬሽን ኣብ ሞባይልኩም ከም ናጻ ኣፕ ክትኣቱ እያ።
               </li>
             </ol>
 

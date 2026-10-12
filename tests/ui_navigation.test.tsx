@@ -1108,15 +1108,316 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(deepName.className).toContain('break-words');
     expect(deepName.className).not.toContain('truncate');
 
-    // Focus on this branch button ("ናብዚ ኣተኩር →") is visible
-    const focusButtons = screen.getAllByTitle(/ጨንፈር ናብ ቀንድን መሰረትን ኣተኩር/);
-    expect(focusButtons.length).toBeGreaterThan(0);
-    fireEvent.click(focusButtons[focusButtons.length - 1]);
+    // Verify "ናብዚ ኣተኩር" button is NOT rendered
+    expect(screen.queryByText(/ናብዚ ኣተኩር/)).toBeNull();
 
-    // Clicking focus button elevates Hadgu to active center stage
+    // Clicking Hadgu's card directly elevates Hadgu to active center stage
+    fireEvent.click(screen.getByText('ሓድጉ'));
     expect(handleSelect).toHaveBeenCalledWith(expect.objectContaining({ canonicalName: 'ሓድጉ' }));
   });
+
+  it('20. FamilyExplorer: Mobile Hardware Back Button (popstate) steps back generation by generation without exiting', () => {
+    const deepLineagePeople: Person[] = [
+      ...mockPeople,
+      {
+        id: 'pers_p1_hadgu',
+        canonicalName: 'ሓድጉ',
+        branch: 'ጎብሩ',
+        status: 'verified',
+        sourcePage: 1,
+        isArchived: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'pers_p1_kesete',
+        canonicalName: 'ከሰተ ብርሃነ',
+        branch: 'ጎብሩ',
+        status: 'verified',
+        sourcePage: 1,
+        isArchived: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    const deepLineageRels: Relationship[] = [
+      ...mockRelationships,
+      {
+        id: 'rel_3',
+        fromPersonId: 'pers_p1_tela',
+        toPersonId: 'pers_p1_hadgu',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 1,
+        sourceWording: 'ሓድጉ ዝወለዶም',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'rel_4',
+        fromPersonId: 'pers_p1_hadgu',
+        toPersonId: 'pers_p1_kesete',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 1,
+        sourceWording: 'ከሰተ ዝወለዶም',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    render(
+      <FamilyExplorer
+        people={deepLineagePeople}
+        relationships={deepLineageRels}
+        onSelectPerson={vi.fn()}
+      />
+    );
+
+    // Expand Level 1 (Gobru) -> reveals Level 2 (Tela)
+    fireEvent.click(screen.getByTitle(/ናይ ጎብሩ ጨንፈር ዘርግሕ/));
+    expect(screen.getByText('ተላ')).toBeDefined();
+
+    // Expand Level 2 (Tela) -> reveals Level 3 (Hadgu)
+    fireEvent.click(screen.getByTitle(/ናይ ተላ ጨንፈር ዘርግሕ/));
+    expect(screen.getByText('ሓድጉ')).toBeDefined();
+
+    // Expand Level 3 (Hadgu) -> reveals Level 4 (Kesete Birhane)
+    fireEvent.click(screen.getByTitle(/ናይ ሓድጉ ጨንፈር ዘርግሕ/));
+    expect(screen.getByText('ከሰተ ብርሃነ')).toBeDefined();
+
+    // Simulate Mobile Hardware Back Button #1: collapses Level 4 (Kesete Birhane), keeps Level 3 (Hadgu) visible!
+    fireEvent(window, new PopStateEvent('popstate'));
+    expect(screen.queryByText('ከሰተ ብርሃነ')).toBeNull();
+    expect(screen.getByText('ሓድጉ')).toBeDefined();
+
+    // Simulate Mobile Hardware Back Button #2: collapses Level 3 (Hadgu), keeps Level 2 (Tela) visible!
+    fireEvent(window, new PopStateEvent('popstate'));
+    expect(screen.queryByText('ሓድጉ')).toBeNull();
+    expect(screen.getByText('ተላ')).toBeDefined();
+
+    // Simulate Mobile Hardware Back Button #3: collapses Level 2 (Tela), keeps Level 1 (Gobru) visible!
+    fireEvent(window, new PopStateEvent('popstate'));
+    expect(screen.queryByText('ተላ')).toBeNull();
+    expect(screen.getByText('ጎብሩ')).toBeDefined();
+  });
+
+  it('21. AddPersonGuidedModal: assigns a unique ID to new members sharing a name (e.g. ኣብርሃ) without inheriting another branch’s 5 children, while reusing an existing child under the exact same parent (e.g. ደሃብ under ሓሊቦ)', async () => {
+    localStorage.clear();
+    // Existing "ኣብርሃ" in branch ወለገርግስ who has 5 children
+    const otherAbrha: Person = {
+      id: 'pers_p28_1_0',
+      canonicalName: 'ኣብርሃ',
+      branch: 'ወለገርግስ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const otherAbrhaKids: Person[] = [1, 2, 3, 4, 5].map((n) => ({
+      id: `pers_other_abrha_kid_${n}`,
+      canonicalName: `ቆልዓ ${n}`,
+      fatherName: 'ኣብርሃ',
+      branch: 'ወለገርግስ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    }));
+    const otherAbrhaRels: Relationship[] = otherAbrhaKids.map((k, idx) => ({
+      id: `rel_other_abrha_${idx}`,
+      fromPersonId: 'pers_p28_1_0',
+      toPersonId: k.id,
+      type: 'parent_child',
+      status: 'verified',
+      sourceFile: 'ከሰተ-ብርሃነ.pdf',
+      sourcePage: 28,
+      sourceWording: `${k.canonicalName} ወዲ ኣብርሃ`,
+      isBiologicalConfirmed: true,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    }));
+
+    // Existing "ሓሊቦ" and his child "ደሃብ" in branch ትዕበ
+    const halibo: Person = {
+      id: 'pers_p5_20_1',
+      canonicalName: 'ሓሊቦ',
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const dehabUnderHalibo: Person = {
+      id: 'pers_p5_20_1_c4',
+      canonicalName: 'ደሃብ',
+      fatherName: 'ሓሊቦ',
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const haliboDehabRel: Relationship = {
+      id: 'rel_p5_20_1_c04',
+      fromPersonId: 'pers_p5_20_1',
+      toPersonId: 'pers_p5_20_1_c4',
+      type: 'parent_child',
+      status: 'verified',
+      sourceFile: 'ከሰተ-ብርሃነ.pdf',
+      sourcePage: 5,
+      sourceWording: 'ደሃብ ጓል ሓሊቦ',
+      isBiologicalConfirmed: true,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+
+    const allPeople = [otherAbrha, ...otherAbrhaKids, halibo, dehabUnderHalibo];
+    const allRels = [...otherAbrhaRels, haliboDehabRel];
+
+    const handleSaveBatch1 = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = render(
+      <AddPersonGuidedModal
+        people={allPeople}
+        relationships={allRels}
+        onClose={vi.fn()}
+        onSaveBatch={handleSaveBatch1}
+      />
+    );
+
+    // Case A: Admin adds a new "ኣብርሃ" without any children
+    const mainNameInput = screen.getByPlaceholderText('ንኣብነት: ባህልቢ ሃይለ...') as HTMLInputElement;
+    fireEvent.change(mainNameInput, { target: { value: 'ኣብርሃ' } });
+
+    const submitBtn = screen.getByRole('button', { name: /ኣረጋግጽን መዝግብን/ });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    await waitFor(() => {
+      expect(handleSaveBatch1).toHaveBeenCalledTimes(1);
+    });
+
+    const [savedPeople1, savedRels1] = handleSaveBatch1.mock.calls[0];
+    const savedAbrha = savedPeople1.find((p: Person) => p.canonicalName === 'ኣብርሃ');
+    expect(savedAbrha).toBeDefined();
+    // Must have a brand-new unique ID, NOT 'pers_p28_1_0'!
+    expect(savedAbrha.id).not.toBe('pers_p28_1_0');
+    // Must have 0 children linked to him!
+    const childrenOfNewAbrha = savedRels1.filter(
+      (r: Relationship) => r.type === 'parent_child' && r.fromPersonId === savedAbrha.id
+    );
+    expect(childrenOfNewAbrha.length).toBe(0);
+
+    unmount();
+
+    // Case B: Admin adds "ደሃብ" under existing parent "ሓሊቦ" -> reuses 'pers_p5_20_1_c4' without duplicating
+    const handleSaveBatch2 = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AddPersonGuidedModal
+        people={allPeople}
+        relationships={allRels}
+        onClose={vi.fn()}
+        onSaveBatch={handleSaveBatch2}
+      />
+    );
+
+    // Pick existing ancestor "ሓሊቦ" from picker
+    const pickFromRegistryBtn = screen.getByRole('button', { name: /ካብ መዝገብ ድለ/ });
+    fireEvent.click(pickFromRegistryBtn);
+    fireEvent.click(screen.getByText('ሓሊቦ'));
+
+    // Enter "ደሃብ" as the main person name
+    const mainNameInput2 = screen.getByPlaceholderText('ንኣብነት: ባህልቢ ሃይለ...') as HTMLInputElement;
+    fireEvent.change(mainNameInput2, { target: { value: 'ደሃብ' } });
+
+    const submitBtn2 = screen.getByRole('button', { name: /ኣረጋግጽን መዝግብን/ });
+    fireEvent.submit(submitBtn2.closest('form')!);
+
+    await waitFor(() => {
+      expect(handleSaveBatch2).toHaveBeenCalledTimes(1);
+    });
+
+    const [savedPeople2] = handleSaveBatch2.mock.calls[0];
+    const savedDehab = savedPeople2.find((p: Person) => p.canonicalName === 'ደሃብ');
+    expect(savedDehab).toBeDefined();
+    // Reused the existing "ደሃብ" under "ሓሊቦ"!
+    expect(savedDehab.id).toBe('pers_p5_20_1_c4');
+  });
+
+  it('24. Multi-Device Cloud Sync: Admin batch registration with standard admin token is immediately visible to all other phones via GET /api/tree', async () => {
+    const { handler } = await import('../netlify/functions/genealogy');
+
+    const newCloudMember: Person = {
+      id: 'pers_cloud_test_99999',
+      canonicalName: 'ሓድሽ ኣባል ሞባይል',
+      branch: 'ትዕበ',
+      status: 'verified',
+      sourcePage: 5,
+      isArchived: false,
+      createdAt: '2026-10-13T01:00:00.000Z',
+      updatedAt: '2026-10-13T01:00:00.000Z',
+    };
+
+    const newCloudRel: Relationship = {
+      id: 'rel_cloud_test_99999',
+      type: 'parent_child',
+      fromPersonId: 'pers_p5_20_1',
+      toPersonId: 'pers_cloud_test_99999',
+      status: 'verified',
+      sourceFile: 'Admin Entry',
+      sourcePage: 5,
+      sourceWording: 'ሓሊቦ -> ሓድሽ ኣባል ሞባይል',
+      isBiologicalConfirmed: true,
+      createdAt: '2026-10-13T01:00:00.000Z',
+      updatedAt: '2026-10-13T01:00:00.000Z',
+    };
+
+    // Phone 1 (Admin) saves a new member using 'admin-standard-session-token'
+    const saveRes = (await handler(
+      {
+        httpMethod: 'POST',
+        path: '/api/batch',
+        headers: {
+          authorization: 'Bearer admin-standard-session-token',
+        },
+        body: JSON.stringify({
+          people: [newCloudMember],
+          relationships: [newCloudRel],
+        }),
+      } as never,
+      {} as never,
+      () => {}
+    )) as { statusCode: number; body: string };
+
+    expect(saveRes.statusCode).toBe(200);
+
+    // Phone 2 (Public user on another phone) fetches GET /api/tree
+    const fetchRes = (await handler(
+      {
+        httpMethod: 'GET',
+        path: '/api/tree',
+        headers: {},
+      } as never,
+      {} as never,
+      () => {}
+    )) as { statusCode: number; body: string };
+
+    expect(fetchRes.statusCode).toBe(200);
+    const treePayload = JSON.parse(fetchRes.body);
+    const syncedMember = treePayload.people.find((p: Person) => p.id === 'pers_cloud_test_99999');
+    expect(syncedMember).toBeDefined();
+    expect(syncedMember.canonicalName).toBe('ሓድሽ ኣባል ሞባይል');
+
+    const syncedRel = treePayload.relationships.find((r: Relationship) => r.id === 'rel_cloud_test_99999');
+    expect(syncedRel).toBeDefined();
+  });
 });
+
+
 
 
 

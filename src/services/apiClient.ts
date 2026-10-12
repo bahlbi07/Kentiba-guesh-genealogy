@@ -137,11 +137,13 @@ export async function apiFetchAuditLog(token: string): Promise<AuditEvent[]> {
 export async function apiSaveBatch(
   people: Person[],
   relationships: Relationship[],
-  token?: string
+  token?: string,
+  deletedPersonIds: string[] = [],
+  deletedRelationshipIds: string[] = []
 ): Promise<{ success: boolean; count?: { people: number; relationships: number }; error?: string }> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -155,13 +157,90 @@ export async function apiSaveBatch(
       method: 'POST',
       signal: controller.signal,
       headers,
-      body: JSON.stringify({ people, relationships }),
+      body: JSON.stringify({
+        people,
+        relationships,
+        deletedPersonIds,
+        deletedRelationshipIds,
+      }),
     });
     clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json();
       return { success: true, count: data.count };
+    }
+    return { success: false, error: `Server returned HTTP ${res.status}` };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Permanently delete a person on backend
+ */
+export async function apiDeletePerson(
+  personId: string,
+  token?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${getBackendBaseUrl()}/api/person?id=${encodeURIComponent(personId)}`, {
+      method: 'DELETE',
+      signal: controller.signal,
+      headers,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      return { success: true };
+    }
+    return { success: false, error: `Server returned HTTP ${res.status}` };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Delete a relationship on backend
+ */
+export async function apiDeleteRelationship(
+  relId: string,
+  token?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${getBackendBaseUrl()}/api/relationship?id=${encodeURIComponent(relId)}`, {
+      method: 'DELETE',
+      signal: controller.signal,
+      headers,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      return { success: true };
     }
     return { success: false, error: `Server returned HTTP ${res.status}` };
   } catch (err: unknown) {
@@ -208,19 +287,25 @@ export async function apiSaveRelationship(
 }
 
 /**
- * Fetch full genealogy tree from backend
+ * Fetch full genealogy tree from backend (cache-busted for real-time multi-device sync)
  */
 export async function apiFetchTree(): Promise<{
   people: Person[];
   relationships: Relationship[];
+  deletedPersonIds?: string[];
+  deletedRelationshipIds?: string[];
 } | null> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const res = await fetch(`${getBackendBaseUrl()}/api/tree`, {
+    const res = await fetch(`${getBackendBaseUrl()}/api/tree?t=${Date.now()}`, {
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
     });
     clearTimeout(timeoutId);
 
@@ -230,6 +315,10 @@ export async function apiFetchTree(): Promise<{
         return {
           people: data.people,
           relationships: data.relationships,
+          deletedPersonIds: Array.isArray(data.deletedPersonIds) ? data.deletedPersonIds : [],
+          deletedRelationshipIds: Array.isArray(data.deletedRelationshipIds)
+            ? data.deletedRelationshipIds
+            : [],
         };
       }
     }
@@ -238,3 +327,4 @@ export async function apiFetchTree(): Promise<{
   }
   return null;
 }
+

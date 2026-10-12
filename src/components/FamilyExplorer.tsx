@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Person, Relationship } from '../types/genealogy';
 import {
   ChevronRight,
@@ -19,6 +19,11 @@ interface FamilyExplorerProps {
   relationships: Relationship[];
   onSelectPerson: (person: Person) => void;
   onOpenDetails?: (person: Person) => void;
+}
+
+interface TrailSnapshot {
+  personId: string;
+  expandedOrder: string[];
 }
 
 export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
@@ -63,11 +68,13 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     }
   }, [rootPerson, focusedPersonId]);
 
-  // In-place expanded child branches
-  const [expandedChildIds, setExpandedChildIds] = useState<Set<string>>(new Set());
+  // In-place expanded child branches: ordered stack so Back collapses deepest level first (e.g. Level 5 -> Level 4)
+  const [expandedOrder, setExpandedOrder] = useState<string[]>([]);
+  const expandedChildIds = useMemo(() => new Set(expandedOrder), [expandedOrder]);
 
-  // History trail / breadcrumbs
+  // History trail / breadcrumbs and snapshots of expanded branches per ancestor
   const [historyTrail, setHistoryTrail] = useState<string[]>([]);
+  const [trailSnapshots, setTrailSnapshots] = useState<TrailSnapshot[]>([]);
 
   const focusedPerson = peopleMap.get(focusedPersonId) || rootPerson;
 
@@ -85,6 +92,35 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     }
     return map;
   }, [relationships]);
+
+  // Helper to collect all descendant IDs of a given node so collapsing a parent cleanly clears sub-levels
+  const getDescendantIds = useCallback(
+    (startId: string): Set<string> => {
+      const descendants = new Set<string>();
+      const stack = [startId];
+      while (stack.length > 0) {
+        const curr = stack.pop()!;
+        const kids = parentToChildrenMap.get(curr) || [];
+        for (const k of kids) {
+          if (!descendants.has(k)) {
+            descendants.add(k);
+            stack.push(k);
+          }
+        }
+      }
+      return descendants;
+    },
+    [parentToChildrenMap]
+  );
+
+  // Push browser history state so Mobile Hardware/Gesture Back Button steps back inside the app instead of exiting
+  const pushBrowserHistoryState = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history && typeof window.history.pushState === 'function') {
+      try {
+        window.history.pushState({ kintebaNav: true }, '');
+      } catch {}
+    }
+  }, []);
 
   // Track child -> parents map
   const childToParentsMap = useMemo(() => {
@@ -153,9 +189,11 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   // Navigation handlers
   const handleFocusPerson = (personId: string) => {
     if (personId === focusedPersonId) return;
+    pushBrowserHistoryState();
+    setTrailSnapshots((prev) => [...prev, { personId: focusedPersonId, expandedOrder }]);
     setHistoryTrail((prev) => [...prev, focusedPersonId]);
     setFocusedPersonId(personId);
-    setExpandedChildIds(new Set());
+    setExpandedOrder([]);
     const p = peopleMap.get(personId);
     if (p) onSelectPerson(p);
   };
@@ -164,27 +202,80 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     if (rootPerson) {
       setFocusedPersonId(rootPerson.id);
       setHistoryTrail([]);
-      setExpandedChildIds(new Set());
+      setTrailSnapshots([]);
+      setExpandedOrder([]);
     }
   };
 
-  const handleBackOneStep = () => {
+  const handleBackOneStep = useCallback((): boolean => {
+    // 1. If branches are expanded in-place (e.g. Level 5 -> Level 4 -> Level 3), collapse the deepest/latest branch
+    if (expandedOrder.length > 0) {
+      const lastId = expandedOrder[expandedOrder.length - 1];
+      const toRemove = getDescendantIds(lastId);
+      toRemove.add(lastId);
+      setExpandedOrder((prev) => prev.filter((id) => !toRemove.has(id)));
+      return true;
+    }
+
+    // 2. If user focused into a person's dedicated page, return to previous focused person & restore their expanded state
     if (historyTrail.length > 0) {
       const previous = historyTrail[historyTrail.length - 1];
+      const lastSnap = trailSnapshots[trailSnapshots.length - 1];
       setHistoryTrail((prev) => prev.slice(0, prev.length - 1));
+      setTrailSnapshots((prev) => prev.slice(0, prev.length - 1));
       setFocusedPersonId(previous);
-      setExpandedChildIds(new Set());
+      setExpandedOrder(lastSnap ? lastSnap.expandedOrder : []);
+      const p = peopleMap.get(previous);
+      if (p) onSelectPerson(p);
+      return true;
+    }
+
+    // 3. Fallback if focused person is not root
+    if (rootPerson && focusedPersonId !== rootPerson.id) {
+      setFocusedPersonId(rootPerson.id);
+      setExpandedOrder([]);
+      return true;
+    }
+
+    return false;
+  }, [expandedOrder, historyTrail, trailSnapshots, rootPerson, focusedPersonId, getDescendantIds, peopleMap, onSelectPerson]);
+
+  const toggleChildExpansion = (childId: string) => {
+    if (expandedOrder.includes(childId)) {
+      const toRemove = getDescendantIds(childId);
+      toRemove.add(childId);
+      setExpandedOrder((prev) => prev.filter((id) => !toRemove.has(id)));
+    } else {
+      pushBrowserHistoryState();
+      setExpandedOrder((prev) => [...prev, childId]);
     }
   };
 
-  const toggleChildExpansion = (childId: string) => {
-    setExpandedChildIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(childId)) next.delete(childId);
-      else next.add(childId);
-      return next;
-    });
-  };
+  // Intercept Mobile Hardware/Gesture Back Button (popstate) to step back one level instead of closing the app
+  const canStepBack =
+    expandedOrder.length > 0 ||
+    historyTrail.length > 0 ||
+    Boolean(rootPerson && focusedPersonId && focusedPersonId !== rootPerson.id);
+
+  const canStepBackRef = useRef(canStepBack);
+  canStepBackRef.current = canStepBack;
+
+  const handleBackRef = useRef(handleBackOneStep);
+  handleBackRef.current = handleBackOneStep;
+
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if ((e as any).__kintebaHandled) return;
+      if (canStepBackRef.current) {
+        const handled = handleBackRef.current();
+        if (handled) {
+          (e as any).__kintebaHandled = true;
+        }
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   if (!focusedPerson) {
     return (
@@ -239,10 +330,10 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
           {/* Action Buttons: Reset & Back */}
           <div className="flex items-center gap-2 shrink-0">
-            {historyTrail.length > 0 && (
+            {canStepBack && (
               <button
                 onClick={handleBackOneStep}
-                className="px-4 py-2 min-h-[40px] rounded-xl text-stone-700 bg-stone-100 hover:bg-stone-200 text-sm font-ethiopic font-semibold flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 min-h-[40px] rounded-xl text-stone-700 bg-stone-100 hover:bg-stone-200 text-sm font-ethiopic font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="ሓደ ደረጃ ተመለስ"
               >
                 <span>&larr; ተመለስ</span>
@@ -440,7 +531,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
           </div>
           {childrenIds.length > 0 && (
             <span className="text-xs text-stone-500 font-ethiopic shrink-0">
-              ጨንፈር ንምርኣይ ጠውቕ
+              ጨንፈር ንምርኣይ ነቲ ቀስቲ ተንክፍ
             </span>
           )}
         </div>
@@ -574,22 +665,11 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                         : 'border-l-2 border-amber-500/90 ml-0.5 pl-1.5'
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs text-stone-600 font-bold px-1 pb-1 gap-2">
-                      <div className="flex items-center gap-1 min-w-0 flex-1">
-                        <span className="text-amber-700 font-extrabold shrink-0">↳</span>
-                        <span className="text-stone-800 break-words whitespace-normal text-xs sm:text-sm font-ethiopic leading-snug">
-                          ናይ {p.canonicalName} ውሉዳት ({kids.length}):
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleFocusPerson(personId)}
-                        className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-extrabold text-[11px] sm:text-xs shrink-0 flex items-center gap-1 transition-colors cursor-pointer border border-amber-300/80 shadow-2xs"
-                        title={`ናይ ${p.canonicalName} ጨንፈር ናብ ቀንድን መሰረትን ኣተኩር`}
-                      >
-                        <span>ናብዚ ኣተኩር</span>
-                        <span>&rarr;</span>
-                      </button>
+                    <div className="flex items-center text-xs text-stone-600 font-bold px-1 pb-1 gap-1">
+                      <span className="text-amber-700 font-extrabold shrink-0">↳</span>
+                      <span className="text-stone-800 break-words whitespace-normal text-xs sm:text-sm font-ethiopic leading-snug">
+                        ናይ {p.canonicalName} ውሉዳት ({kids.length}):
+                      </span>
                     </div>
                     <div className="space-y-2">
                       {kids.map((kidId) => renderBranchNode(kidId, depth + 1))}

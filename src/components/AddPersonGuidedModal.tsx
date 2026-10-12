@@ -339,38 +339,26 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     [people]
   );
 
-  // Helper to get registered children of a person from database
+  // Helper to get registered children of a person from database STRICTLY by personId (never by global name match)
   const getChildrenForPerson = useCallback(
     (personId?: string, personName?: string): Person[] => {
-      if (!personId && !personName) return [];
-      const foundMap = new Map<string, Person>();
-
-      if (personId) {
-        for (const rel of relationships) {
-          if (rel.type === 'parent_child' && rel.fromPersonId === personId) {
-            const child = people.find((p) => p.id === rel.toPersonId && !p.isArchived);
-            if (child) foundMap.set(child.id, child);
-          }
-        }
+      let resolvedId = personId;
+      if (!resolvedId && personName && OFFICIAL_BRANCHES.includes(personName.trim())) {
+        resolvedId = getBranchRootPerson(personName.trim())?.id;
       }
+      if (!resolvedId) return [];
 
-      const cleanName = (personName || '').trim().toLowerCase();
-      if (cleanName) {
-        for (const p of people) {
-          if (p.isArchived) continue;
-          if (
-            (p.fatherName && p.fatherName.trim().toLowerCase() === cleanName) ||
-            (p.motherName && p.motherName.trim().toLowerCase() === cleanName) ||
-            (p.notes && p.notes.toLowerCase().includes(`ደቂ ${cleanName}`))
-          ) {
-            foundMap.set(p.id, p);
-          }
+      const foundMap = new Map<string, Person>();
+      for (const rel of relationships) {
+        if (rel.type === 'parent_child' && rel.fromPersonId === resolvedId) {
+          const child = people.find((p) => p.id === rel.toPersonId && !p.isArchived);
+          if (child) foundMap.set(child.id, child);
         }
       }
 
       return Array.from(foundMap.values());
     },
-    [people, relationships]
+    [people, relationships, getBranchRootPerson]
   );
 
   // Helper to retrieve auto-detected or registered spouse for an ancestor/person
@@ -384,31 +372,38 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         targetPerson = people.find((p) => p.id === personId && !p.isArchived);
       }
 
-      // 2. If not found by ID, look up by canonicalName
+      // 2. If not found by ID, ONLY look up by canonicalName if it is an official branch root or has a single unambiguous match
       const cleanName = (personName || targetPerson?.canonicalName || '').trim();
       if (!targetPerson && cleanName) {
-        const cleanLower = cleanName.toLowerCase();
-        targetPerson = people.find(
-          (p) => !p.isArchived && p.canonicalName.trim().toLowerCase() === cleanLower
-        );
+        if (OFFICIAL_BRANCHES.includes(cleanName)) {
+          targetPerson = getBranchRootPerson(cleanName) || undefined;
+        } else {
+          const cleanLower = cleanName.toLowerCase();
+          const matches = people.filter(
+            (p) => !p.isArchived && p.canonicalName.trim().toLowerCase() === cleanLower
+          );
+          if (matches.length === 1) {
+            targetPerson = matches[0];
+          }
+        }
       }
 
-      // 3. Search relationships for partner_or_union
-      if (targetPerson) {
-        for (const rel of relationships) {
-          if (rel.type === 'partner_or_union') {
-            if (rel.fromPersonId === targetPerson.id || rel.toPersonId === targetPerson.id) {
-              const otherId = rel.fromPersonId === targetPerson.id ? rel.toPersonId : rel.fromPersonId;
-              const spouse = people.find((p) => p.id === otherId && !p.isArchived);
-              if (spouse && spouse.canonicalName.trim()) {
-                const cleaned = cleanCandidateSpouseName(spouse.canonicalName);
-                if (cleaned) {
-                  return {
-                    spouseName: cleaned,
-                    spouseId: spouse.id,
-                    source: 'relationship',
-                  };
-                }
+      if (!targetPerson) return null;
+
+      // 3. Search relationships for partner_or_union linked to targetPerson.id
+      for (const rel of relationships) {
+        if (rel.type === 'partner_or_union') {
+          if (rel.fromPersonId === targetPerson.id || rel.toPersonId === targetPerson.id) {
+            const otherId = rel.fromPersonId === targetPerson.id ? rel.toPersonId : rel.fromPersonId;
+            const spouse = people.find((p) => p.id === otherId && !p.isArchived);
+            if (spouse && spouse.canonicalName.trim()) {
+              const cleaned = cleanCandidateSpouseName(spouse.canonicalName);
+              if (cleaned) {
+                return {
+                  spouseName: cleaned,
+                  spouseId: spouse.id,
+                  source: 'relationship',
+                };
               }
             }
           }
@@ -416,7 +411,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       }
 
       // 4. Search by targetPerson's spouseNote or notes
-      if (targetPerson?.spouseNote) {
+      if (targetPerson.spouseNote) {
         const parsed = parseRelationshipPhrase(targetPerson.spouseNote);
         const cleanPartner = cleanCandidateSpouseName(parsed.partnerName);
         if (cleanPartner) {
@@ -425,7 +420,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             source: 'spouseNote',
           };
         }
-        const noteMatch = targetPerson.spouseNote.match(/(?:^|\s)(?:መጻምድቲ|ምስ)\s*[:፡]?\s*([^\n,፡]+)/);
+        const noteMatch = targetPerson.spouseNote.match(/(?:^|\s)(?:መጻምድቲ|ምስ|ካብ)\s*[:፡]?\s*([^\n,፡]+)/);
         if (noteMatch) {
           const cleanMatch = cleanCandidateSpouseName(noteMatch[1]);
           if (cleanMatch) {
@@ -437,8 +432,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         }
       }
 
-      if (targetPerson?.notes) {
-        // If notes contains a quoted/backtick source relationship, parse properly
+      if (targetPerson.notes) {
         const backtickMatch = targetPerson.notes.match(/`([^`]+)`/);
         if (backtickMatch) {
           const parsed = parseRelationshipPhrase(backtickMatch[1]);
@@ -462,41 +456,11 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         }
       }
 
-      // 5. Look for children of targetPerson where co-parent is recorded
-      if (targetPerson) {
-        for (const p of people) {
-          if (p.isArchived) continue;
-          if (p.fatherName && p.fatherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
-            if (p.motherName && p.motherName.trim()) {
-              const cleanMom = cleanCandidateSpouseName(p.motherName);
-              if (cleanMom) {
-                return {
-                  spouseName: cleanMom,
-                  source: 'child_mother',
-                };
-              }
-            }
-          }
-          if (p.motherName && p.motherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
-            if (p.fatherName && p.fatherName.trim()) {
-              const cleanDad = cleanCandidateSpouseName(p.fatherName);
-              if (cleanDad) {
-                return {
-                  spouseName: cleanDad,
-                  source: 'child_father',
-                };
-              }
-            }
-          }
-        }
-      }
-
-      // 6. If targetPerson wasn't matched directly, check child records by cleanName
-      if (cleanName) {
-        const cleanLower = cleanName.toLowerCase();
-        for (const p of people) {
-          if (p.isArchived) continue;
-          if (p.fatherName && p.fatherName.trim().toLowerCase() === cleanLower && p.motherName?.trim()) {
+      // 5. Look ONLY at actual direct children of targetPerson.id where co-parent is recorded
+      const directChildren = getChildrenForPerson(targetPerson.id);
+      for (const p of directChildren) {
+        if (p.fatherName && p.fatherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
+          if (p.motherName && p.motherName.trim()) {
             const cleanMom = cleanCandidateSpouseName(p.motherName);
             if (cleanMom) {
               return {
@@ -505,7 +469,9 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               };
             }
           }
-          if (p.motherName && p.motherName.trim().toLowerCase() === cleanLower && p.fatherName?.trim()) {
+        }
+        if (p.motherName && p.motherName.trim().toLowerCase() === targetPerson.canonicalName.trim().toLowerCase()) {
+          if (p.fatherName && p.fatherName.trim()) {
             const cleanDad = cleanCandidateSpouseName(p.fatherName);
             if (cleanDad) {
               return {
@@ -519,7 +485,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
       return null;
     },
-    [people, relationships]
+    [people, relationships, getBranchRootPerson, getChildrenForPerson]
   );
 
   // Synchronize cascading descendant steps into form.lineageChain (from bottom up)
@@ -534,7 +500,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       for (let i = validSteps.length - 1; i >= 0; i--) {
         const s = validSteps[i];
         let spouse = s.spouseName?.trim() || '';
-        if (!spouse) {
+        if (!spouse && s.selectedPersonId) {
           const sp = getSpouseForPerson(s.selectedPersonId, s.name);
           if (sp?.spouseName) spouse = sp.spouseName;
         }
@@ -658,17 +624,16 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       const next = [...prev];
       const trimmed = name.trim();
       const existingChildren = getChildrenForPerson(next[stepIndex].parentId, next[stepIndex].parentName);
+      // Match ONLY within the direct children of next[stepIndex].parentId!
+      // Never match globally across unrelated branches/parents!
       const matchedChild = trimmed
         ? existingChildren.find(
             (c) => c.canonicalName.trim().toLowerCase() === trimmed.toLowerCase()
-          ) ||
-          people.find(
-            (p) => !p.isArchived && p.canonicalName.trim().toLowerCase() === trimmed.toLowerCase()
           )
         : undefined;
 
-      const spouseInfo = trimmed
-        ? getSpouseForPerson(matchedChild?.id, trimmed)
+      const spouseInfo = matchedChild
+        ? getSpouseForPerson(matchedChild.id, matchedChild.canonicalName)
         : null;
 
       next[stepIndex] = {
@@ -846,23 +811,9 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         }
       }
 
-      // Check if this person themselves has a spouse registered in records
-      const selfSpouse = !prev.spouseName && trimmed ? getSpouseForPerson(undefined, trimmed) : null;
-      const cleanSelfSpouse = cleanCandidateSpouseName(selfSpouse?.spouseName);
-      const cleanPrevSpouse = cleanCandidateSpouseName(prev.spouseName);
-
-      const resolvedSpouseName = cleanPrevSpouse || cleanSelfSpouse || '';
-      const nextSpouses = prev.spouses.map((s, idx) =>
-        idx === 0 && !s.spouseName && cleanSelfSpouse
-          ? { ...s, spouseName: cleanSelfSpouse }
-          : s
-      );
-
       return {
         ...prev,
         canonicalName: val,
-        spouses: nextSpouses,
-        spouseName: resolvedSpouseName,
         lineageChain: nextChain,
       };
     });
@@ -1088,21 +1039,17 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         }
       };
 
-      // 1. Create ID for Main Person
-      const mainPersonId = `pers_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-
-      // 2. Process Ancestral Chain (from generation 1 up to top generation)
+      // 1. Process Ancestral Chain from TOP (branch root) DOWN to generation 0 (immediate parent)
       const validGenerations = form.lineageChain.filter((g) => g.name.trim().length > 0);
-      const createdAncestorIds: string[] = [];
+      const createdAncestorIds: string[] = new Array(validGenerations.length);
 
-      for (let i = 0; i < validGenerations.length; i++) {
+      for (let i = validGenerations.length - 1; i >= 0; i--) {
         const gen = validGenerations[i];
         const trimmedGenName = gen.name.trim();
 
-        // Check if ancestor already exists in the database
         let ancestorId: string | null = null;
 
-        // 1. Check by explicit existingPersonId if selected from dropdown or auto-matched
+        // 1. Check by explicit existingPersonId if selected from dropdown or picker
         if (gen.existingPersonId) {
           const matchedById = people.find((p) => p.id === gen.existingPersonId);
           if (matchedById) {
@@ -1110,45 +1057,44 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           }
         }
 
-        // 2. Check if the parent generation (validGenerations[i + 1]) already has a child with this name
-        if (!ancestorId && i < validGenerations.length - 1) {
-          const parentGen = validGenerations[i + 1];
-          const parentCandidateId = parentGen.existingPersonId;
-          const parentChildren = getChildrenForPerson(parentCandidateId || undefined, parentGen.name);
-          const childMatch = parentChildren.find(
-            (c) => c.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase()
-          );
-          if (childMatch) {
-            ancestorId = childMatch.id;
+        // 2. If top-most generation is an official branch root, resolve to that branch root person
+        if (!ancestorId && i === validGenerations.length - 1) {
+          const matchedBranch = OFFICIAL_BRANCHES.find((b) => trimmedGenName === b || trimmedGenName.includes(b));
+          if (matchedBranch) {
+            const branchRoot = getBranchRootPerson(matchedBranch);
+            if (branchRoot) {
+              ancestorId = branchRoot.id;
+            }
           }
         }
 
-        // 3. Check across all database people by canonicalName (branch insensitive or matching)
+        // 3. Check ONLY if the resolved parent generation already has a direct child with this name
         if (!ancestorId) {
-          const matchedByName =
-            people.find(
-              (p) =>
-                p.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase() &&
-                (!form.branch || !p.branch || p.branch.trim() === form.branch.trim())
-            ) ||
-            people.find(
-              (p) => p.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase()
-            );
+          const parentGenId =
+            i < validGenerations.length - 1
+              ? createdAncestorIds[i + 1]
+              : form.branch && form.branch !== '__custom__'
+              ? getBranchRootPerson(form.branch.trim())?.id
+              : undefined;
 
-          if (matchedByName) {
-            ancestorId = matchedByName.id;
+          if (parentGenId) {
+            const parentChildren = getChildrenForPerson(parentGenId);
+            const childMatch = parentChildren.find(
+              (c) => c.canonicalName.trim().toLowerCase() === trimmedGenName.toLowerCase()
+            );
+            if (childMatch) {
+              ancestorId = childMatch.id;
+            }
           }
         }
 
-        if (ancestorId) {
-          // Ancestor exists! Reuse existing record without duplication
-        } else {
-          // Genuinely new ancestor: create record
-          ancestorId = `pers_${Date.now()}_anc_${i}_${Math.random().toString(36).substring(2, 5)}`;
+        // NEVER match globally across unrelated branches by canonicalName!
+        if (!ancestorId) {
+          ancestorId = `pers_${Date.now()}_anc_${i}_${Math.random().toString(36).substring(2, 7)}`;
           const newAncestor: Person = {
             id: ancestorId,
             canonicalName: trimmedGenName,
-            branch: form.branch || undefined,
+            branch: form.branch && form.branch !== '__custom__' ? form.branch : undefined,
             status: 'verified',
             isArchived: false,
             notes: `ወለዶ ስድራቤት: ${form.canonicalName}`,
@@ -1159,24 +1105,37 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           await persistPerson(newAncestor);
         }
 
-        createdAncestorIds.push(ancestorId);
+        createdAncestorIds[i] = ancestorId;
 
-        // If this generation has a spouse specified
+        // If this generation has a spouse specified, only reuse if already linked to this specific ancestorId
         if (gen.spouseName && gen.spouseName.trim()) {
           const trimmedSpouseName = gen.spouseName.trim();
-          const existingSpouse = people.find(
-            (p) => p.canonicalName.trim().toLowerCase() === trimmedSpouseName.toLowerCase()
+          const existingLinkedSpouseRel = relationships.find(
+            (r) =>
+              r.type === 'partner_or_union' &&
+              (r.fromPersonId === ancestorId || r.toPersonId === ancestorId)
           );
+          let genSpouseId: string | null = null;
+          if (existingLinkedSpouseRel) {
+            const otherId =
+              existingLinkedSpouseRel.fromPersonId === ancestorId
+                ? existingLinkedSpouseRel.toPersonId
+                : existingLinkedSpouseRel.fromPersonId;
+            const otherPerson = people.find((p) => p.id === otherId);
+            if (
+              otherPerson &&
+              otherPerson.canonicalName.trim().toLowerCase() === trimmedSpouseName.toLowerCase()
+            ) {
+              genSpouseId = otherPerson.id;
+            }
+          }
 
-          let genSpouseId: string;
-          if (existingSpouse) {
-            genSpouseId = existingSpouse.id;
-          } else {
-            genSpouseId = `pers_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 5)}`;
+          if (!genSpouseId) {
+            genSpouseId = `pers_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 7)}`;
             const newSpouse: Person = {
               id: genSpouseId,
               canonicalName: trimmedSpouseName,
-              branch: form.branch || undefined,
+              branch: form.branch && form.branch !== '__custom__' ? form.branch : undefined,
               status: 'verified',
               isArchived: false,
               notes: `መጻምድቲ ${trimmedGenName}`,
@@ -1204,7 +1163,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
           if (!alreadySpouseLinked) {
             const spouseRel: Relationship = {
-              id: `rel_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 5)}`,
+              id: `rel_${Date.now()}_sp_${i}_${Math.random().toString(36).substring(2, 7)}`,
               fromPersonId: ancestorId,
               toPersonId: genSpouseId,
               type: 'partner_or_union',
@@ -1256,7 +1215,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           const cycleCheck = validateParentChildCycle(relationships, parentGenId, childGenId);
           if (cycleCheck.isValid) {
             const chainRel: Relationship = {
-              id: `rel_${Date.now()}_chain_${i}_${Math.random().toString(36).substring(2, 5)}`,
+              id: `rel_${Date.now()}_chain_${i}_${Math.random().toString(36).substring(2, 7)}`,
               fromPersonId: parentGenId,
               toPersonId: childGenId,
               type: 'parent_child',
@@ -1316,64 +1275,136 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         }
       }
 
-      // 3. Save Main Person
-      const immediateParentId = createdAncestorIds.length > 0 ? createdAncestorIds[0] : undefined;
-      const immediateParentName = validGenerations.length > 0 ? validGenerations[0].name : undefined;
+      // 2. Resolve Immediate Parent and Main Person ID
+      const branchRootFallback =
+        validGenerations.length === 0 && form.branch && form.branch !== '__custom__'
+          ? getBranchRootPerson(form.branch.trim())
+          : null;
 
-      const mainPerson: Person = {
-        id: mainPersonId,
-        canonicalName: form.canonicalName.trim(),
-        branch: form.branch.trim() || (validGenerations.length > 0 ? validGenerations[validGenerations.length - 1].name : undefined),
-        fatherName: immediateParentName,
-        status: 'verified',
-        isArchived: false,
-        notes: form.notes?.trim() || undefined,
-        spouseNote: form.spouses.filter((s) => s.spouseName.trim()).map((s) => s.spouseName.trim()).join('፣ ') || undefined,
-        createdAt: now,
-        updatedAt: now
-      };
+      const immediateParentId =
+        createdAncestorIds.length > 0
+          ? createdAncestorIds[0]
+          : branchRootFallback?.id;
+      const immediateParentName =
+        validGenerations.length > 0
+          ? validGenerations[0].name
+          : branchRootFallback?.canonicalName;
+
+      // Check ONLY if immediateParentId ALREADY has a direct child with this exact name (e.g. "ደሃብ" under "ሓሊቦ").
+      // If yes, reuse that child's record to prevent duplicating an existing child under the same parent.
+      // Otherwise, ALWAYS generate a brand-new unique ID so same-named people in different branches are never merged!
+      const existingChildUnderSameParent = immediateParentId
+        ? getChildrenForPerson(immediateParentId).find(
+            (c) => c.canonicalName.trim().toLowerCase() === form.canonicalName.trim().toLowerCase()
+          )
+        : undefined;
+
+      const mainPersonId = existingChildUnderSameParent
+        ? existingChildUnderSameParent.id
+        : `pers_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+      const spouseNoteSummary =
+        form.spouses
+          .filter((s) => s.spouseName.trim())
+          .map((s) => s.spouseName.trim())
+          .join('፣ ') || undefined;
+
+      const mainPerson: Person = existingChildUnderSameParent
+        ? {
+            ...existingChildUnderSameParent,
+            notes: form.notes?.trim() || existingChildUnderSameParent.notes,
+            spouseNote: spouseNoteSummary || existingChildUnderSameParent.spouseNote,
+            updatedAt: now,
+          }
+        : {
+            id: mainPersonId,
+            canonicalName: form.canonicalName.trim(),
+            branch:
+              (form.branch && form.branch !== '__custom__' ? form.branch.trim() : undefined) ||
+              (validGenerations.length > 0 ? validGenerations[validGenerations.length - 1].name : undefined),
+            fatherName: immediateParentName,
+            status: 'verified',
+            isArchived: false,
+            notes: form.notes?.trim() || undefined,
+            spouseNote: spouseNoteSummary,
+            createdAt: now,
+            updatedAt: now,
+          };
       await persistPerson(mainPerson);
 
-      // Link main person to immediate parent (generation 1)
+      // Link main person to immediate parent (generation 1) if not already linked
       if (immediateParentId) {
-        const cycleCheck = validateParentChildCycle(relationships, immediateParentId, mainPersonId);
-        if (cycleCheck.isValid) {
-          const mainParentRel: Relationship = {
-            id: `rel_${Date.now()}_main_parent`,
-            fromPersonId: immediateParentId,
-            toPersonId: mainPersonId,
-            type: 'parent_child',
-            status: 'verified',
-            sourceFile: 'ከሰተ-ብርሃነ.pdf',
-            sourcePage: null,
-            sourceWording: `${form.canonicalName} ወዲ/ጓል ${immediateParentName}`,
-            isBiologicalConfirmed: true,
-            createdAt: now,
-            updatedAt: now
-          };
-          await persistRelationship(mainParentRel);
+        const alreadyMainParentLinked =
+          relationships.some(
+            (r) =>
+              r.type === 'parent_child' &&
+              r.fromPersonId === immediateParentId &&
+              r.toPersonId === mainPersonId
+          ) ||
+          createdRelationshipsBatch.some(
+            (r) =>
+              r.type === 'parent_child' &&
+              r.fromPersonId === immediateParentId &&
+              r.toPersonId === mainPersonId
+          );
+
+        if (!alreadyMainParentLinked) {
+          const cycleCheck = validateParentChildCycle(relationships, immediateParentId, mainPersonId);
+          if (cycleCheck.isValid) {
+            const mainParentRel: Relationship = {
+              id: `rel_${Date.now()}_main_parent_${Math.random().toString(36).substring(2, 7)}`,
+              fromPersonId: immediateParentId,
+              toPersonId: mainPersonId,
+              type: 'parent_child',
+              status: 'verified',
+              sourceFile: 'ከሰተ-ብርሃነ.pdf',
+              sourcePage: null,
+              sourceWording: `${form.canonicalName} ወዲ/ጓል ${immediateParentName}`,
+              isBiologicalConfirmed: true,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await persistRelationship(mainParentRel);
+          }
         }
       }
 
-      // 4. Save Main Person's Multiple Spouses and their respective Children
+      // 3. Save Main Person's Multiple Spouses and their respective Children
+      const existingMainChildren = getChildrenForPerson(mainPersonId);
+
       for (let sIdx = 0; sIdx < form.spouses.length; sIdx++) {
         const spouseEntry = form.spouses[sIdx];
         const trimmedSpouse = spouseEntry.spouseName?.trim();
         let spouseId: string | null = null;
 
         if (trimmedSpouse) {
-          const existingSpouse = people.find(
-            (p) => p.canonicalName.trim().toLowerCase() === trimmedSpouse.toLowerCase()
-          );
+          // Reuse spouse ONLY if already linked to this specific mainPersonId
+          let existingSpouseForMain: Person | undefined;
+          for (const r of relationships) {
+            if (
+              r.type === 'partner_or_union' &&
+              (r.fromPersonId === mainPersonId || r.toPersonId === mainPersonId)
+            ) {
+              const otherId = r.fromPersonId === mainPersonId ? r.toPersonId : r.fromPersonId;
+              const candidate = people.find((p) => p.id === otherId);
+              if (
+                candidate &&
+                candidate.canonicalName.trim().toLowerCase() === trimmedSpouse.toLowerCase()
+              ) {
+                existingSpouseForMain = candidate;
+                break;
+              }
+            }
+          }
 
-          if (existingSpouse) {
-            spouseId = existingSpouse.id;
+          if (existingSpouseForMain) {
+            spouseId = existingSpouseForMain.id;
           } else {
-            spouseId = `pers_${Date.now()}_main_sp_${sIdx}_${Math.random().toString(36).substring(2, 5)}`;
+            spouseId = `pers_${Date.now()}_main_sp_${sIdx}_${Math.random().toString(36).substring(2, 7)}`;
             const spousePerson: Person = {
               id: spouseId,
               canonicalName: trimmedSpouse,
-              branch: form.branch || undefined,
+              branch: form.branch && form.branch !== '__custom__' ? form.branch : undefined,
               status: 'verified',
               isArchived: false,
               notes: `መጻምድቲ ${form.canonicalName}`,
@@ -1400,7 +1431,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
           if (!alreadyLinkedSpouse) {
             const mainSpouseRel: Relationship = {
-              id: `rel_${Date.now()}_main_sp_${sIdx}_rel`,
+              id: `rel_${Date.now()}_main_sp_${sIdx}_rel_${Math.random().toString(36).substring(2, 7)}`,
               fromPersonId: mainPersonId,
               toPersonId: spouseId,
               type: 'partner_or_union',
@@ -1418,27 +1449,26 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           }
         }
 
-        // Save Children of this Spouse
-        for (const child of spouseEntry.children) {
+        // Save Children of this Spouse (strictly scoped to mainPersonId)
+        for (let cIdx = 0; cIdx < spouseEntry.children.length; cIdx++) {
+          const child = spouseEntry.children[cIdx];
           if (!child.name.trim()) continue;
           const trimmedChildName = child.name.trim();
 
-          const existingChild = people.find(
-            (p) =>
-              p.canonicalName.trim().toLowerCase() === trimmedChildName.toLowerCase() &&
-              (p.fatherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase() ||
-                p.motherName?.trim().toLowerCase() === form.canonicalName.trim().toLowerCase())
+          // Reuse child ONLY if already a direct child of this exact mainPersonId
+          const existingChild = existingMainChildren.find(
+            (c) => c.canonicalName.trim().toLowerCase() === trimmedChildName.toLowerCase()
           );
 
           let childId: string;
           if (existingChild) {
             childId = existingChild.id;
           } else {
-            childId = `pers_${Date.now()}_c_${Math.random().toString(36).substring(2, 5)}`;
+            childId = `pers_${Date.now()}_c_${sIdx}_${cIdx}_${Math.random().toString(36).substring(2, 7)}`;
             const childPerson: Person = {
               id: childId,
               canonicalName: trimmedChildName,
-              branch: form.branch || undefined,
+              branch: form.branch && form.branch !== '__custom__' ? form.branch : undefined,
               fatherName: form.canonicalName.trim(),
               motherName: trimmedSpouse || undefined,
               status: 'verified',
@@ -1467,7 +1497,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
           if (!alreadyChildLinked) {
             const childRel: Relationship = {
-              id: `rel_${Date.now()}_c_${childId}`,
+              id: `rel_${Date.now()}_c_${sIdx}_${cIdx}_${childId}`,
               fromPersonId: mainPersonId,
               toPersonId: childId,
               type: 'parent_child',
@@ -2137,7 +2167,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
                       {spouse.children.length === 0 ? (
                         <p className="text-[11px] text-stone-500 italic py-1">
-                          ውሉዳት {spouse.spouseName ? `ምስ ${spouse.spouseName}` : 'ናይዚ መጻምድቲ'} እንተሃልዮም፡ «+ ቆልዓ ወስኽ» ብምጥዋቕ ኣእትዉ።
+                          ውሉዳት {spouse.spouseName ? `ምስ ${spouse.spouseName}` : 'ናይዚ መጻምድቲ'} እንተሃልዮም፡ «+ ቆልዓ ወስኽ» ብምትንካፍ ኣእትዉ።
                         </p>
                       ) : (
                         <div className="space-y-1.5">

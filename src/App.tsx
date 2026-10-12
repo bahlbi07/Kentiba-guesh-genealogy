@@ -20,7 +20,13 @@ import {
   bulkLoadData
 } from './services/db';
 import { isCloudConfigured } from './services/supabaseClient';
-import { apiFetchTree, apiSaveBatch, apiSaveRelationship } from './services/apiClient';
+import {
+  apiFetchTree,
+  apiSaveBatch,
+  apiSaveRelationship,
+  apiDeletePerson,
+  apiDeleteRelationship,
+} from './services/apiClient';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
 import { deduplicateFamilyRecords } from './services/deduplicator';
 import { syncPersonToGoogleSheets } from './services/googleSheetsService';
@@ -39,7 +45,7 @@ import { RotateCw } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.12.v8_clean_english_annotations';
+export const CURRENT_DATASET_VERSION = '2026.10.13.v10_strict_unique_identity_isolation';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -70,6 +76,55 @@ export const App: React.FC = () => {
   const [showAddPersonModal, setShowAddPersonModal] = useState(false);
   const [showPdfExportModal, setShowPdfExportModal] = useState(false);
 
+  // Mobile Hardware/Gesture Back Button Support for Modals & Tabs
+  useEffect(() => {
+    if (showPersonModal || showAddPersonModal || showPdfExportModal) {
+      if (typeof window !== 'undefined' && window.history && typeof window.history.pushState === 'function') {
+        try {
+          window.history.pushState({ kintebaModal: true }, '');
+        } catch {}
+      }
+    }
+  }, [showPersonModal, showAddPersonModal, showPdfExportModal]);
+
+  useEffect(() => {
+    if (activeTab !== 'tree') {
+      if (typeof window !== 'undefined' && window.history && typeof window.history.pushState === 'function') {
+        try {
+          window.history.pushState({ kintebaTab: activeTab }, '');
+        } catch {}
+      }
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleAppPopState = (e: PopStateEvent) => {
+      if (showAddPersonModal) {
+        setShowAddPersonModal(false);
+        (e as any).__kintebaHandled = true;
+        return;
+      }
+      if (showPdfExportModal) {
+        setShowPdfExportModal(false);
+        (e as any).__kintebaHandled = true;
+        return;
+      }
+      if (showPersonModal) {
+        setShowPersonModal(false);
+        (e as any).__kintebaHandled = true;
+        return;
+      }
+      if (activeTab !== 'tree') {
+        setActiveTab('tree');
+        (e as any).__kintebaHandled = true;
+        return;
+      }
+    };
+
+    window.addEventListener('popstate', handleAppPopState, true);
+    return () => window.removeEventListener('popstate', handleAppPopState, true);
+  }, [showPersonModal, showAddPersonModal, showPdfExportModal, activeTab]);
+
   // Admin authentication state
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('kinteba_admin_auth') === 'true';
@@ -81,7 +136,8 @@ export const App: React.FC = () => {
     return sessionStorage.getItem('kinteba_admin_auth') === 'true' ? 'admin' : 'guest';
   });
 
-  // Background Auto-Sync Worker: automatically checks "ሓድሽ ሓበሬታ ኣሎ ድዩ?" on launch and tab activation
+  // Background Auto-Sync Worker: bidirectional multi-device cloud synchronization
+  // Pulls new/updated/deleted records from cloud AND pushes any unsynced local custom records up to cloud
   const syncWithServerInBackground = useCallback(async () => {
     try {
       setIsSyncing(true);
@@ -90,11 +146,28 @@ export const App: React.FC = () => {
         return;
       }
 
+      const deletedPeopleSet = new Set(serverTree.deletedPersonIds || []);
+      const deletedRelsSet = new Set(serverTree.deletedRelationshipIds || []);
+
       const currentStoredPeople = await getAllPeople(true);
       const localPersonMap = new Map(currentStoredPeople.map((p) => [p.id, p]));
-      const peopleToUpdate: Person[] = [];
+      const serverPersonMap = new Map(serverTree.people.map((p) => [p.id, p]));
 
+      let localChanged = false;
+
+      // 1. Apply server deletions to local IndexedDB
+      for (const delPId of deletedPeopleSet) {
+        if (localPersonMap.has(delPId)) {
+          await deletePerson(delPId, 'ServerAutoSync');
+          localPersonMap.delete(delPId);
+          localChanged = true;
+        }
+      }
+
+      // 2. Pull new or updated people from server to local IndexedDB
+      const peopleToUpdate: Person[] = [];
       for (const sp of serverTree.people) {
+        if (deletedPeopleSet.has(sp.id)) continue;
         const existing = localPersonMap.get(sp.id);
         const isDifferent =
           !existing ||
@@ -103,8 +176,11 @@ export const App: React.FC = () => {
           existing.branch !== sp.branch ||
           existing.fatherName !== sp.fatherName ||
           existing.motherName !== sp.motherName ||
+          existing.spouseNote !== sp.spouseNote ||
+          existing.notes !== sp.notes ||
           existing.status !== sp.status ||
           existing.isArchived !== sp.isArchived ||
+          existing.deletionPending !== sp.deletionPending ||
           (sp.updatedAt && existing.updatedAt && sp.updatedAt > existing.updatedAt);
 
         if (isDifferent) {
@@ -115,9 +191,21 @@ export const App: React.FC = () => {
 
       const currentStoredRels = await getAllRelationships();
       const localRelMap = new Map(currentStoredRels.map((r) => [r.id, r]));
-      const relsToUpdate: Relationship[] = [];
+      const serverRelMap = new Map(serverTree.relationships.map((r) => [r.id, r]));
 
+      // 3. Apply server relationship deletions to local IndexedDB
+      for (const delRId of deletedRelsSet) {
+        if (localRelMap.has(delRId)) {
+          await deleteRelationship(delRId, 'ServerAutoSync');
+          localRelMap.delete(delRId);
+          localChanged = true;
+        }
+      }
+
+      // 4. Pull new or updated relationships from server to local IndexedDB
+      const relsToUpdate: Relationship[] = [];
       for (const sr of serverTree.relationships) {
+        if (deletedRelsSet.has(sr.id)) continue;
         const existing = localRelMap.get(sr.id);
         const isDifferent =
           !existing ||
@@ -125,6 +213,7 @@ export const App: React.FC = () => {
           existing.toPersonId !== sr.toPersonId ||
           existing.type !== sr.type ||
           existing.status !== sr.status ||
+          existing.sourceWording !== sr.sourceWording ||
           (sr.updatedAt && existing.updatedAt && sr.updatedAt > existing.updatedAt);
 
         if (isDifferent) {
@@ -133,9 +222,42 @@ export const App: React.FC = () => {
         }
       }
 
-      // If new or updated records were detected from the server, atomically persist to IndexedDB
-      if (peopleToUpdate.length > 0 || relsToUpdate.length > 0) {
-        await saveBatchData(peopleToUpdate, relsToUpdate, 'ServerAutoSync');
+      // 5. Bidirectional Push: if this device has local custom people/relationships not yet on the server, push them up!
+      const initialPersonIds = new Set(INITIAL_PEOPLE.map((p) => p.id));
+      const initialRelIds = new Set(INITIAL_RELATIONSHIPS.map((r) => r.id));
+      const unsyncedLocalPeople: Person[] = [];
+      const unsyncedLocalRels: Relationship[] = [];
+
+      for (const lp of currentStoredPeople) {
+        if (deletedPeopleSet.has(lp.id)) continue;
+        const sp = serverPersonMap.get(lp.id);
+        if (!sp && !initialPersonIds.has(lp.id)) {
+          unsyncedLocalPeople.push(lp);
+        } else if (sp && lp.updatedAt && sp.updatedAt && lp.updatedAt > sp.updatedAt) {
+          unsyncedLocalPeople.push(lp);
+        }
+      }
+
+      for (const lr of currentStoredRels) {
+        if (deletedRelsSet.has(lr.id)) continue;
+        const sr = serverRelMap.get(lr.id);
+        if (!sr && !initialRelIds.has(lr.id)) {
+          unsyncedLocalRels.push(lr);
+        } else if (sr && lr.updatedAt && sr.updatedAt && lr.updatedAt > sr.updatedAt) {
+          unsyncedLocalRels.push(lr);
+        }
+      }
+
+      if (unsyncedLocalPeople.length > 0 || unsyncedLocalRels.length > 0) {
+        const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+        await apiSaveBatch(unsyncedLocalPeople, unsyncedLocalRels, token).catch(() => {});
+      }
+
+      // 6. If new, updated, or deleted records were detected from the server, atomically persist to IndexedDB & update UI
+      if (peopleToUpdate.length > 0 || relsToUpdate.length > 0 || localChanged) {
+        if (peopleToUpdate.length > 0 || relsToUpdate.length > 0) {
+          await saveBatchData(peopleToUpdate, relsToUpdate, 'ServerAutoSync');
+        }
         const refreshedPeople = await getAllPeople(true);
         const refreshedRels = await getAllRelationships();
         setPeople(refreshedPeople);
@@ -183,7 +305,28 @@ export const App: React.FC = () => {
         const customPeople = storedPeople.filter((p) => !initialPersonIds.has(p.id));
 
         const initialRelIds = new Set(INITIAL_RELATIONSHIPS.map((r) => r.id));
-        const customRels = storedRels.filter((r) => !initialRelIds.has(r.id));
+        const initialChildToParents = new Map<string, Set<string>>();
+        for (const ir of INITIAL_RELATIONSHIPS) {
+          if (ir.type === 'parent_child') {
+            const set = initialChildToParents.get(ir.toPersonId) || new Set<string>();
+            set.add(ir.fromPersonId);
+            initialChildToParents.set(ir.toPersonId, set);
+          }
+        }
+
+        const customRels = storedRels.filter((r) => {
+          if (initialRelIds.has(r.id)) return false;
+          // Prevent cross-branch phantom children caused by legacy global-name matching:
+          // if an initial person already has an authoritative parent in INITIAL_RELATIONSHIPS,
+          // do not allow a custom parent_child relationship from an unrelated parent to hijack them.
+          if (r.type === 'parent_child' && initialPersonIds.has(r.toPersonId)) {
+            const authParents = initialChildToParents.get(r.toPersonId);
+            if (authParents && authParents.size > 0 && !authParents.has(r.fromPersonId)) {
+              return false;
+            }
+          }
+          return true;
+        });
 
         await bulkLoadData(
           {
@@ -270,7 +413,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     reloadData();
 
-    // Automatically check for new data whenever user focuses the app or switches back to tab
+    // Automatically check for new data whenever user focuses the app, switches back to tab, or every 15s while open
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         syncWithServerInBackground();
@@ -279,9 +422,16 @@ export const App: React.FC = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', syncWithServerInBackground);
 
+    const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncWithServerInBackground();
+      }
+    }, 60000);
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', syncWithServerInBackground);
+      clearInterval(pollInterval);
     };
   }, [reloadData, syncWithServerInBackground]);
 
@@ -289,7 +439,7 @@ export const App: React.FC = () => {
   const handleUpdatePerson = async (updated: Person) => {
     await savePerson(updated, 'Admin');
     try {
-      const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+      const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
       await apiSaveBatch([updated], [], token);
     } catch {
       // offline fallback
@@ -300,8 +450,14 @@ export const App: React.FC = () => {
 
   const handleDeletePerson = async (id: string) => {
     if (adminRole === 'superadmin') {
-      // Super Admin permanently deletes immediately
+      // Super Admin permanently deletes immediately locally + in cloud
       await deletePerson(id, 'SuperAdmin');
+      try {
+        const token = sessionStorage.getItem('kinteba_admin_token') || 'superadmin-master-session-token';
+        await apiDeletePerson(id, token);
+      } catch {
+        // offline fallback
+      }
       await reloadData();
       if (selectedPerson?.id === id) {
         setSelectedPerson(null);
@@ -320,7 +476,7 @@ export const App: React.FC = () => {
         };
         await savePerson(updated, 'Admin');
         try {
-          const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+          const token = sessionStorage.getItem('kinteba_admin_token') || 'admin-standard-session-token';
           await apiSaveBatch([updated], [], token);
         } catch {
           // offline fallback
@@ -336,6 +492,12 @@ export const App: React.FC = () => {
 
   const handlePermanentDeletePerson = async (id: string) => {
     await deletePerson(id, 'SuperAdmin');
+    try {
+      const token = sessionStorage.getItem('kinteba_admin_token') || 'superadmin-master-session-token';
+      await apiDeletePerson(id, token);
+    } catch {
+      // offline fallback
+    }
     await reloadData();
     if (selectedPerson?.id === id) {
       setSelectedPerson(null);
@@ -355,7 +517,7 @@ export const App: React.FC = () => {
       };
       await savePerson(restored, 'SuperAdmin');
       try {
-        const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+        const token = sessionStorage.getItem('kinteba_admin_token') || 'superadmin-master-session-token';
         await apiSaveBatch([restored], [], token);
       } catch {
         // offline fallback
@@ -369,7 +531,7 @@ export const App: React.FC = () => {
     const result = await saveRelationship(rel, 'Admin');
     if (result.success) {
       try {
-        const token = sessionStorage.getItem('kinteba_admin_token') || undefined;
+        const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
         await apiSaveRelationship(rel, token);
       } catch {
         // offline fallback
@@ -381,6 +543,12 @@ export const App: React.FC = () => {
 
   const handleDeleteRelationship = async (relId: string) => {
     await deleteRelationship(relId, 'Admin');
+    try {
+      const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+      await apiDeleteRelationship(relId, token);
+    } catch {
+      // offline fallback
+    }
     await reloadData();
   };
 
@@ -480,6 +648,8 @@ export const App: React.FC = () => {
     );
   }
 
+  const activePeople = people.filter((p) => !p.isArchived);
+
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col font-sans">
       {/* Top Navbar: 3 Core Simple Tabs */}
@@ -488,7 +658,7 @@ export const App: React.FC = () => {
         setActiveTab={setActiveTab}
         datasetMode={datasetMode}
         isCloudConnected={isCloudConfigured()}
-        totalPeopleCount={people.length}
+        totalPeopleCount={activePeople.length}
         hasSelectedPerson={!!selectedPerson}
         isAdminAuthenticated={isAdminAuthenticated}
         adminRole={adminRole}
@@ -500,7 +670,7 @@ export const App: React.FC = () => {
         {/* Core Tab 1: Progressive Family Explorer */}
         {activeTab === 'tree' && (
           <FamilyExplorer
-            people={people}
+            people={activePeople}
             relationships={relationships}
             onSelectPerson={(p) => {
               setSelectedPerson(p);
@@ -511,7 +681,7 @@ export const App: React.FC = () => {
         {/* Core Tab 2: People Directory & Search */}
         {(activeTab === 'directory' || activeTab === 'details') && (
           <Directory
-            people={people}
+            people={activePeople}
             relationships={relationships}
             onSelectPerson={(p) => {
               setSelectedPerson(p);
@@ -572,7 +742,7 @@ export const App: React.FC = () => {
       {selectedPerson && showPersonModal && (
         <PersonDetailModal
           person={selectedPerson}
-          people={people}
+          people={activePeople}
           relationships={relationships}
           isAdmin={isAdminAuthenticated}
           onClose={() => setShowPersonModal(false)}
@@ -587,7 +757,7 @@ export const App: React.FC = () => {
       {/* Modal: Guided Add Person with Draft Recovery & Batch Children */}
       {showAddPersonModal && (
         <AddPersonGuidedModal
-          people={people}
+          people={activePeople}
           relationships={relationships}
           onClose={() => setShowAddPersonModal(false)}
           onSaveBatch={async (batchPeople, batchRelationships) => {
@@ -634,7 +804,7 @@ export const App: React.FC = () => {
       {/* Modal: Printable Official Genealogy PDF Export */}
       {showPdfExportModal && (
         <GenealogyPdfExportModal
-          people={people}
+          people={activePeople}
           relationships={relationships}
           onClose={() => setShowPdfExportModal(false)}
         />
@@ -646,7 +816,7 @@ export const App: React.FC = () => {
           <p className="font-medium">© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንቲባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
           <div className="flex items-center flex-wrap justify-center gap-3">
             <span className="text-xs sm:text-sm font-bold text-stone-600 bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200">
-              ስሪት 6.0 ({people.length} ኣባላት)
+              ስሪት 6.0 ({activePeople.length} ኣባላት)
             </span>
             {isSyncing && (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-300">

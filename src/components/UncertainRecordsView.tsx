@@ -395,7 +395,7 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
             ምምርማር ዘድልዮም መዛግብቲ
           </h2>
           <p className="text-xs sm:text-sm text-stone-600 max-w-2xl">
-            እዚ ክፍሊ ተወሳኺ መረጋገጺ ዝደልዩ ውሑዳት መዛግብቲ ብቐሊሉ ንምርኣይ፡ ንምእራምን ብሓደ ጠውቂ ንምጽዳቕን ዝጠቅም እዩ።
+            እዚ ክፍሊ ተወሳኺ መረጋገጺ ዝደልዩ ውሑዳት መዛግብቲ ብቐሊሉ ንምርኣይ፡ ንምእራምን ብሓደ ምትንካፍ ንምጽዳቕን ዝጠቅም እዩ።
           </p>
         </div>
 

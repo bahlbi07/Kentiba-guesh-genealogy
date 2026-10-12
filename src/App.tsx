@@ -26,10 +26,11 @@ import {
   apiSaveRelationship,
   apiDeletePerson,
   apiDeleteRelationship,
+  subscribeToLiveCloudUpdates,
 } from './services/apiClient';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
 import { deduplicateFamilyRecords } from './services/deduplicator';
-import { syncPersonToGoogleSheets } from './services/googleSheetsService';
+import { syncNewBatchToGoogleSheets } from './services/googleSheetsService';
 
 import { Navbar, AppDestination } from './components/Navbar';
 import { FamilyExplorer } from './components/FamilyExplorer';
@@ -45,7 +46,7 @@ import { RotateCw } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.13.v10_strict_unique_identity_isolation';
+export const CURRENT_DATASET_VERSION = '2026.10.13.v11_live_multi_device_cloud_sync';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -169,6 +170,10 @@ export const App: React.FC = () => {
       for (const sp of serverTree.people) {
         if (deletedPeopleSet.has(sp.id)) continue;
         const existing = localPersonMap.get(sp.id);
+        if (existing && existing.updatedAt && sp.updatedAt && existing.updatedAt > sp.updatedAt) {
+          // Local record is newer than server record; keep local and push it to server in step 5
+          continue;
+        }
         const isDifferent =
           !existing ||
           existing.canonicalName !== sp.canonicalName ||
@@ -179,8 +184,8 @@ export const App: React.FC = () => {
           existing.spouseNote !== sp.spouseNote ||
           existing.notes !== sp.notes ||
           existing.status !== sp.status ||
-          existing.isArchived !== sp.isArchived ||
-          existing.deletionPending !== sp.deletionPending ||
+          Boolean(existing.isArchived) !== Boolean(sp.isArchived) ||
+          Boolean(existing.deletionPending) !== Boolean(sp.deletionPending) ||
           (sp.updatedAt && existing.updatedAt && sp.updatedAt > existing.updatedAt);
 
         if (isDifferent) {
@@ -207,6 +212,9 @@ export const App: React.FC = () => {
       for (const sr of serverTree.relationships) {
         if (deletedRelsSet.has(sr.id)) continue;
         const existing = localRelMap.get(sr.id);
+        if (existing && existing.updatedAt && sr.updatedAt && existing.updatedAt > sr.updatedAt) {
+          continue;
+        }
         const isDifferent =
           !existing ||
           existing.fromPersonId !== sr.fromPersonId ||
@@ -413,7 +421,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     reloadData();
 
-    // Automatically check for new data whenever user focuses the app, switches back to tab, or every 15s while open
+    // Subscribe to real-time SSE cloud updates so all open phones immediately sync when an Admin makes a change
+    const unsubscribeLive = subscribeToLiveCloudUpdates(() => {
+      syncWithServerInBackground();
+    });
+
+    // Automatically check for new data whenever user focuses the app, switches back to tab, or every 60s while open
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         syncWithServerInBackground();
@@ -429,6 +442,7 @@ export const App: React.FC = () => {
     }, 60000);
 
     return () => {
+      unsubscribeLive();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', syncWithServerInBackground);
       clearInterval(pollInterval);
@@ -776,17 +790,13 @@ export const App: React.FC = () => {
             // 2. Persist to IndexedDB in a single lightning-fast atomic transaction
             await saveBatchData(batchPeople, batchRelationships, 'Admin');
 
-            // 3. Asynchronously forward each new person to Google Sheets Webhook!
-            for (const p of batchPeople) {
-              syncPersonToGoogleSheets(p, people, relationships);
-            }
+            // 3. Forward ONLY genuinely new bloodline members with complete lineage chain to Google Sheets!
+            syncNewBatchToGoogleSheets(batchPeople, batchRelationships, people, relationships);
 
-            // 4. Non-blocking asynchronous remote sync in the background
+            // 4. Synchronize new batch to global cloud stores immediately so all other devices receive it
             try {
               const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
-              apiSaveBatch(batchPeople, batchRelationships, token).catch((e) => {
-                console.warn('Background sync note:', e);
-              });
+              await apiSaveBatch(batchPeople, batchRelationships, token);
             } catch (syncErr) {
               console.warn('Server batch sync note:', syncErr);
             }

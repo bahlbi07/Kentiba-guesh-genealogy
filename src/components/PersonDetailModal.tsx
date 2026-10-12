@@ -4,7 +4,7 @@ import { savePerson, saveRelationship } from '../services/db';
 import { apiSaveBatch } from '../services/apiClient';
 import { validateParentChildCycle } from '../services/cycleDetector';
 import { cleanDisplayNote } from './GenealogyPdfExportModal';
-import { syncPersonToGoogleSheets } from '../services/googleSheetsService';
+import { syncNewBatchToGoogleSheets } from '../services/googleSheetsService';
 import {
   X,
   CheckCircle,
@@ -268,7 +268,6 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
 
         await savePerson(newPerson, 'Admin');
         createdPeople.push(newPerson);
-        syncPersonToGoogleSheets(newPerson, people, relationships);
 
         const mainRel: Relationship = {
           id: `rel_pc_${person.id}_${childId}`,
@@ -304,6 +303,9 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
           createdRels.push(otherRel);
         }
       }
+
+      // Forward newly added children with complete lineage chain to Google Sheets
+      syncNewBatchToGoogleSheets(createdPeople, createdRels, people, relationships);
 
       // Synchronize batch with cloud backend
       try {

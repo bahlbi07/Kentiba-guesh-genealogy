@@ -1,5 +1,5 @@
-// Kinteba Guush Family Genealogy — Production Service Worker v6.0-speed
-const CACHE_NAME = 'kinteba-guush-v6.0-speed';
+// Kinteba Guush Family Genealogy — Production Service Worker v7.0-cloud-sync
+const CACHE_NAME = 'kinteba-guush-v7.0-cloud-sync';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -48,14 +48,16 @@ self.addEventListener('message', (event) => {
 });
 
 // Fetch: NETWORK-FIRST for HTML/navigation with fast 1.5s fallback to cached shell.
-// Never cache API calls. Stale-while-revalidate for static assets.
+// Never cache API calls or external cloud sync endpoints.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Bypass non-GET requests, API calls, and local development server
+  // Bypass non-GET requests, cross-origin cloud sync APIs, local /api/ endpoints, and local dev server
   if (
     event.request.method !== 'GET' ||
+    url.origin !== self.location.origin ||
     url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/.netlify/') ||
     url.hostname === 'localhost' ||
     url.hostname === '127.0.0.1' ||
     url.pathname.startsWith('/@') ||

@@ -1415,7 +1415,81 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     const syncedRel = treePayload.relationships.find((r: Relationship) => r.id === 'rel_cloud_test_99999');
     expect(syncedRel).toBeDefined();
   });
+
+  it('25. Google Sheets Sync: sends ONLY newly entered bloodline members with complete unbroken lineage chain and zero clutter', async () => {
+    const { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS } = await import('../src/data/initialGenealogyData');
+    const { computeLineageChain, isSpouseHelperRecord } = await import('../src/services/googleSheetsService');
+
+    // Create a brand new child under "ኣብርሃ ሓሊቦ" (pers_p5_20_1_c1) AND also link to a spouse node
+    const newChild: Person = {
+      id: 'pers_new_child_test_1',
+      canonicalName: 'ሰላም',
+      branch: 'ትዕበ',
+      fatherName: 'ኣብርሃ ሓሊቦ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-13T01:00:00.000Z',
+      updatedAt: '2026-10-13T01:00:00.000Z',
+    };
+
+    const spouseHelper: Person = {
+      id: 'pers_123_main_sp_0',
+      canonicalName: 'ማና',
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      notes: 'መጻምድቲ ኣብርሃ ሓሊቦ',
+      createdAt: '2026-10-13T01:00:00.000Z',
+      updatedAt: '2026-10-13T01:00:00.000Z',
+    };
+
+    expect(isSpouseHelperRecord(spouseHelper)).toBe(true);
+    expect(isSpouseHelperRecord(newChild)).toBe(false);
+
+    const newRels: Relationship[] = [
+      {
+        id: 'rel_test_pc_bloodline',
+        type: 'parent_child',
+        fromPersonId: 'pers_tibe_halibo_01_abrha', // ኣብርሃ ሓሊቦ
+        toPersonId: 'pers_new_child_test_1',
+        status: 'verified',
+        sourceFile: 'Admin',
+        sourcePage: null,
+        sourceWording: 'ሰላም ጓል ኣብርሃ ሓሊቦ',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-13T01:00:00.000Z',
+        updatedAt: '2026-10-13T01:00:00.000Z',
+      },
+      {
+        id: 'rel_test_pc_spouse',
+        type: 'parent_child',
+        fromPersonId: 'pers_123_main_sp_0', // spouse listed second!
+        toPersonId: 'pers_new_child_test_1',
+        status: 'verified',
+        sourceFile: 'Admin',
+        sourcePage: null,
+        sourceWording: 'ሰላም ጓል ማና',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-13T01:00:00.000Z',
+        updatedAt: '2026-10-13T01:00:00.000Z',
+      },
+    ];
+
+    const result = computeLineageChain(
+      newChild,
+      [...INITIAL_PEOPLE, spouseHelper, newChild],
+      [...INITIAL_RELATIONSHIPS, ...newRels]
+    );
+
+    expect(result.chain).toBe(
+      'ከንቲባ ጉዕሽ ሓጎስ › ትዕበ › ዓዶ ዑመር › ሓጎስ › ሓሊቦ › ኣብርሃ ሓሊቦ › ሰላም'
+    );
+    expect(result.generation).toBe(7);
+    expect(result.resolvedBranch).toBe('ትዕበ');
+    expect(result.immediateParentName).toBe('ኣብርሃ ሓሊቦ');
+  });
 });
+
 
 
 

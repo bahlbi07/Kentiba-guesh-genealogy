@@ -72,6 +72,16 @@
                   });
                 }
               });
+
+              // Check for service worker updates whenever the page regains focus or visibility
+              document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                  reg.update().catch(() => {});
+                }
+              });
+              window.addEventListener('focus', () => {
+                reg.update().catch(() => {});
+              });
             }).catch((err) => {
               console.warn('Service worker registration note:', err);
             });

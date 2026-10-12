@@ -37,7 +37,7 @@ import { RotateCw } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.12.v5_spelling_guush';
+export const CURRENT_DATASET_VERSION = '2026.10.12.v6_auto_sync_ultra_speed';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -49,6 +49,7 @@ export const App: React.FC = () => {
   const [datasetMode, setDatasetMode] = useState<'real' | 'demo' | 'empty'>('real');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncBadge, setLastSyncBadge] = useState<string | null>(null);
 
   // Modals and selection state: immediately select root ancestor
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(() => {
@@ -56,7 +57,6 @@ export const App: React.FC = () => {
       INITIAL_PEOPLE.find(
         (p) =>
           p.id === 'pers_root_kinteba_guush' ||
-          p.canonicalName.includes('ከንቲባ ጉዑሽ') ||
           p.canonicalName.includes('ከንቲባ ጉዕሽ') ||
           p.id === 'pers_p1_0_0'
       ) ||
@@ -73,6 +73,78 @@ export const App: React.FC = () => {
     return sessionStorage.getItem('kinteba_admin_auth') === 'true';
   });
 
+  // Background Auto-Sync Worker: automatically checks "ሓድሽ ሓበሬታ ኣሎ ድዩ?" on launch and tab activation
+  const syncWithServerInBackground = useCallback(async () => {
+    try {
+      setIsSyncing(true);
+      const serverTree = await apiFetchTree();
+      if (!serverTree || !serverTree.people || serverTree.people.length === 0) {
+        return;
+      }
+
+      const currentStoredPeople = await getAllPeople(true);
+      const localPersonMap = new Map(currentStoredPeople.map((p) => [p.id, p]));
+      const peopleToUpdate: Person[] = [];
+
+      for (const sp of serverTree.people) {
+        const existing = localPersonMap.get(sp.id);
+        const isDifferent =
+          !existing ||
+          existing.canonicalName !== sp.canonicalName ||
+          existing.displayName !== sp.displayName ||
+          existing.branch !== sp.branch ||
+          existing.fatherName !== sp.fatherName ||
+          existing.motherName !== sp.motherName ||
+          existing.status !== sp.status ||
+          existing.isArchived !== sp.isArchived ||
+          (sp.updatedAt && existing.updatedAt && sp.updatedAt > existing.updatedAt);
+
+        if (isDifferent) {
+          peopleToUpdate.push(sp);
+          localPersonMap.set(sp.id, sp);
+        }
+      }
+
+      const currentStoredRels = await getAllRelationships();
+      const localRelMap = new Map(currentStoredRels.map((r) => [r.id, r]));
+      const relsToUpdate: Relationship[] = [];
+
+      for (const sr of serverTree.relationships) {
+        const existing = localRelMap.get(sr.id);
+        const isDifferent =
+          !existing ||
+          existing.fromPersonId !== sr.fromPersonId ||
+          existing.toPersonId !== sr.toPersonId ||
+          existing.type !== sr.type ||
+          existing.status !== sr.status ||
+          (sr.updatedAt && existing.updatedAt && sr.updatedAt > existing.updatedAt);
+
+        if (isDifferent) {
+          relsToUpdate.push(sr);
+          localRelMap.set(sr.id, sr);
+        }
+      }
+
+      // If new or updated records were detected from the server, atomically persist to IndexedDB
+      if (peopleToUpdate.length > 0 || relsToUpdate.length > 0) {
+        await saveBatchData(peopleToUpdate, relsToUpdate, 'ServerAutoSync');
+        const refreshedPeople = await getAllPeople(true);
+        const refreshedRels = await getAllRelationships();
+        setPeople(refreshedPeople);
+        setRelationships(refreshedRels);
+        setLastSyncBadge(`ሓድሽ ሓበሬታ ተመሳሲሉ (${peopleToUpdate.length + relsToUpdate.length})`);
+        setTimeout(() => setLastSyncBadge(null), 6000);
+      } else {
+        setLastSyncBadge('እዋናዊ');
+        setTimeout(() => setLastSyncBadge(null), 3000);
+      }
+    } catch {
+      // Silently proceed with local offline database
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
   // Reload data from local IndexedDB with automatic real-dataset seeding & background server sync
   const reloadData = useCallback(async () => {
     try {
@@ -82,8 +154,8 @@ export const App: React.FC = () => {
       let storedAudits = await getAllAuditEvents();
       let mode = await getDatasetMode();
 
-      // Check if client database is missing records or has an outdated dataset schema
-      // (e.g. stale client cache before 'ግደይ' or branch correction). Auto-upgrade to authoritative dataset.
+      // Check if client database is missing records or has an outdated dataset schema.
+      // Auto-upgrade to authoritative dataset with zero wait time.
       const storedVersion =
         typeof localStorage !== 'undefined'
           ? localStorage.getItem('kinteba_authoritative_dataset_version')
@@ -166,7 +238,6 @@ export const App: React.FC = () => {
           const root = storedPeople.find(
             (p) =>
               p.id === 'pers_root_kinteba_guush' ||
-              p.canonicalName.includes('ከንቲባ ጉዑሽ') ||
               p.canonicalName.includes('ከንቲባ ጉዕሽ') ||
               p.id === 'pers_p1_0_0'
           );
@@ -179,58 +250,32 @@ export const App: React.FC = () => {
         return prev;
       });
 
-      // Synchronize with server backend completely in the background without blocking the screen
-      setIsSyncing(true);
-      (async () => {
-        try {
-          const serverTree = await apiFetchTree();
-          if (serverTree && serverTree.people && serverTree.people.length > 0) {
-            let hasNewServerData = false;
-            const currentStoredPeople = await getAllPeople(true);
-            const localPersonMap = new Map(currentStoredPeople.map((p) => [p.id, p]));
-            for (const sp of serverTree.people) {
-              const existing = localPersonMap.get(sp.id);
-              if (!existing || (sp.updatedAt && existing.updatedAt && sp.updatedAt > existing.updatedAt)) {
-                await savePerson(sp, 'ServerSync');
-                localPersonMap.set(sp.id, sp);
-                hasNewServerData = true;
-              }
-            }
-
-            const currentStoredRels = await getAllRelationships();
-            const localRelMap = new Map(currentStoredRels.map((r) => [r.id, r]));
-            for (const sr of serverTree.relationships) {
-              const existing = localRelMap.get(sr.id);
-              if (!existing || (sr.updatedAt && existing.updatedAt && sr.updatedAt > existing.updatedAt)) {
-                await saveRelationship(sr, 'ServerSync');
-                localRelMap.set(sr.id, sr);
-                hasNewServerData = true;
-              }
-            }
-
-            if (hasNewServerData) {
-              const refreshedPeople = await getAllPeople(true);
-              const refreshedRels = await getAllRelationships();
-              setPeople(refreshedPeople);
-              setRelationships(refreshedRels);
-            }
-          }
-        } catch {
-          // Silently proceed with local offline database
-        } finally {
-          setIsSyncing(false);
-        }
-      })();
+      // Seamlessly initiate background server sync without blocking the UI
+      syncWithServerInBackground();
     } catch (err) {
       console.error('Failed to load database:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [syncWithServerInBackground]);
 
   useEffect(() => {
     reloadData();
-  }, [reloadData]);
+
+    // Automatically check for new data whenever user focuses the app or switches back to tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncWithServerInBackground();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', syncWithServerInBackground);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', syncWithServerInBackground);
+    };
+  }, [reloadData, syncWithServerInBackground]);
 
   // Handle Person CRUD
   const handleUpdatePerson = async (updated: Person) => {
@@ -318,6 +363,7 @@ export const App: React.FC = () => {
 
   // Quick Force-Refresh & Cache-Clear Utility (for family members to purge any old cache)
   const handleForceRefresh = async () => {
+    setIsSyncing(true);
     try {
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
@@ -334,7 +380,24 @@ export const App: React.FC = () => {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('kinteba_authoritative_dataset_version');
       }
-      window.location.reload();
+
+      // Proactively reload authoritative dataset directly into IndexedDB before reloading
+      await bulkLoadData(
+        {
+          people: INITIAL_PEOPLE,
+          relationships: INITIAL_RELATIONSHIPS,
+          occurrences: INITIAL_OCCURRENCES,
+          mode: 'real',
+        },
+        'ForceRefreshClean'
+      );
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('kinteba_authoritative_dataset_version', CURRENT_DATASET_VERSION);
+      }
+
+      // Hard redirect with cache-busting timestamp to bust HTTP disk cache
+      const bust = window.location.origin + window.location.pathname + '?reload=' + Date.now();
+      window.location.replace(bust);
     } catch {
       window.location.reload();
     }
@@ -512,20 +575,25 @@ export const App: React.FC = () => {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <p>© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንቲባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-stone-400">ስሪት 3.0 ({people.length} ኣባላት)</span>
+            <span className="text-[11px] text-stone-400">ስሪት 6.0 ({people.length} ኣባላት)</span>
             {isSyncing && (
               <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                <span>ይመሳሰል ኣሎ...</span>
+                <span>ሓድሽ ሓበሬታ ይምርመር ኣሎ...</span>
+              </span>
+            )}
+            {!isSyncing && lastSyncBadge && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 transition-opacity">
+                <span>✓ {lastSyncBadge}</span>
               </span>
             )}
             <button
               type="button"
               onClick={handleForceRefresh}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg cursor-pointer transition-colors active:scale-95"
               title="ካሽ ኣጽሪኻ ሓድሽ መዝገብ ጽዓን"
             >
-              <RotateCw className="w-3 h-3" />
+              <RotateCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-amber-600' : ''}`} />
               <span>ዳታ ሓድስ / Refresh</span>
             </button>
           </div>

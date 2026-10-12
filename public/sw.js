@@ -1,5 +1,5 @@
-// Kinteba Guush Family Genealogy — Production Service Worker v3.0
-const CACHE_NAME = 'kinteba-guush-v3.0';
+// Kinteba Guush Family Genealogy — Production Service Worker v6.0-speed
+const CACHE_NAME = 'kinteba-guush-v6.0-speed';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -17,7 +17,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: aggressively purge older cache versions and take control of all clients
+// Activate: aggressively purge older cache versions and take control of all clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -47,8 +47,8 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Fetch: NETWORK-FIRST for HTML/navigation to always get fresh releases,
-// and cache-first with network update for immutable hashed assets
+// Fetch: NETWORK-FIRST for HTML/navigation with fast 1.5s fallback to cached shell.
+// Never cache API calls. Stale-while-revalidate for static assets.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -64,13 +64,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests: ALWAYS NETWORK-FIRST
-  // When online, users immediately load newest index.html and fresh bundles.
-  // When offline, fallback to cached index.html so PWA functions flawlessly.
+  // Navigation requests: NETWORK-FIRST with fast 1.5s fallback to offline cache
   if (event.request.mode === 'navigate' || event.request.destination === 'document') {
     event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
+      Promise.race([
+        fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -78,31 +76,32 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return networkResponse;
-        })
-        .catch(() => {
-          return caches.match('/index.html') || caches.match('/');
-        })
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
+      ]).catch(() => {
+        return caches.match('/index.html').then((res) => res || caches.match('/'));
+      })
     );
     return;
   }
 
-  // Cache-first strategy with network revalidation for static assets (/assets/*)
+  // Static assets (/assets/*): Stale-While-Revalidate for instant speed + background freshness
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return networkResponse;
-      });
+      }).catch(() => null);
+
+      // Return cached asset immediately for sub-10ms render, or wait for network if not cached
+      return cachedResponse || fetchPromise;
     })
   );
 });
+
 

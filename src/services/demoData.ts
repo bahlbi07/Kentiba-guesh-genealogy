@@ -3,13 +3,13 @@ import { Person, Relationship, SourceOccurrence } from '../types/genealogy';
 export const DEMO_PEOPLE: Person[] = [
   {
     id: 'demo_pers_root',
-    canonicalName: 'ከንቲባ ጉዑሽ ሓጎስ (Demo Root)',
+    canonicalName: 'ከንቲባ ጉዕሽ ሓጎስ (Demo Root)',
     displayName: 'Kinteba Guush Hagos [Demo]',
     branch: 'Demo Ancestor',
     status: 'verified',
     notes: 'Demonstration root record for interface testing.',
     sourcePage: 1,
-    sourceHeading: 'ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ (Demo)',
+    sourceHeading: 'ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ (Demo)',
     isArchived: false,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

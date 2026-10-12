@@ -97,7 +97,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ onImportCommitted }) =
           <span>መዝገብ ስድራቤት ምእታው</span>
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-stone-900 font-ethiopic">
-          መዝገብ ወለዶ ከንቲባ ጉዑሽ ናብ ሲስተም ምእታው
+          መዝገብ ወለዶ ከንቲባ ጉዕሽ ናብ ሲስተም ምእታው
         </h2>
         <p className="text-stone-600 text-xs sm:text-sm font-ethiopic leading-relaxed">
           እዚ ክፍሊ ንመላእ መዝገብ ስድራቤት ናብቲ ሲስተም ንምእታውን ንምዕቃብን ዘገልግል እዩ። ኩሎም ኣስማትን ዝምድናታትን ብጥንቃቐ ይመዝገቡ።

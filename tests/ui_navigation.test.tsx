@@ -18,8 +18,8 @@ import { Person, Relationship } from '../src/types/genealogy';
 const mockPeople: Person[] = [
   {
     id: 'pers_p1_0_0',
-    canonicalName: 'ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ',
-    branch: 'ከንቲባ ጉዑሽ',
+    canonicalName: 'ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ',
+    branch: 'ከንቲባ ጉዕሽ',
     status: 'verified',
     sourcePage: 1,
     isArchived: false,
@@ -112,7 +112,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     );
 
     // Verify root is rendered on center stage and breadcrumb
-    expect(screen.getAllByText('ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ').length).toBeGreaterThan(0);
 
     // Verify child 'ጎብሩ' is visible
     expect(screen.getByText('ጎብሩ')).toBeDefined();
@@ -184,15 +184,15 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     // Child 'ተላ' listed in children section
     expect(screen.getByText('ተላ')).toBeDefined();
 
-    // Parent 'ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ' listed in parents section
-    expect(screen.getByText('ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ')).toBeDefined();
+    // Parent 'ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ' listed in parents section
+    expect(screen.getByText('ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ')).toBeDefined();
   });
 
   it('4. AboutArchive: renders historical provenance and scribe attribution', () => {
     render(<AboutArchive />);
 
     // Verifies scribe attribution and primary source title
-    expect(screen.getByText('ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ')).toBeDefined();
+    expect(screen.getByText('ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ')).toBeDefined();
     expect(screen.getByText(/ጸሓፊ ከሰተ ብርሃነ ወልዱ ወዲ ጎብሩ/)).toBeDefined();
     expect(screen.getByText(/መበቆላዊ ታሪኻዊ መዝገብ/)).toBeDefined();
   });
@@ -267,7 +267,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
 
   it('6. App: renders complete application root without crashing', async () => {
     render(<App />);
-    const elements = await screen.findAllByText(/ተወለድ እንዳቦይ ከንትባ ጉዕሽ/);
+    const elements = await screen.findAllByText(/ተወለድ እንዳቦይ ከንቲባ ጉዕሽ/);
     expect(elements.length).toBeGreaterThan(0);
   });
 
@@ -326,7 +326,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     const samplePeople: Person[] = [
       {
         id: 'pers_root_kinteba_guush',
-        canonicalName: 'ከንቲባ ጉዑሽ ሓጎስ',
+        canonicalName: 'ከንቲባ ጉዕሽ ሓጎስ',
         branch: 'ቀንዲ መበቆል',
         status: 'verified',
         isArchived: false,
@@ -820,7 +820,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     );
 
     // Verify Title & Branches
-    expect(screen.getByText('ተወለድ እንዳቦይ ከንትባ ጉዕሽ ሓጎስ')).toBeDefined();
+    expect(screen.getByText('ተወለድ እንዳቦይ ከንቲባ ጉዕሽ ሓጎስ')).toBeDefined();
     expect(screen.getAllByText('ጨንፈር ጎብሩ').length).toBeGreaterThan(0);
 
     // Verify Generations rendered

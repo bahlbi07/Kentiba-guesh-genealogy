@@ -35,7 +35,7 @@ class RootErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState
               ጉ
             </div>
             <h2 className="text-xl font-bold text-stone-900">
-              ተወለድ እንዳቦይ ከንትባ ጉዕሽ
+              ተወለድ እንዳቦይ ከንቲባ ጉዕሽ
             </h2>
             <p className="text-sm text-stone-600">
               ኣፕሊኬሽን ኣብ ምኽፋት ጸገም ኣጋጢሙ። በጃኹም ዳግማይ ጀምሩ (Reload)።

@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
               <div>
                 <h1 className="text-base sm:text-xl font-bold tracking-tight text-amber-100 font-ethiopic">
-                  ተወለድ እንዳቦይ ከንትባ ጉዕሽ
+                  ተወለድ እንዳቦይ ከንቲባ ጉዕሽ
                 </h1>
                 <p className="text-xs text-stone-400 font-ethiopic">
                   ታሪኻዊ መዝገብ ወለዶ &middot; {totalPeopleCount} ኣባላት

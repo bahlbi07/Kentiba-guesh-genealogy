@@ -99,7 +99,7 @@ describe('Kinteba Guush Family Genealogy Test Suite', () => {
   // Test 3: Exact Tigrinya/Ge'ez Unicode strings survive import/export unchanged
   it("Requirement 3: Exact Tigrinya/Ge'ez Unicode strings survive import/export unchanged", () => {
     const geezStrings = [
-      'ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ',
+      'ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ',
       'ቀሺ ወለሊባኖስ',
       'ጸሓፊ ከሰተ ብርሃነ ወልዱ ወዲ ጎብሩ ካብ ጁባ ደቡብ ሱዳን',
       'በየና ናብ ኣቦይ ገብረገርግስ ነድወ ኣትያ ዝወለደቶም ድማ',

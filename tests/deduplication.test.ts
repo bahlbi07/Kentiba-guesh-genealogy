@@ -43,7 +43,7 @@ function mockRel(
 describe('Genealogy Deduplication & Merge Engine', () => {
   it('normalizes Ethiopic names properly', () => {
     expect(normalizeEthiopicName('  ሓጎስ   ')).toBe('ሓጎስ');
-    expect(normalizeEthiopicName('ከንቲባ   ጉዑሽ ')).toBe('ከንቲባ ጉዑሽ');
+    expect(normalizeEthiopicName('ከንቲባ   ጉዕሽ ')).toBe('ከንቲባ ጉዕሽ');
   });
 
   it('detects and merges duplicate siblings under the same parent (e.g. duplicate ሓጎስ and ሓሊቦ under ዓዶ ዑመር)', () => {

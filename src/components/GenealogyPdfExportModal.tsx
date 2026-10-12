@@ -749,7 +749,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
                 <span>ወግዓዊ መዝገብ ወለዶ ስድራቤት</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-stone-950">
-                ተወለድ እንዳቦይ ከንትባ ጉዕሽ ሓጎስ
+                ተወለድ እንዳቦይ ከንቲባ ጉዕሽ ሓጎስ
               </h1>
               <p className="text-sm sm:text-base text-stone-700 font-bold">
                 ሓረግ ወለዶን ተዋረድ ሰንሰለትን {allBranchNames.length} ጨናፍር (መበቆል ዓዲ ሓሓይለ)
@@ -787,7 +787,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
               <section className="space-y-2.5 print:hidden">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
                   <Filter className="w-3.5 h-3.5" />
-                  <span>{allBranchNames.length} ጨናፍር እንዳቦይ ከንትባ ጉዕሽ</span>
+                  <span>{allBranchNames.length} ጨናፍር እንዳቦይ ከንቲባ ጉዕሽ</span>
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                   {branchData.map((b, i) => (
@@ -1122,7 +1122,7 @@ export const GenealogyPdfExportModal: React.FC<GenealogyPdfExportModalProps> = (
             <footer className="pt-8 pb-4 border-t-2 border-stone-900 text-center text-xs text-stone-600 space-y-2 print:pt-6">
               <div className="flex items-center justify-center gap-2 font-bold text-stone-800">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>ተወለድ እንዳቦይ ከንትባ ጉዕሽ ሓጎስ &middot; ወግዓዊ ዲጂታል መዝገብ ወለዶ</span>
+                <span>ተወለድ እንዳቦይ ከንቲባ ጉዕሽ ሓጎስ &middot; ወግዓዊ ዲጂታል መዝገብ ወለዶ</span>
               </div>
               <p className="text-[11px] text-stone-500 max-w-xl mx-auto leading-relaxed">
                 እዚ ሰነድ እዚ ካብቲ ዝተጻረየን ዝተረጋገጸን ናይ እንዳቦይ ከንቲባ ጉዕሽ ሓጎስ ዲጂታል መዝገብ ብትክክል ዝተሓትመ ወግዓዊ ሰነድ ስድራቤት እዩ።

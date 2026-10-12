@@ -11,8 +11,8 @@ describe('Redesign Architecture, PWA, and Netlify Compatibility Tests', () => {
     const content = fs.readFileSync(manifestPath, 'utf-8');
     const manifest = JSON.parse(content);
 
-    expect(manifest.name).toContain('ከንቲባ ጉዑሽ');
-    expect(manifest.short_name).toBe('Kinteba Guush');
+    expect(manifest.name).toContain('ከንቲባ ጉዕሽ');
+    expect(manifest.short_name).toBe('ከንቲባ ጉዕሽ');
     expect(manifest.start_url).toBe('/');
     expect(manifest.display).toBe('standalone');
     expect(manifest.background_color).toBe('#1c1917');

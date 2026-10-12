@@ -106,8 +106,8 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
     if (selectedRootId && peopleMap.has(selectedRootId)) {
       return selectedRootId;
     }
-    // Prefer person with "ከንቲባ ጉዑሽ" in name or first root
-    const patriarch = candidateRoots.find((p) => p.canonicalName.includes('ከንቲባ ጉዑሽ') || p.id.includes('root'));
+    // Prefer person with "ከንቲባ ጉዕሽ" in name or first root
+    const patriarch = candidateRoots.find((p) => p.canonicalName.includes('ከንቲባ ጉዕሽ') || p.canonicalName.includes('ከንቲባ ጉዑሽ') || p.id.includes('root'));
     if (patriarch) return patriarch.id;
     return candidateRoots[0]?.id || people[0]?.id || '';
   }, [selectedRootId, candidateRoots, peopleMap, people]);

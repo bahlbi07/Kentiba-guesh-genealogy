@@ -1321,7 +1321,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                 status: 'verified',
                 sourceFile: 'ከሰተ-ብርሃነ.pdf',
                 sourcePage: null,
-                sourceWording: `${topGenName} ወዲ ከንቲባ ጉዑሽ ሓጎስ`,
+                sourceWording: `${topGenName} ወዲ ከንቲባ ጉዕሽ ሓጎስ`,
                 isBiologicalConfirmed: true,
                 createdAt: now,
                 updatedAt: now,
@@ -1854,7 +1854,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5 text-xs font-ethiopic text-stone-800">
                       <span className="px-2 py-0.5 rounded-md bg-amber-100 font-bold text-amber-950">
-                        ከንቲባ ጉዑሽ
+                        ከንቲባ ጉዕሽ
                       </span>
                       {form.lineageChain
                         .slice()

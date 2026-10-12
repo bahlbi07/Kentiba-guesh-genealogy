@@ -11,10 +11,10 @@ export const AboutArchive: React.FC = () => {
           <span>ታሪኽን መበቆልን ቤተሰብ (Historical Family Archive)</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold font-ethiopic tracking-tight text-amber-100">
-          ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ
+          ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ
         </h1>
         <p className="text-stone-350 text-sm sm:text-base leading-relaxed max-w-2xl font-ethiopic">
-          እዚ ዲጂታል መዝገብ እዚ፡ ነቲ ብኢድ ዝተጻሕፈ ታሪኻዊ ሰነድ ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ ብዘይ ዝኾነ ምቅያር ወይ ምድብላቕ፡ ብትኽክል ንመጻኢ ወለዶታት ተሓልዩ ክጸንሕ ዝተዳለወ ወግዓዊ መዝገብ እዩ።
+          እዚ ዲጂታል መዝገብ እዚ፡ ነቲ ብኢድ ዝተጻሕፈ ታሪኻዊ ሰነድ ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ ብዘይ ዝኾነ ምቅያር ወይ ምድብላቕ፡ ብትኽክል ንመጻኢ ወለዶታት ተሓልዩ ክጸንሕ ዝተዳለወ ወግዓዊ መዝገብ እዩ።
         </p>
       </div>
 

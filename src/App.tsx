@@ -37,7 +37,7 @@ import { RotateCw } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.12.v4_teferi_gibtseyt';
+export const CURRENT_DATASET_VERSION = '2026.10.12.v5_spelling_guush';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -346,7 +346,7 @@ export const App: React.FC = () => {
         <div className="text-center space-y-4">
           <div className="w-14 h-14 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-stone-900 font-bold font-ethiopic text-xl">
-            ተወለድ እንዳቦይ ከንትባ ጉዕሽ ይዳሎ ኣሎ...
+            ተወለድ እንዳቦይ ከንቲባ ጉዕሽ ይዳሎ ኣሎ...
           </p>
           <p className="text-stone-500 font-ethiopic text-sm">
             መዝገብ ወለዶ ኣብዚ መሳርሒ ይዳሎ ኣሎ።
@@ -510,7 +510,7 @@ export const App: React.FC = () => {
       {/* Footer with App Version and Quick Force-Refresh / Cache Clear button */}
       <footer className="mt-auto border-t border-stone-200 bg-white/70 py-4 pb-20 md:pb-4 px-4 text-center text-xs text-stone-500 font-ethiopic">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
-          <p>© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንትባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
+          <p>© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንቲባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-stone-400">ስሪት 3.0 ({people.length} ኣባላት)</span>
             {isSyncing && (

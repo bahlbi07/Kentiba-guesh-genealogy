@@ -346,13 +346,13 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
   const stagedPeople: Person[] = [
     {
       id: rootPersonId,
-      canonicalName: 'ከንቲባ ጉዑሽ ሓጎስ',
-      displayName: 'Kinteba Guush Hagos (ከንቲባ ጉዑሽ ሓጎስ)',
+      canonicalName: 'ከንቲባ ጉዕሽ ሓጎስ',
+      displayName: 'Kinteba Guush Hagos (ከንቲባ ጉዕሽ ሓጎስ)',
       branch: 'Main Ancestor',
       status: 'verified',
-      notes: 'Patriarch named in source title: ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ (PDF page 1)',
+      notes: 'Patriarch named in source title: ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ (PDF page 1)',
       sourcePage: 1,
-      sourceHeading: 'ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ',
+      sourceHeading: 'ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ',
       isArchived: false,
       createdAt: STABLE_TIMESTAMP,
       updatedAt: STABLE_TIMESTAMP,
@@ -368,6 +368,8 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
 
   // Map from canonicalName to list of candidate person IDs created so far
   const nameToPersonIds = new Map<string, string[]>();
+  nameToPersonIds.set('ከንቲባ ጉዕሽ', [rootPersonId]);
+  nameToPersonIds.set('ከንቲባ ጉዕሽ ሓጎስ', [rootPersonId]);
   nameToPersonIds.set('ከንቲባ ጉዑሽ', [rootPersonId]);
   nameToPersonIds.set('ከንቲባ ጉዑሽ ሓጎስ', [rootPersonId]);
 
@@ -418,7 +420,7 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
           id: autoParentId,
           canonicalName: block.parentName,
           branch: block.parentName,
-          fatherName: isChildOfKinteba ? 'ከንቲባ ጉዑሽ ሓጎስ' : undefined,
+          fatherName: isChildOfKinteba ? 'ከንቲባ ጉዕሽ ሓጎስ' : undefined,
           status: 'verified',
           notes: `Parent introduced in heading: ${block.blockHeading} (PDF page ${block.page})`,
           sourcePage: block.page,
@@ -467,7 +469,7 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
         }
         const parentObj = stagedPeople.find((p) => p.id === parentPersonIdToUse);
         if (parentObj && !parentObj.fatherName) {
-          parentObj.fatherName = 'ከንቲባ ጉዑሽ ሓጎስ';
+          parentObj.fatherName = 'ከንቲባ ጉዕሽ ሓጎስ';
         }
       }
 
@@ -560,7 +562,7 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
       let childBranch: string | undefined;
 
       if (block.relationshipType === 'opening') {
-        childFatherName = 'ከንቲባ ጉዑሽ ሓጎስ';
+        childFatherName = 'ከንቲባ ጉዕሽ ሓጎስ';
         childBranch = name;
       } else if (parentPersonIdToUse) {
         const parentObj = stagedPeople.find((p) => p.id === parentPersonIdToUse);
@@ -614,7 +616,7 @@ export function parseRegisterMarkdown(markdownContent: string): ParseResult {
           status: 'verified',
           sourceFile: 'ከሰተ-ብርሃነ.pdf',
           sourcePage: 1,
-          sourceWording: 'ሓረግ ወለዶ ከንቲባ ጉዑሽ ሓጎስ',
+          sourceWording: 'ሓረግ ወለዶ ከንቲባ ጉዕሽ ሓጎስ',
           reviewerNotes: 'Direct branch ancestor under Patriarch Kinteba Guush Hagos',
           isBiologicalConfirmed: true,
           createdAt: STABLE_TIMESTAMP,

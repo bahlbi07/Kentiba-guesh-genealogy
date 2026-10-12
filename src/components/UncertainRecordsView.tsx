@@ -456,7 +456,7 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
                       {p.canonicalName}
                     </td>
                     <td className="px-4 py-3 text-stone-600 font-medium">
-                      {p.fatherName || p.branch || 'ከንቲባ ጉዑሽ ሓጎስ'}
+                      {p.fatherName || p.branch || 'ከንቲባ ጉዕሽ ሓጎስ'}
                     </td>
                     <td className="px-4 py-3 text-stone-600 max-w-sm">
                       <span className="inline-block px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 text-[11px]">

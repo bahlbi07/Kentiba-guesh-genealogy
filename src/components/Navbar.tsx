@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   GitFork,
   Users,
@@ -6,12 +6,24 @@ import {
   Shield,
   Search,
   Printer,
-  Type,
+  Minus,
+  Plus,
   Crown
 } from 'lucide-react';
 import { UserRole } from '../types/genealogy';
 
 export type AppDestination = 'tree' | 'directory' | 'details' | 'about' | 'admin';
+
+export type FontScale = 'small' | 'normal' | 'large' | 'xlarge';
+
+const FONT_SCALES: FontScale[] = ['small', 'normal', 'large', 'xlarge'];
+
+const FONT_SCALE_LABELS: Record<FontScale, string> = {
+  small: 'ንእሽቶ',
+  normal: 'መደበኛ',
+  large: 'ዓቢ',
+  xlarge: 'ዝዓበየ',
+};
 
 interface NavbarProps {
   activeTab: AppDestination;
@@ -34,73 +46,109 @@ export const Navbar: React.FC<NavbarProps> = ({
   adminRole = 'guest',
   onOpenPdfExport,
 }) => {
-  const [fontScale, setFontScale] = React.useState<'normal' | 'large' | 'xlarge'>(() => {
+  const [fontScale, setFontScale] = React.useState<FontScale>(() => {
     if (typeof window !== 'undefined') {
-      const s = localStorage.getItem('kinteba_font_scale');
-      if (s === 'large' || s === 'xlarge') return s;
+      const s = localStorage.getItem('kinteba_font_scale') as FontScale;
+      if (FONT_SCALES.includes(s)) return s;
     }
     return 'normal';
   });
 
-  const handleCycleFontScale = () => {
-    const nextScale: 'normal' | 'large' | 'xlarge' = 
-      fontScale === 'normal' ? 'large' : fontScale === 'large' ? 'xlarge' : 'normal';
-    setFontScale(nextScale);
+  const applyFontScale = (scale: FontScale) => {
+    setFontScale(scale);
     if (typeof document !== 'undefined') {
-      document.documentElement.classList.remove('font-scale-large', 'font-scale-xlarge');
-      if (nextScale === 'large') document.documentElement.classList.add('font-scale-large');
-      if (nextScale === 'xlarge') document.documentElement.classList.add('font-scale-xlarge');
+      document.documentElement.classList.remove('font-scale-small', 'font-scale-normal', 'font-scale-large', 'font-scale-xlarge');
+      if (scale !== 'normal') {
+        document.documentElement.classList.add(`font-scale-${scale}`);
+      }
     }
     try {
-      localStorage.setItem('kinteba_font_scale', nextScale);
+      localStorage.setItem('kinteba_font_scale', scale);
     } catch {}
   };
+
+  React.useEffect(() => {
+    if (typeof document !== 'undefined' && fontScale !== 'normal') {
+      document.documentElement.classList.remove('font-scale-small', 'font-scale-normal', 'font-scale-large', 'font-scale-xlarge');
+      document.documentElement.classList.add(`font-scale-${fontScale}`);
+    }
+  }, []);
+
+  const handleDecreaseFont = () => {
+    const currentIndex = FONT_SCALES.indexOf(fontScale);
+    if (currentIndex > 0) {
+      applyFontScale(FONT_SCALES[currentIndex - 1]);
+    }
+  };
+
+  const handleIncreaseFont = () => {
+    const currentIndex = FONT_SCALES.indexOf(fontScale);
+    if (currentIndex < FONT_SCALES.length - 1) {
+      applyFontScale(FONT_SCALES[currentIndex + 1]);
+    }
+  };
+
   return (
     <>
       {/* Top Header Bar for Desktop and Mobile */}
       <header className="bg-stone-900 text-stone-100 border-b border-stone-800 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo and Official Title */}
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between min-h-[58px] sm:min-h-[64px] py-1.5 sm:py-2 gap-2">
+            {/* Logo and Official Title: Protected Container Immune to Dynamic Font Scaling */}
             <button
               onClick={() => setActiveTab('tree')}
-              className="flex items-center space-x-3 text-left focus:outline-hidden group"
+              className="flex items-center space-x-2.5 sm:space-x-3 text-left focus:outline-hidden group min-w-0 flex-1 sm:flex-initial cursor-pointer"
               aria-label="ናብ ገጽ መሰረት ወለዶ ኺድ"
             >
-              <div className="w-10 h-10 rounded-xl bg-amber-600/25 border border-amber-500/40 flex items-center justify-center text-amber-300 font-bold text-xl font-ethiopic shrink-0 group-hover:bg-amber-600/35 transition-colors">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-600/25 border border-amber-500/40 flex items-center justify-center text-amber-300 font-black text-lg sm:text-xl font-ethiopic shrink-0 group-hover:bg-amber-600/35 transition-colors shadow-2xs">
                 ጉ
               </div>
-              <div>
-                <h1 className="text-base sm:text-xl font-bold tracking-tight text-amber-100 font-ethiopic">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <h1 className="navbar-brand-title font-black text-amber-100 font-ethiopic tracking-tight truncate sm:whitespace-nowrap">
                   ተወለድ እንዳቦይ ከንቲባ ጉዕሽ
                 </h1>
-                <p className="text-xs text-stone-400 font-ethiopic">
+                <p className="navbar-brand-subtitle text-stone-400 font-ethiopic truncate sm:whitespace-nowrap mt-0.5">
                   ታሪኻዊ መዝገብ ወለዶ &middot; {totalPeopleCount} ኣባላት
                 </p>
               </div>
             </button>
 
-            {/* Right Side: Font Size Accessibility Switcher & Nav Links */}
-            <div className="flex items-center space-x-2">
-              {/* Elder Font Scaler Button (Visible on both Mobile and Desktop) */}
-              <button
-                onClick={handleCycleFontScale}
-                className="flex items-center space-x-1.5 px-3 py-2 rounded-xl border border-amber-500/50 bg-amber-950/50 hover:bg-amber-900/60 text-amber-200 text-xs sm:text-sm font-ethiopic font-bold transition-all shadow-xs min-h-[40px] cursor-pointer"
-                title="መዐበዪ ፊደል: ንዕድመ ዝደፍኡ ኣባላት ዝተዳለወ (Font Size)"
-                aria-label="ናይ ፊደል ዓቐን ቀይር"
+            {/* Right Side: Font Size Stepper (መወሰኺን መቐነሲን) & Desktop Nav Links */}
+            <div className="flex items-center space-x-2 shrink-0">
+              {/* Font Size Accessibility Stepper: Decreaser (-) & Increaser (+) */}
+              <div
+                className="flex items-center bg-stone-950/80 border border-amber-500/40 rounded-xl p-0.5 shadow-xs shrink-0"
+                role="group"
+                aria-label="ናይ ፊደል ዓቐን መቖጻጸሪ (መወሰኺን መቐነሲን)"
               >
-                <Type className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="hidden sm:inline">ፊደል:</span>
-                <span className="text-amber-100 font-extrabold whitespace-nowrap">
-                  {fontScale === 'normal' ? (
-                    'መደበኛ'
-                  ) : fontScale === 'large' ? (
-                    <>ዓቢ <span className="hidden sm:inline">(+15%)</span></>
-                  ) : (
-                    <>ዝዓበየ <span className="hidden sm:inline">(+30%)</span></>
-                  )}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDecreaseFont}
+                  disabled={fontScale === 'small'}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-amber-300 hover:text-white hover:bg-stone-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                  title="ፊደል ኣንእስ (-): ንወጣት ተጠቀምቲ"
+                  aria-label="ፊደል ኣንእስ"
+                >
+                  <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+
+                <div className="px-1.5 sm:px-2.5 text-center select-none min-w-[48px] sm:min-w-[65px]">
+                  <span className="text-[11px] sm:text-xs font-bold text-amber-200 font-ethiopic whitespace-nowrap block">
+                    {FONT_SCALE_LABELS[fontScale]}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleIncreaseFont}
+                  disabled={fontScale === 'xlarge'}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-amber-300 hover:text-white hover:bg-stone-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                  title="ፊደል ኣዕቢ (+): ንዕድመ ዝደፍኡ ኣባላት"
+                  aria-label="ፊደል ኣዕቢ"
+                >
+                  <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+              </div>
 
               {/* Desktop Navigation Links: 3 Core Simple Tabs */}
               <nav className="hidden md:flex items-center space-x-2" aria-label="Main Navigation">

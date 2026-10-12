@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FamilyExplorer } from '../src/components/FamilyExplorer';
+import { Navbar } from '../src/components/Navbar';
 import { Directory } from '../src/components/Directory';
 import { FamilyInformationView } from '../src/components/FamilyInformationView';
 import { AboutArchive } from '../src/components/AboutArchive';
@@ -977,6 +978,143 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
 
     // Modal closed immediately
     expect(handleClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('18. Navbar: renders immune brand title and font stepper decreaser (-) and increaser (+)', () => {
+    const handleSetTab = vi.fn();
+    render(
+      <Navbar
+        activeTab="tree"
+        setActiveTab={handleSetTab}
+        datasetMode="real"
+        isCloudConnected={true}
+        totalPeopleCount={548}
+        hasSelectedPerson={false}
+      />
+    );
+
+    // Brand title is rendered with fixed, immune classes
+    const brandTitle = screen.getByText('ተወለድ እንዳቦይ ከንቲባ ጉዕሽ');
+    expect(brandTitle).toBeDefined();
+    expect(brandTitle.className).toContain('navbar-brand-title');
+    expect(screen.getByText(/548 ኣባላት/)).toBeDefined();
+
+    // Default font scale is 'መደበኛ'
+    expect(screen.getByText('መደበኛ')).toBeDefined();
+
+    // Decreaser and Increaser stepper buttons
+    const decBtn = screen.getByLabelText('ፊደል ኣንእስ');
+    const incBtn = screen.getByLabelText('ፊደል ኣዕቢ');
+    expect(decBtn).toBeDefined();
+    expect(incBtn).toBeDefined();
+
+    // Decrease font -> 'ንእሽቶ'
+    fireEvent.click(decBtn);
+    expect(screen.getByText('ንእሽቶ')).toBeDefined();
+    expect(decBtn).toBeDisabled();
+
+    // Increase font back to 'መደበኛ' -> 'ዓቢ' -> 'ዝዓበየ'
+    fireEvent.click(incBtn);
+    expect(screen.getByText('መደበኛ')).toBeDefined();
+    fireEvent.click(incBtn);
+    expect(screen.getByText('ዓቢ')).toBeDefined();
+    fireEvent.click(incBtn);
+    expect(screen.getByText('ዝዓበየ')).toBeDefined();
+    expect(incBtn).toBeDisabled();
+  });
+
+  it('19. FamilyExplorer: renders multi-generational tree with zero name truncation and focus button for deep levels', () => {
+    // Extended deep-lineage fixture: root -> Gobru -> Tela -> Hadgu -> Kesete
+    const deepLineagePeople: Person[] = [
+      ...mockPeople,
+      {
+        id: 'pers_p1_hadgu',
+        canonicalName: 'ሓድጉ',
+        branch: 'ጎብሩ',
+        status: 'verified',
+        sourcePage: 1,
+        isArchived: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'pers_p1_kesete',
+        canonicalName: 'ከሰተ ብርሃነ ወልዱ ወዲ ጎብሩ',
+        branch: 'ጎብሩ',
+        status: 'verified',
+        sourcePage: 1,
+        isArchived: false,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    const deepLineageRels: Relationship[] = [
+      ...mockRelationships,
+      {
+        id: 'rel_3',
+        fromPersonId: 'pers_p1_tela',
+        toPersonId: 'pers_p1_hadgu',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 1,
+        sourceWording: 'ሓድጉ ዝወለዶም',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+      {
+        id: 'rel_4',
+        fromPersonId: 'pers_p1_hadgu',
+        toPersonId: 'pers_p1_kesete',
+        type: 'parent_child',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 1,
+        sourceWording: 'ከሰተ ዝወለዶም',
+        isBiologicalConfirmed: true,
+        createdAt: '2026-10-09T00:00:00.000Z',
+        updatedAt: '2026-10-09T00:00:00.000Z',
+      },
+    ];
+
+    const handleSelect = vi.fn();
+    render(
+      <FamilyExplorer
+        people={deepLineagePeople}
+        relationships={deepLineageRels}
+        onSelectPerson={handleSelect}
+      />
+    );
+
+    // Expand Level 1 (Gobru)
+    const expandGobru = screen.getAllByTitle(/ጨንፈር ዘርግሕ/)[0];
+    fireEvent.click(expandGobru);
+    expect(screen.getByText('ተላ')).toBeDefined();
+
+    // Expand Level 2 (Tela)
+    const expandTela = screen.getByTitle(/ናይ ተላ ጨንፈር ዘርግሕ/);
+    fireEvent.click(expandTela);
+    expect(screen.getByText('ሓድጉ')).toBeDefined();
+
+    // Expand Level 3 (Hadgu)
+    const expandHadgu = screen.getByTitle(/ናይ ሓድጉ ጨንፈር ዘርግሕ/);
+    fireEvent.click(expandHadgu);
+
+    // Level 4 (Kesete Birhane Weldu): verified visible with break-words and no truncate!
+    const deepName = screen.getByText('ከሰተ ብርሃነ ወልዱ ወዲ ጎብሩ');
+    expect(deepName).toBeDefined();
+    expect(deepName.className).toContain('break-words');
+    expect(deepName.className).not.toContain('truncate');
+
+    // Focus on this branch button ("ናብዚ ኣተኩር →") is visible
+    const focusButtons = screen.getAllByTitle(/ጨንፈር ናብ ቀንድን መሰረትን ኣተኩር/);
+    expect(focusButtons.length).toBeGreaterThan(0);
+    fireEvent.click(focusButtons[focusButtons.length - 1]);
+
+    // Clicking focus button elevates Hadgu to active center stage
+    expect(handleSelect).toHaveBeenCalledWith(expect.objectContaining({ canonicalName: 'ሓድጉ' }));
   });
 });
 

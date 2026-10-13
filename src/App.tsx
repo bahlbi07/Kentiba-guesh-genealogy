@@ -46,7 +46,7 @@ import { RotateCw } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.13.v11_live_multi_device_cloud_sync';
+export const CURRENT_DATASET_VERSION = '2026.10.13.v12_live_multi_device_cloud_sync';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -836,7 +836,7 @@ export const App: React.FC = () => {
           <p className="font-medium">© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንቲባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
           <div className="flex items-center flex-wrap justify-center gap-3">
             <span className="text-xs sm:text-sm font-bold text-stone-600 bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200">
-              ስሪት 6.0 ({activePeople.length} ኣባላት)
+              ስሪት 7.2 ({activePeople.length} ኣባላት)
             </span>
             {isSyncing && (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-300">

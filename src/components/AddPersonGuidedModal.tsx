@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Person, Relationship } from '../types/genealogy';
 import { validateParentChildCycle } from '../services/cycleDetector';
 import { apiSaveBatch } from '../services/apiClient';
+import { syncNewBatchToGoogleSheets } from '../services/googleSheetsService';
 import { parseRelationshipPhrase } from '../services/importParser';
 import {
   X,
@@ -1559,11 +1560,19 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       onClose();
 
-      // 7. Non-blocking background synchronization with server backend
+      // 7. Non-blocking background synchronization with server backend & Google Sheets
       try {
         const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
         apiSaveBatch(createdPeopleBatch, createdRelationshipsBatch, token).catch((syncErr) => {
           console.warn('Background server sync note:', syncErr);
+        });
+        syncNewBatchToGoogleSheets(
+          createdPeopleBatch,
+          createdRelationshipsBatch,
+          people,
+          relationships
+        ).catch((syncErr) => {
+          console.warn('Google Sheets batch sync note:', syncErr);
         });
       } catch (syncErr) {
         console.warn('Server batch synchronization note:', syncErr);

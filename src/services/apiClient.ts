@@ -1,13 +1,14 @@
 import { AuditEvent, Person, Relationship } from '../types/genealogy';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS } from '../data/initialGenealogyData';
+import { GOOGLE_SHEETS_WEBHOOK_URL } from './googleSheetsService';
 
 /**
  * Multi-Device Global Cloud Synchronization & Typed API Client
  * Works seamlessly across Vercel (kentiba-guesh-genealogy.vercel.app), Netlify, and mobile PWAs.
  *
- * Uses a 3-layer redundant cloud persistence architecture:
- *  1. Primary Persistent Cloud Object Store (restful-api.dev JSON object with CORS: *)
- *  2. Real-Time Push & Append-Only Event Log Stream (ntfy.sh SSE + 12h JSON log with CORS: *)
+ * Uses a redundant multi-device cloud persistence architecture:
+ *  1. Primary Persistent Cloud Store (Google Sheets Webhook ScriptProperties & Sheet)
+ *  2. Real-Time Push & Event Stream (ntfy.sh SSE + poll=1&since=all)
  *  3. Serverless /api/* Backend Endpoints (Vercel / Netlify Functions)
  */
 
@@ -15,8 +16,6 @@ const API_BASE_URL = (
   (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL || ''
 ).replace(/\/$/, '');
 
-const CLOUD_REST_OBJECT_ID = 'ff808181a09d98f701a132728cb54e09';
-const CLOUD_REST_OBJECT_URL = `https://api.restful-api.dev/objects/${CLOUD_REST_OBJECT_ID}`;
 const CLOUD_NTFY_TOPIC = 'kinteba_guush_genealogy_live_v2';
 const CLOUD_NTFY_URL = `https://ntfy.sh/${CLOUD_NTFY_TOPIC}`;
 
@@ -182,23 +181,44 @@ function mergeTwoOverlays(target: CloudOverlayState, source: Partial<CloudOverla
 
 async function fetchPrimaryCloudObject(): Promise<Partial<CloudOverlayState> | null> {
   if (isTestEnv()) return null;
+  // 1. Try Google Sheets via POST { action: 'get_tree' }
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
-    const res = await fetch(`${CLOUD_REST_OBJECT_URL}?t=${Date.now()}`, {
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
+      method: 'POST',
       signal: controller.signal,
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'get_tree' }),
     });
     clearTimeout(timeoutId);
     if (res.ok) {
-      const json = await res.json();
-      if (json && json.data && typeof json.data === 'object') {
-        return json.data as Partial<CloudOverlayState>;
+      const data = await res.json().catch(() => null);
+      if (data && typeof data === 'object' && (data.peopleById || data.relationshipsById)) {
+        return data as Partial<CloudOverlayState>;
       }
     }
   } catch {
-    // Fallback to secondary channel
+    // Proceed to GET fallback
+  }
+
+  // 2. Try Google Sheets via GET ?action=get_tree
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${GOOGLE_SHEETS_WEBHOOK_URL}?action=get_tree`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data && typeof data === 'object' && (data.peopleById || data.relationshipsById)) {
+        return data as Partial<CloudOverlayState>;
+      }
+    }
+  } catch {
+    // Fallback to ntfy stream
   }
   return null;
 }
@@ -207,17 +227,16 @@ async function savePrimaryCloudObject(overlay: CloudOverlayState): Promise<boole
   if (isTestEnv()) return false;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(CLOUD_REST_OBJECT_URL, {
-      method: 'PUT',
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
+      method: 'POST',
       signal: controller.signal,
       headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
+        'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify({
-        name: 'kinteba_guush_genealogy_prod_v2',
-        data: overlay,
+        action: 'save_tree',
+        tree: overlay,
       }),
     });
     clearTimeout(timeoutId);
@@ -231,8 +250,10 @@ async function fetchNtfyEventStream(): Promise<CloudDeltaMessage[]> {
   if (isTestEnv()) return [];
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
-    const res = await fetch(`${CLOUD_NTFY_URL}/json?poll=1&since=12h&t=${Date.now()}`, {
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    // CRITICAL: Do NOT append &t= timestamp; ntfy.sh interprets t as a query filter!
+    // Using since=all fetches all cached delta messages reliably
+    const res = await fetch(`${CLOUD_NTFY_URL}/json?poll=1&since=all`, {
       signal: controller.signal,
       cache: 'no-store',
     });
@@ -310,7 +331,7 @@ async function publishDeltaToNtfy(delta: CloudDeltaMessage): Promise<boolean> {
     let allOk = true;
     for (const chunk of chunks) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(CLOUD_NTFY_URL, {
         method: 'POST',
         signal: controller.signal,
@@ -342,13 +363,18 @@ export function subscribeToLiveCloudUpdates(onSyncNeeded: () => void): () => voi
     es = new EventSource(`${CLOUD_NTFY_URL}/sse`);
     es.onmessage = (event) => {
       try {
-        if (event.data && event.data.includes('"v":2')) {
-          // Immediately parse and apply into memoryOverlay too!
-          const envelope = JSON.parse(event.data);
-          if (envelope && typeof envelope.message === 'string') {
-            const delta = JSON.parse(envelope.message) as CloudDeltaMessage;
-            if (delta && delta.v === 2) {
-              applyDeltaToOverlay(memoryOverlay, delta);
+        if (!event.data) return;
+        // Parse the SSE envelope directly (which escapes inner JSON quotes)
+        const envelope = JSON.parse(event.data);
+        if (envelope && envelope.event === 'message') {
+          if (typeof envelope.message === 'string') {
+            try {
+              const delta = JSON.parse(envelope.message) as CloudDeltaMessage;
+              if (delta && delta.v === 2) {
+                applyDeltaToOverlay(memoryOverlay, delta);
+              }
+            } catch {
+              // Ignore payload parse error
             }
           }
           if (debounceTimer) clearTimeout(debounceTimer);

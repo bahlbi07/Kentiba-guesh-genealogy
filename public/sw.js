@@ -1,5 +1,5 @@
-// Kinteba Guush Family Genealogy — Production Service Worker v7.0-cloud-sync
-const CACHE_NAME = 'kinteba-guush-v7.0-cloud-sync';
+// Kinteba Guush Family Genealogy — Production Service Worker v7.2-cloud-sync
+const CACHE_NAME = 'kinteba-guush-v7.2-cloud-sync';
 const SHELL_ASSETS = [
   '/',
   '/index.html',

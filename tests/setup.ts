@@ -6,3 +6,11 @@ if (typeof globalThis.structuredClone === 'undefined') {
   globalThis.structuredClone = (val: any) => JSON.parse(JSON.stringify(val));
 }
 
+if (typeof window !== 'undefined') {
+  window.scrollTo = () => {};
+}
+
+if (typeof Element !== 'undefined') {
+  Element.prototype.scrollIntoView = () => {};
+}
+

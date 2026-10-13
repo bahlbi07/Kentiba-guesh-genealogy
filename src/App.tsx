@@ -89,6 +89,15 @@ export const App: React.FC = () => {
   }, [showPersonModal, showAddPersonModal, showPdfExportModal]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      } catch {
+        window.scrollTo(0, 0);
+      }
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    }
     if (activeTab !== 'tree') {
       if (typeof window !== 'undefined' && window.history && typeof window.history.pushState === 'function') {
         try {
@@ -686,6 +695,7 @@ export const App: React.FC = () => {
           <FamilyExplorer
             people={activePeople}
             relationships={relationships}
+            selectedPersonId={selectedPerson?.id}
             onSelectPerson={(p) => {
               setSelectedPerson(p);
             }}

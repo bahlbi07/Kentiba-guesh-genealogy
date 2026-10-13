@@ -19,6 +19,7 @@ interface FamilyExplorerProps {
   relationships: Relationship[];
   onSelectPerson: (person: Person) => void;
   onOpenDetails?: (person: Person) => void;
+  selectedPersonId?: string;
 }
 
 interface TrailSnapshot {
@@ -30,6 +31,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   people,
   relationships,
   onSelectPerson,
+  selectedPersonId,
 }) => {
   // Fast map of people by ID
   const peopleMap = useMemo(() => {
@@ -59,14 +61,88 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     return foundRoot || people[0];
   }, [people]);
 
+  // Top anchor ref for scroll-to-top guarantee
+  const topAnchorRef = useRef<HTMLDivElement>(null);
+  const [showScrollTopBtn, setShowScrollTopBtn] = useState(false);
+
+  // Smooth / instant scroll-to-top handler
+  const scrollToTop = useCallback((smooth = false) => {
+    if (typeof window !== 'undefined') {
+      if (typeof window.scrollTo === 'function') {
+        try {
+          window.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: smooth ? 'smooth' : ('instant' as ScrollBehavior),
+          });
+        } catch {
+          try {
+            window.scrollTo(0, 0);
+          } catch {}
+        }
+      }
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    }
+    if (topAnchorRef.current && typeof topAnchorRef.current.scrollIntoView === 'function') {
+      try {
+        topAnchorRef.current.scrollIntoView({
+          block: 'start',
+          behavior: smooth ? 'smooth' : 'auto',
+        });
+      } catch {
+        try {
+          topAnchorRef.current.scrollIntoView();
+        } catch {}
+      }
+    }
+  }, []);
+
+  // Listen to window scroll to show floating "Scroll to Top" button for long lists
+  useEffect(() => {
+    const handleScroll = () => {
+      if (typeof window !== 'undefined') {
+        setShowScrollTopBtn(window.scrollY > 320);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Focused person state
-  const [focusedPersonId, setFocusedPersonId] = useState<string>('');
+  const [focusedPersonId, setFocusedPersonId] = useState<string>(() => {
+    return selectedPersonId || (rootPerson ? rootPerson.id : '');
+  });
 
   useEffect(() => {
     if (!focusedPersonId && rootPerson) {
       setFocusedPersonId(rootPerson.id);
     }
   }, [rootPerson, focusedPersonId]);
+
+  // Sync when selectedPersonId prop changes from parent
+  useEffect(() => {
+    if (selectedPersonId && selectedPersonId !== focusedPersonId && peopleMap.has(selectedPersonId)) {
+      setFocusedPersonId(selectedPersonId);
+      setExpandedOrder([]);
+      scrollToTop(false);
+    }
+  }, [selectedPersonId, peopleMap, focusedPersonId, scrollToTop]);
+
+  // Automatically scroll to top whenever focused person changes so new view starts from the very top
+  useEffect(() => {
+    scrollToTop(false);
+    const frameId = requestAnimationFrame(() => {
+      scrollToTop(false);
+    });
+    const timerId = setTimeout(() => {
+      scrollToTop(false);
+    }, 40);
+    return () => {
+      cancelAnimationFrame(frameId);
+      clearTimeout(timerId);
+    };
+  }, [focusedPersonId, scrollToTop]);
 
   // In-place expanded child branches: ordered stack so Back collapses deepest level first (e.g. Level 5 -> Level 4)
   const [expandedOrder, setExpandedOrder] = useState<string[]>([]);
@@ -188,7 +264,10 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
   // Navigation handlers
   const handleFocusPerson = (personId: string) => {
-    if (personId === focusedPersonId) return;
+    if (personId === focusedPersonId) {
+      scrollToTop(true);
+      return;
+    }
     pushBrowserHistoryState();
     setTrailSnapshots((prev) => [...prev, { personId: focusedPersonId, expandedOrder }]);
     setHistoryTrail((prev) => [...prev, focusedPersonId]);
@@ -196,6 +275,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     setExpandedOrder([]);
     const p = peopleMap.get(personId);
     if (p) onSelectPerson(p);
+    scrollToTop(false);
   };
 
   const handleResetToRoot = () => {
@@ -204,6 +284,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       setHistoryTrail([]);
       setTrailSnapshots([]);
       setExpandedOrder([]);
+      scrollToTop(true);
     }
   };
 
@@ -227,6 +308,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       setExpandedOrder(lastSnap ? lastSnap.expandedOrder : []);
       const p = peopleMap.get(previous);
       if (p) onSelectPerson(p);
+      scrollToTop(false);
       return true;
     }
 
@@ -234,11 +316,12 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     if (rootPerson && focusedPersonId !== rootPerson.id) {
       setFocusedPersonId(rootPerson.id);
       setExpandedOrder([]);
+      scrollToTop(false);
       return true;
     }
 
     return false;
-  }, [expandedOrder, historyTrail, trailSnapshots, rootPerson, focusedPersonId, getDescendantIds, peopleMap, onSelectPerson]);
+  }, [expandedOrder, historyTrail, trailSnapshots, rootPerson, focusedPersonId, getDescendantIds, peopleMap, onSelectPerson, scrollToTop]);
 
   const toggleChildExpansion = (childId: string) => {
     if (expandedOrder.includes(childId)) {
@@ -288,7 +371,9 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   const isRepeatedName = (name: string) => (repeatedNameCounts.get(name) || 0) > 1;
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-full min-w-0 max-w-full overflow-hidden">
+    <div className="space-y-4 sm:space-y-6 w-full min-w-0 max-w-full overflow-hidden relative">
+      {/* Top anchor for seamless scroll-to-top on navigation */}
+      <div ref={topAnchorRef} className="h-0 w-full m-0 p-0 pointer-events-none" aria-hidden="true" />
       {/* Top Controls: Breadcrumb Trail and Action Buttons */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs w-full min-w-0 max-w-full overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -695,6 +780,19 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
           );
         })()}
       </div>
+
+      {/* Floating Scroll to Top button for quick convenient navigation on long branches */}
+      {showScrollTopBtn && (
+        <button
+          type="button"
+          onClick={() => scrollToTop(true)}
+          className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 z-30 p-3 bg-amber-800/95 hover:bg-amber-900 text-white rounded-full shadow-lg border border-amber-500/50 flex items-center justify-center transition-all cursor-pointer backdrop-blur-xs hover:scale-105 active:scale-95"
+          title="ናብ ላዕሊ ተመለስ"
+          aria-label="ናብ ላዕሊ ተመለስ"
+        >
+          <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
+      )}
     </div>
   );
 };

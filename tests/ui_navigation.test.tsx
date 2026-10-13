@@ -1488,6 +1488,46 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(result.resolvedBranch).toBe('ትዕበ');
     expect(result.immediateParentName).toBe('ኣብርሃ ሓሊቦ');
   });
+
+  it('26. FamilyExplorer: Automatically scrolls window to top when clicking any person card, breadcrumb, or back button', async () => {
+    const scrollToMock = vi.fn();
+    window.scrollTo = scrollToMock;
+    const scrollIntoViewMock = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoViewMock;
+
+    const onSelectPerson = vi.fn();
+    render(
+      <FamilyExplorer
+        people={mockPeople}
+        relationships={mockRelationships}
+        onSelectPerson={onSelectPerson}
+      />
+    );
+
+    // Initial render triggers scrollTo
+    expect(scrollToMock).toHaveBeenCalled();
+
+    scrollToMock.mockClear();
+    scrollIntoViewMock.mockClear();
+
+    // Click on child card 'ጎብሩ'
+    const gobruButton = screen.getByRole('button', { name: /ናይ ጎብሩ ገጽ ርአ/i });
+    fireEvent.click(gobruButton);
+
+    // Assert that scrollTo was called with top: 0 to guarantee view starts from the very top
+    expect(scrollToMock).toHaveBeenCalled();
+    const calls = scrollToMock.mock.calls;
+    const hasTopZeroCall = calls.some(
+      (args) => (args[0] === 0 && args[1] === 0) || (args[0] && args[0].top === 0)
+    );
+    expect(hasTopZeroCall).toBe(true);
+
+    // Breadcrumb or Reset button click
+    scrollToMock.mockClear();
+    const resetBtn = screen.getByRole('button', { name: /ናብ ቀንድን መበቆልን/i });
+    fireEvent.click(resetBtn);
+    expect(scrollToMock).toHaveBeenCalled();
+  });
 });
 
 

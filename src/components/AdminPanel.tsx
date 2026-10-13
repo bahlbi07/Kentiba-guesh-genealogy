@@ -57,6 +57,7 @@ interface AdminPanelProps {
   onImportCommitted: () => Promise<void>;
   onOpenPdfExport?: () => void;
   onDeduplicate?: () => Promise<{ mergedCount: number; details: string[] }>;
+  onBatchVerify?: (people: Person[], relationships: Relationship[]) => Promise<void>;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -79,6 +80,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onImportCommitted,
   onOpenPdfExport,
   onDeduplicate,
+  onBatchVerify,
 }) => {
   // Login form state
   const [username, setUsername] = useState('');
@@ -500,7 +502,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>ምድማስ ኣጽድቕ</span>
+                      <span>ምድምሳስ ኣጽድቕ</span>
                     </button>
                   </div>
                 </div>
@@ -643,6 +645,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onUpdatePerson={onUpdatePerson}
           onUpdateRelationship={onSaveRelationship}
           onDeleteRelationship={onDeleteRelationship}
+          onBatchVerify={onBatchVerify}
         />
       )}
 

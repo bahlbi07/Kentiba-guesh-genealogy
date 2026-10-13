@@ -36,14 +36,56 @@ interface CloudDeltaMessage {
   ts: string;
 }
 
-// In-memory overlay state for instant local consistency
-const memoryOverlay: CloudOverlayState = {
-  peopleById: {},
-  relationshipsById: {},
-  deletedPersonIds: [],
-  deletedRelationshipIds: [],
-  updatedAt: new Date().toISOString(),
-};
+const OVERLAY_STORAGE_KEY = 'kinteba_cloud_overlay_cache_v2';
+
+function loadCachedOverlay(): CloudOverlayState {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(OVERLAY_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            peopleById: parsed.peopleById || {},
+            relationshipsById: parsed.relationshipsById || {},
+            deletedPersonIds: Array.isArray(parsed.deletedPersonIds) ? parsed.deletedPersonIds : [],
+            deletedRelationshipIds: Array.isArray(parsed.deletedRelationshipIds) ? parsed.deletedRelationshipIds : [],
+            updatedAt: parsed.updatedAt || new Date().toISOString(),
+          };
+        }
+      }
+    }
+  } catch {
+    // fallback to clean state
+  }
+  return {
+    peopleById: {},
+    relationshipsById: {},
+    deletedPersonIds: [],
+    deletedRelationshipIds: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// In-memory & locally persisted overlay state for instant local consistency
+const memoryOverlay: CloudOverlayState = loadCachedOverlay();
+
+function persistOverlayCache(overlay: CloudOverlayState) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify(overlay));
+    }
+  } catch {
+    // quota exceeded or SSR
+  }
+}
+
+export function apiUnmarkDeletedPerson(id: string): void {
+  if (memoryOverlay.deletedPersonIds.includes(id)) {
+    memoryOverlay.deletedPersonIds = memoryOverlay.deletedPersonIds.filter((pId) => pId !== id);
+    persistOverlayCache(memoryOverlay);
+  }
+}
 
 function isTestEnv(): boolean {
   try {
@@ -111,9 +153,9 @@ function applyDeltaToOverlay(
   if (Array.isArray(delta.people)) {
     for (const p of delta.people) {
       if (!p || !p.id || !p.canonicalName) continue;
+      // Do not resurrect permanently deleted people
       if (overlay.deletedPersonIds.includes(p.id)) {
-        overlay.deletedPersonIds = overlay.deletedPersonIds.filter((id) => id !== p.id);
-        changed = true;
+        continue;
       }
       const existing = overlay.peopleById[p.id];
       if (
@@ -126,8 +168,9 @@ function applyDeltaToOverlay(
         existing.motherName !== p.motherName ||
         existing.spouseNote !== p.spouseNote ||
         existing.notes !== p.notes ||
-        existing.isArchived !== p.isArchived ||
-        existing.deletionPending !== p.deletionPending
+        existing.status !== p.status ||
+        Boolean(existing.isArchived) !== Boolean(p.isArchived) ||
+        Boolean(existing.deletionPending) !== Boolean(p.deletionPending)
       ) {
         overlay.peopleById[p.id] = {
           ...p,
@@ -141,9 +184,12 @@ function applyDeltaToOverlay(
   if (Array.isArray(delta.relationships)) {
     for (const r of delta.relationships) {
       if (!r || !r.id || !r.fromPersonId || !r.toPersonId) continue;
+      // Do not resurrect permanently deleted relationships or links to deleted people
       if (overlay.deletedRelationshipIds.includes(r.id)) {
-        overlay.deletedRelationshipIds = overlay.deletedRelationshipIds.filter((id) => id !== r.id);
-        changed = true;
+        continue;
+      }
+      if (overlay.deletedPersonIds.includes(r.fromPersonId) || overlay.deletedPersonIds.includes(r.toPersonId)) {
+        continue;
       }
       const existing = overlay.relationshipsById[r.id];
       if (
@@ -152,7 +198,9 @@ function applyDeltaToOverlay(
         !r.updatedAt ||
         r.updatedAt >= existing.updatedAt ||
         existing.fromPersonId !== r.fromPersonId ||
-        existing.toPersonId !== r.toPersonId
+        existing.toPersonId !== r.toPersonId ||
+        existing.type !== r.type ||
+        existing.status !== r.status
       ) {
         overlay.relationshipsById[r.id] = {
           ...r,
@@ -165,6 +213,7 @@ function applyDeltaToOverlay(
 
   if (changed) {
     overlay.updatedAt = now;
+    persistOverlayCache(overlay);
   }
   return changed;
 }

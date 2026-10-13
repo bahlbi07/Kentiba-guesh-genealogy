@@ -17,7 +17,10 @@ import {
   saveRelationship,
   deleteRelationship,
   saveBatchData,
-  bulkLoadData
+  bulkLoadData,
+  getDeletedPersonIds,
+  getDeletedRelationshipIds,
+  removeDeletedPersonId,
 } from './services/db';
 import { isCloudConfigured } from './services/supabaseClient';
 import {
@@ -26,6 +29,7 @@ import {
   apiSaveRelationship,
   apiDeletePerson,
   apiDeleteRelationship,
+  apiUnmarkDeletedPerson,
   subscribeToLiveCloudUpdates,
 } from './services/apiClient';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
@@ -46,13 +50,41 @@ import { RotateCw } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.13.v12_live_multi_device_cloud_sync';
+export const CURRENT_DATASET_VERSION = '2026.10.13.v13_permanent_deletion_smooth_approval';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
-  // Immediately initialize with authoritative dataset for instantaneous 0.0s startup
-  const [people, setPeople] = useState<Person[]>(() => INITIAL_PEOPLE);
-  const [relationships, setRelationships] = useState<Relationship[]>(() => INITIAL_RELATIONSHIPS);
+  // Immediately initialize with authoritative dataset excluding any deleted IDs
+  const [people, setPeople] = useState<Person[]>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const delRaw = localStorage.getItem('kinteba_deleted_person_ids_v1');
+        if (delRaw) {
+          const delIds = new Set(JSON.parse(delRaw));
+          return INITIAL_PEOPLE.filter((p) => !delIds.has(p.id));
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return INITIAL_PEOPLE;
+  });
+  const [relationships, setRelationships] = useState<Relationship[]>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const delRaw = localStorage.getItem('kinteba_deleted_rel_ids_v1');
+        const delPersonRaw = localStorage.getItem('kinteba_deleted_person_ids_v1');
+        const delRels = delRaw ? new Set(JSON.parse(delRaw)) : new Set();
+        const delPersons = delPersonRaw ? new Set(JSON.parse(delPersonRaw)) : new Set();
+        return INITIAL_RELATIONSHIPS.filter(
+          (r) => !delRels.has(r.id) && !delPersons.has(r.fromPersonId) && !delPersons.has(r.toPersonId)
+        );
+      }
+    } catch {
+      // fallback
+    }
+    return INITIAL_RELATIONSHIPS;
+  });
   const [occurrences, setOccurrences] = useState<SourceOccurrence[]>(() => INITIAL_OCCURRENCES);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [datasetMode, setDatasetMode] = useState<'real' | 'demo' | 'empty'>('real');
@@ -156,8 +188,10 @@ export const App: React.FC = () => {
         return;
       }
 
-      const deletedPeopleSet = new Set(serverTree.deletedPersonIds || []);
-      const deletedRelsSet = new Set(serverTree.deletedRelationshipIds || []);
+      const localDelP = await getDeletedPersonIds();
+      const localDelR = await getDeletedRelationshipIds();
+      const deletedPeopleSet = new Set([...(serverTree.deletedPersonIds || []), ...localDelP]);
+      const deletedRelsSet = new Set([...(serverTree.deletedRelationshipIds || []), ...localDelR]);
 
       const currentStoredPeople = await getAllPeople(true);
       const localPersonMap = new Map(currentStoredPeople.map((p) => [p.id, p]));
@@ -312,18 +346,29 @@ export const App: React.FC = () => {
       const needsDatasetUpgrade =
         storedPeople.length === 0 ||
         mode === 'demo' ||
-        storedPeople.length < INITIAL_PEOPLE.length ||
-        storedRels.length < INITIAL_RELATIONSHIPS.length ||
-        isVersionOutdated;
+        (isVersionOutdated && storedPeople.length === 0);
 
       if (needsDatasetUpgrade) {
-        // Preserve any custom user-added records that are not part of the initial static dataset
-        const initialPersonIds = new Set(INITIAL_PEOPLE.map((p) => p.id));
-        const customPeople = storedPeople.filter((p) => !initialPersonIds.has(p.id));
+        const deletedPersonIds = new Set(await getDeletedPersonIds());
+        const deletedRelIds = new Set(await getDeletedRelationshipIds());
 
-        const initialRelIds = new Set(INITIAL_RELATIONSHIPS.map((r) => r.id));
+        const filteredInitialPeople = INITIAL_PEOPLE.filter((p) => !deletedPersonIds.has(p.id));
+        const filteredInitialRels = INITIAL_RELATIONSHIPS.filter(
+          (r) =>
+            !deletedRelIds.has(r.id) &&
+            !deletedPersonIds.has(r.fromPersonId) &&
+            !deletedPersonIds.has(r.toPersonId)
+        );
+
+        // Preserve any custom user-added records that are not part of the initial static dataset
+        const initialPersonIds = new Set(filteredInitialPeople.map((p) => p.id));
+        const customPeople = storedPeople.filter(
+          (p) => !initialPersonIds.has(p.id) && !deletedPersonIds.has(p.id)
+        );
+
+        const initialRelIds = new Set(filteredInitialRels.map((r) => r.id));
         const initialChildToParents = new Map<string, Set<string>>();
-        for (const ir of INITIAL_RELATIONSHIPS) {
+        for (const ir of filteredInitialRels) {
           if (ir.type === 'parent_child') {
             const set = initialChildToParents.get(ir.toPersonId) || new Set<string>();
             set.add(ir.fromPersonId);
@@ -332,7 +377,7 @@ export const App: React.FC = () => {
         }
 
         const customRels = storedRels.filter((r) => {
-          if (initialRelIds.has(r.id)) return false;
+          if (initialRelIds.has(r.id) || deletedRelIds.has(r.id)) return false;
           // Prevent cross-branch phantom children caused by legacy global-name matching:
           // if an initial person already has an authoritative parent in INITIAL_RELATIONSHIPS,
           // do not allow a custom parent_child relationship from an unrelated parent to hijack them.
@@ -347,8 +392,8 @@ export const App: React.FC = () => {
 
         await bulkLoadData(
           {
-            people: [...INITIAL_PEOPLE, ...customPeople],
-            relationships: [...INITIAL_RELATIONSHIPS, ...customRels],
+            people: [...filteredInitialPeople, ...customPeople],
+            relationships: [...filteredInitialRels, ...customRels],
             occurrences: INITIAL_OCCURRENCES,
             mode: 'real',
           },
@@ -460,6 +505,10 @@ export const App: React.FC = () => {
 
   // Handle Person CRUD
   const handleUpdatePerson = async (updated: Person) => {
+    setPeople((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    if (selectedPerson?.id === updated.id) {
+      setSelectedPerson(updated);
+    }
     await savePerson(updated, 'Admin');
     try {
       const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
@@ -467,24 +516,31 @@ export const App: React.FC = () => {
     } catch {
       // offline fallback
     }
-    await reloadData();
-    setSelectedPerson(updated);
+  };
+
+  const handlePermanentDeletePerson = async (id: string) => {
+    // 1. Instant optimistic state update
+    setPeople((prev) => prev.filter((p) => p.id !== id));
+    setRelationships((prev) => prev.filter((r) => r.fromPersonId !== id && r.toPersonId !== id));
+    if (selectedPerson?.id === id) {
+      setSelectedPerson(null);
+    }
+
+    // 2. Persist permanently to local IndexedDB & metadata deleted sets
+    await deletePerson(id, 'SuperAdmin');
+
+    // 3. Sync deletion to cloud
+    try {
+      const token = sessionStorage.getItem('kinteba_admin_token') || 'superadmin-master-session-token';
+      await apiDeletePerson(id, token);
+    } catch {
+      // offline fallback
+    }
   };
 
   const handleDeletePerson = async (id: string) => {
     if (adminRole === 'superadmin') {
-      // Super Admin permanently deletes immediately locally + in cloud
-      await deletePerson(id, 'SuperAdmin');
-      try {
-        const token = sessionStorage.getItem('kinteba_admin_token') || 'superadmin-master-session-token';
-        await apiDeletePerson(id, token);
-      } catch {
-        // offline fallback
-      }
-      await reloadData();
-      if (selectedPerson?.id === id) {
-        setSelectedPerson(null);
-      }
+      await handlePermanentDeletePerson(id);
     } else {
       // Regular Admin: marks deletionPending = true and isArchived = true for Super Admin review
       const target = people.find((p) => p.id === id);
@@ -497,6 +553,10 @@ export const App: React.FC = () => {
           deletionRequestedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
+        setPeople((prev) => prev.map((p) => (p.id === id ? updated : p)));
+        if (selectedPerson?.id === id) {
+          setSelectedPerson(null);
+        }
         await savePerson(updated, 'Admin');
         try {
           const token = sessionStorage.getItem('kinteba_admin_token') || 'admin-standard-session-token';
@@ -504,26 +564,8 @@ export const App: React.FC = () => {
         } catch {
           // offline fallback
         }
-        await reloadData();
-        if (selectedPerson?.id === id) {
-          setSelectedPerson(null);
-        }
         alert('እዚ ናይ ምድማስ ጠለብ ተመዝጊቡ ኣሎ። ንውሕስነት ዳታ፡ ናይ መወዳእታ ውሳነ ምድማስ ብሱፐር ኣድሚን (Super Admin) ክረጋገጽ እዩ።');
       }
-    }
-  };
-
-  const handlePermanentDeletePerson = async (id: string) => {
-    await deletePerson(id, 'SuperAdmin');
-    try {
-      const token = sessionStorage.getItem('kinteba_admin_token') || 'superadmin-master-session-token';
-      await apiDeletePerson(id, token);
-    } catch {
-      // offline fallback
-    }
-    await reloadData();
-    if (selectedPerson?.id === id) {
-      setSelectedPerson(null);
     }
   };
 
@@ -538,6 +580,9 @@ export const App: React.FC = () => {
         deletionRequestedAt: undefined,
         updatedAt: new Date().toISOString(),
       };
+      setPeople((prev) => prev.map((p) => (p.id === id ? restored : p)));
+      await removeDeletedPersonId(id);
+      apiUnmarkDeletedPerson(id);
       await savePerson(restored, 'SuperAdmin');
       try {
         const token = sessionStorage.getItem('kinteba_admin_token') || 'superadmin-master-session-token';
@@ -545,12 +590,21 @@ export const App: React.FC = () => {
       } catch {
         // offline fallback
       }
-      await reloadData();
     }
   };
 
   // Handle Relationship CRUD
   const handleSaveRelationship = async (rel: Relationship) => {
+    setRelationships((prev) => {
+      const idx = prev.findIndex((r) => r.id === rel.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = rel;
+        return copy;
+      }
+      return [...prev, rel];
+    });
+
     const result = await saveRelationship(rel, 'Admin');
     if (result.success) {
       try {
@@ -559,12 +613,12 @@ export const App: React.FC = () => {
       } catch {
         // offline fallback
       }
-      await reloadData();
     }
     return result;
   };
 
   const handleDeleteRelationship = async (relId: string) => {
+    setRelationships((prev) => prev.filter((r) => r.id !== relId));
     await deleteRelationship(relId, 'Admin');
     try {
       const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
@@ -572,7 +626,29 @@ export const App: React.FC = () => {
     } catch {
       // offline fallback
     }
-    await reloadData();
+  };
+
+  // Batch verify both people and relationships atomically
+  const handleBatchVerify = async (peopleToVerify: Person[], relsToVerify: Relationship[]) => {
+    if (peopleToVerify.length === 0 && relsToVerify.length === 0) return;
+
+    const verifiedPeopleMap = new Map(peopleToVerify.map((p) => [p.id, p]));
+    const verifiedRelMap = new Map(relsToVerify.map((r) => [r.id, r]));
+
+    // 1. Instant optimistic state update
+    setPeople((prev) => prev.map((p) => verifiedPeopleMap.get(p.id) || p));
+    setRelationships((prev) => prev.map((r) => verifiedRelMap.get(r.id) || r));
+
+    // 2. Persist locally to IndexedDB in a single batch
+    await saveBatchData(peopleToVerify, relsToVerify, 'Admin');
+
+    // 3. Sync to cloud in single batch call
+    try {
+      const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+      await apiSaveBatch(peopleToVerify, relsToVerify, token);
+    } catch {
+      // offline fallback
+    }
   };
 
   const handleAdminLogin = (token: string, username: string, role: 'admin' | 'superadmin' = 'admin') => {
@@ -755,6 +831,7 @@ export const App: React.FC = () => {
             onImportCommitted={reloadData}
             onOpenPdfExport={() => setShowPdfExportModal(true)}
             onDeduplicate={handleManualDeduplication}
+            onBatchVerify={handleBatchVerify}
           />
         )}
       </main>

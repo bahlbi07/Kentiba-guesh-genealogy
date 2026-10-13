@@ -1594,6 +1594,146 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(siblingTag.tagName.toLowerCase()).not.toBe('button');
     expect(siblingTag.tagName.toLowerCase()).toBe('span');
   });
+
+  it('27. SuperAdmin Deletions Queue: renders "ምድምሳስ ኣጽድቕ" button and triggers onPermanentDeletePerson', async () => {
+    const pendingPerson: Person = {
+      id: 'pers_del_test_1',
+      canonicalName: 'ተደምሳሲ ሰብ',
+      status: 'verified',
+      createdAt: '2026-10-10',
+      updatedAt: '2026-10-10',
+      isArchived: true,
+      deletionPending: true,
+      deletionRequestedBy: 'ኣድሚን',
+      deletionRequestedAt: new Date().toISOString(),
+    };
+
+    const handlePermanentDelete = vi.fn().mockResolvedValue(undefined);
+    const handleRestore = vi.fn().mockResolvedValue(undefined);
+
+    // Mock confirm dialog
+    const originalConfirm = window.confirm;
+    window.confirm = vi.fn().mockReturnValue(true);
+
+    render(
+      <AdminPanel
+        people={[pendingPerson]}
+        relationships={[]}
+        occurrences={[]}
+        auditEvents={[]}
+        isAuthenticated={true}
+        role="superadmin"
+        onLogin={vi.fn()}
+        onLogout={vi.fn()}
+        onSelectPerson={vi.fn()}
+        onUpdatePerson={vi.fn()}
+        onDeletePerson={vi.fn()}
+        onPermanentDeletePerson={handlePermanentDelete}
+        onRestorePerson={handleRestore}
+        onSaveRelationship={vi.fn()}
+        onDeleteRelationship={vi.fn()}
+        onAddNewPerson={vi.fn()}
+        onImportCommitted={vi.fn()}
+      />
+    );
+
+    // Verify "ምድምሳስ ኣጽድቕ" label is present
+    const approveDeleteBtn = screen.getByRole('button', { name: /ምድምሳስ ኣጽድቕ/ });
+    expect(approveDeleteBtn).toBeInTheDocument();
+
+    fireEvent.click(approveDeleteBtn);
+    expect(handlePermanentDelete).toHaveBeenCalledWith('pers_del_test_1');
+
+    window.confirm = originalConfirm;
+  });
+
+  it('28. UncertainRecordsView: immediate smooth verification and onBatchVerify execution', async () => {
+    const uncertainPerson: Person = {
+      id: 'pers_uncertain_test_1',
+      canonicalName: 'ዘይተረጋገጸ ሰብ',
+      status: 'needs_review',
+      createdAt: '2026-10-10',
+      updatedAt: '2026-10-10',
+      isArchived: false,
+    };
+    const uncertainRel: Relationship = {
+      id: 'rel_uncertain_test_1',
+      fromPersonId: 'pers_root_kinteba_guush',
+      toPersonId: 'pers_uncertain_test_1',
+      type: 'parent_child',
+      status: 'needs_review',
+      sourceFile: '',
+      sourcePage: 1,
+      sourceWording: '',
+      isBiologicalConfirmed: true,
+      createdAt: '2026-10-10',
+      updatedAt: '2026-10-10',
+    };
+
+    const handleBatchVerify = vi.fn().mockResolvedValue(undefined);
+    const handleUpdatePerson = vi.fn().mockResolvedValue(undefined);
+    const handleUpdateRel = vi.fn().mockResolvedValue({ success: true });
+
+    render(
+      <UncertainRecordsView
+        people={[uncertainPerson]}
+        relationships={[uncertainRel]}
+        onSelectPerson={vi.fn()}
+        onUpdatePerson={handleUpdatePerson}
+        onUpdateRelationship={handleUpdateRel}
+        onBatchVerify={handleBatchVerify}
+      />
+    );
+
+    expect(screen.getByText('ምምርማር ዘድልዮም መዛግብቲ')).toBeInTheDocument();
+    const batchVerifyBtn = screen.getByRole('button', { name: /ንኹሎም ብሓንሳብ ኣጽድቕ/ });
+    expect(batchVerifyBtn).toBeInTheDocument();
+
+    fireEvent.click(batchVerifyBtn);
+
+    expect(handleBatchVerify).toHaveBeenCalledTimes(1);
+    const [peopleArg, relsArg] = handleBatchVerify.mock.calls[0];
+    expect(peopleArg[0].id).toBe('pers_uncertain_test_1');
+    expect(peopleArg[0].status).toBe('verified');
+    expect(relsArg[0].id).toBe('rel_uncertain_test_1');
+    expect(relsArg[0].status).toBe('verified');
+  });
+
+  it('29. Permanent Deletion & DB: permanently deleted person is saved in deletedPersonIds and never resurrected', async () => {
+    const { deletePerson, getDeletedPersonIds, getAllPeople, bulkLoadData } = await import('../src/services/db');
+
+    const testPerson: Person = {
+      id: 'pers_perm_del_test_99',
+      canonicalName: 'ንሓዋሩ ዝድምሰስ ሰብ',
+      status: 'verified',
+      createdAt: '2026-10-10',
+      updatedAt: '2026-10-10',
+      isArchived: false,
+    };
+
+    const { savePerson } = await import('../src/services/db');
+    await savePerson(testPerson, 'Test');
+
+    // Permanently delete
+    await deletePerson('pers_perm_del_test_99', 'SuperAdmin');
+
+    const deletedIds = await getDeletedPersonIds();
+    expect(deletedIds).toContain('pers_perm_del_test_99');
+
+    // getAllPeople must not return it
+    const all = await getAllPeople(true);
+    expect(all.some((p) => p.id === 'pers_perm_del_test_99')).toBe(false);
+
+    // bulkLoadData must not re-insert it
+    await bulkLoadData({
+      people: [testPerson],
+      relationships: [],
+      mode: 'real',
+    });
+
+    const allAfterBulk = await getAllPeople(true);
+    expect(allAfterBulk.some((p) => p.id === 'pers_perm_del_test_99')).toBe(false);
+  });
 });
 
 

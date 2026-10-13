@@ -22,6 +22,7 @@ interface UncertainRecordsViewProps {
   onUpdatePerson: (person: Person) => Promise<void>;
   onUpdateRelationship: (rel: Relationship) => Promise<{ success: boolean; error?: string }>;
   onDeleteRelationship?: (id: string) => Promise<void>;
+  onBatchVerify?: (people: Person[], relationships: Relationship[]) => Promise<void>;
 }
 
 export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
@@ -31,8 +32,11 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
   onUpdatePerson,
   onUpdateRelationship,
   onDeleteRelationship,
+  onBatchVerify,
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [verifyingPersonIds, setVerifyingPersonIds] = useState<Set<string>>(new Set());
+  const [verifyingRelIds, setVerifyingRelIds] = useState<Set<string>>(new Set());
 
   // Editing Relationship State
   const [editingRel, setEditingRel] = useState<Relationship | null>(null);
@@ -60,25 +64,47 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
     return map;
   }, [people]);
 
-  const uncertainPeople = people.filter((p) => p.status === 'needs_review');
-  const uncertainRelationships = relationships.filter((r) => r.status === 'needs_review');
+  const uncertainPeople = people.filter(
+    (p) => p.status === 'needs_review' && !verifyingPersonIds.has(p.id)
+  );
+  const uncertainRelationships = relationships.filter(
+    (r) => r.status === 'needs_review' && !verifyingRelIds.has(r.id)
+  );
 
-  // Verify single person
+  // Verify single person with instantaneous optimistic disappearance
   const handleVerifyPerson = async (p: Person) => {
-    await onUpdatePerson({
-      ...p,
-      status: 'verified',
-      updatedAt: new Date().toISOString(),
-    });
+    setVerifyingPersonIds((prev) => new Set([...prev, p.id]));
+    try {
+      await onUpdatePerson({
+        ...p,
+        status: 'verified',
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+      setVerifyingPersonIds((prev) => {
+        const next = new Set(prev);
+        next.delete(p.id);
+        return next;
+      });
+    }
   };
 
-  // Verify single relationship
+  // Verify single relationship with instantaneous optimistic disappearance
   const handleVerifyRel = async (r: Relationship) => {
-    await onUpdateRelationship({
-      ...r,
-      status: 'verified',
-      updatedAt: new Date().toISOString(),
-    });
+    setVerifyingRelIds((prev) => new Set([...prev, r.id]));
+    try {
+      await onUpdateRelationship({
+        ...r,
+        status: 'verified',
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+      setVerifyingRelIds((prev) => {
+        const next = new Set(prev);
+        next.delete(r.id);
+        return next;
+      });
+    }
   };
 
   // Open Edit Relationship Modal
@@ -270,14 +296,22 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
   const handleVerifyAllPeople = async () => {
     if (uncertainPeople.length === 0 || isProcessing) return;
     setIsProcessing(true);
+    const pToVerify = uncertainPeople.map((p) => ({
+      ...p,
+      status: 'verified' as const,
+      updatedAt: new Date().toISOString(),
+    }));
+    setVerifyingPersonIds((prev) => new Set([...prev, ...pToVerify.map((p) => p.id)]));
     try {
-      for (const p of uncertainPeople) {
-        await onUpdatePerson({
-          ...p,
-          status: 'verified',
-          updatedAt: new Date().toISOString(),
-        });
+      if (onBatchVerify) {
+        await onBatchVerify(pToVerify, []);
+      } else {
+        for (const p of pToVerify) {
+          await onUpdatePerson(p);
+        }
       }
+    } catch {
+      setVerifyingPersonIds(new Set());
     } finally {
       setIsProcessing(false);
     }
@@ -287,38 +321,59 @@ export const UncertainRecordsView: React.FC<UncertainRecordsViewProps> = ({
   const handleVerifyAllRelationships = async () => {
     if (uncertainRelationships.length === 0 || isProcessing) return;
     setIsProcessing(true);
+    const rToVerify = uncertainRelationships.map((r) => ({
+      ...r,
+      status: 'verified' as const,
+      updatedAt: new Date().toISOString(),
+    }));
+    setVerifyingRelIds((prev) => new Set([...prev, ...rToVerify.map((r) => r.id)]));
     try {
-      for (const r of uncertainRelationships) {
-        await onUpdateRelationship({
-          ...r,
-          status: 'verified',
-          updatedAt: new Date().toISOString(),
-        });
+      if (onBatchVerify) {
+        await onBatchVerify([], rToVerify);
+      } else {
+        for (const r of rToVerify) {
+          await onUpdateRelationship(r);
+        }
       }
+    } catch {
+      setVerifyingRelIds(new Set());
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Approve everything at once
+  // Approve everything at once with instant smooth optimistic update
   const handleVerifyAll = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
+    const pToVerify = uncertainPeople.map((p) => ({
+      ...p,
+      status: 'verified' as const,
+      updatedAt: new Date().toISOString(),
+    }));
+    const rToVerify = uncertainRelationships.map((r) => ({
+      ...r,
+      status: 'verified' as const,
+      updatedAt: new Date().toISOString(),
+    }));
+
+    setVerifyingPersonIds((prev) => new Set([...prev, ...pToVerify.map((p) => p.id)]));
+    setVerifyingRelIds((prev) => new Set([...prev, ...rToVerify.map((r) => r.id)]));
+
     try {
-      for (const p of uncertainPeople) {
-        await onUpdatePerson({
-          ...p,
-          status: 'verified',
-          updatedAt: new Date().toISOString(),
-        });
+      if (onBatchVerify) {
+        await onBatchVerify(pToVerify, rToVerify);
+      } else {
+        for (const p of pToVerify) {
+          await onUpdatePerson(p);
+        }
+        for (const r of rToVerify) {
+          await onUpdateRelationship(r);
+        }
       }
-      for (const r of uncertainRelationships) {
-        await onUpdateRelationship({
-          ...r,
-          status: 'verified',
-          updatedAt: new Date().toISOString(),
-        });
-      }
+    } catch {
+      setVerifyingPersonIds(new Set());
+      setVerifyingRelIds(new Set());
     } finally {
       setIsProcessing(false);
     }

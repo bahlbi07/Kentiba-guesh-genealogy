@@ -129,15 +129,99 @@ export async function logAudit(
   }
 }
 
+const DELETED_PEOPLE_STORAGE_KEY = 'kinteba_deleted_person_ids_v1';
+const DELETED_RELS_STORAGE_KEY = 'kinteba_deleted_rel_ids_v1';
+
+export async function getDeletedPersonIds(): Promise<string[]> {
+  try {
+    const db = await getDB();
+    const meta = await db.get('metadata', 'deletedPersonIds');
+    const dbList: string[] = Array.isArray(meta?.value) ? meta.value : [];
+    const localList: string[] = typeof localStorage !== 'undefined'
+      ? JSON.parse(localStorage.getItem(DELETED_PEOPLE_STORAGE_KEY) || '[]')
+      : [];
+    return Array.from(new Set([...dbList, ...localList]));
+  } catch {
+    return [];
+  }
+}
+
+export async function getDeletedRelationshipIds(): Promise<string[]> {
+  try {
+    const db = await getDB();
+    const meta = await db.get('metadata', 'deletedRelationshipIds');
+    const dbList: string[] = Array.isArray(meta?.value) ? meta.value : [];
+    const localList: string[] = typeof localStorage !== 'undefined'
+      ? JSON.parse(localStorage.getItem(DELETED_RELS_STORAGE_KEY) || '[]')
+      : [];
+    return Array.from(new Set([...dbList, ...localList]));
+  } catch {
+    return [];
+  }
+}
+
+export async function recordDeletedPersonId(id: string): Promise<void> {
+  if (!id) return;
+  try {
+    const current = await getDeletedPersonIds();
+    if (!current.includes(id)) {
+      current.push(id);
+      const db = await getDB();
+      await db.put('metadata', { key: 'deletedPersonIds', value: current });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(DELETED_PEOPLE_STORAGE_KEY, JSON.stringify(current));
+      }
+    }
+  } catch {
+    // proceed
+  }
+}
+
+export async function recordDeletedRelationshipId(id: string): Promise<void> {
+  if (!id) return;
+  try {
+    const current = await getDeletedRelationshipIds();
+    if (!current.includes(id)) {
+      current.push(id);
+      const db = await getDB();
+      await db.put('metadata', { key: 'deletedRelationshipIds', value: current });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(DELETED_RELS_STORAGE_KEY, JSON.stringify(current));
+      }
+    }
+  } catch {
+    // proceed
+  }
+}
+
+export async function removeDeletedPersonId(id: string): Promise<void> {
+  if (!id) return;
+  try {
+    const current = await getDeletedPersonIds();
+    const filtered = current.filter((item) => item !== id);
+    const db = await getDB();
+    await db.put('metadata', { key: 'deletedPersonIds', value: filtered });
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(DELETED_PEOPLE_STORAGE_KEY, JSON.stringify(filtered));
+    }
+  } catch {
+    // proceed
+  }
+}
+
 export async function getAllPeople(includeArchived = false): Promise<Person[]> {
   const db = await getDB();
   const all = await db.getAll('people');
-  if (includeArchived) return all;
-  return all.filter((p) => !p.isArchived);
+  const deletedIds = new Set(await getDeletedPersonIds());
+  const nonDeleted = all.filter((p) => !deletedIds.has(p.id));
+  if (includeArchived) return nonDeleted;
+  return nonDeleted.filter((p) => !p.isArchived);
 }
 
 export async function getPersonById(id: string): Promise<Person | undefined> {
   const db = await getDB();
+  const deletedIds = new Set(await getDeletedPersonIds());
+  if (deletedIds.has(id)) return undefined;
   return db.get('people', id);
 }
 
@@ -215,7 +299,10 @@ export async function deletePerson(
 ): Promise<{ affectedRelationships: number }> {
   const db = await getDB();
   const person = await db.get('people', id);
-  if (!person) return { affectedRelationships: 0 };
+  if (!person) {
+    await recordDeletedPersonId(id);
+    return { affectedRelationships: 0 };
+  }
 
   const allRels = await db.getAll('relationships');
   const affected = allRels.filter((r) => r.fromPersonId === id || r.toPersonId === id);
@@ -226,6 +313,11 @@ export async function deletePerson(
     await tx.objectStore('relationships').delete(rel.id);
   }
   await tx.done;
+
+  await recordDeletedPersonId(id);
+  for (const rel of affected) {
+    await recordDeletedRelationshipId(rel.id);
+  }
 
   await logAudit(
     'delete',
@@ -240,11 +332,21 @@ export async function deletePerson(
 
 export async function getAllRelationships(): Promise<Relationship[]> {
   const db = await getDB();
-  return db.getAll('relationships');
+  const all = await db.getAll('relationships');
+  const deletedRelIds = new Set(await getDeletedRelationshipIds());
+  const deletedPersonIds = new Set(await getDeletedPersonIds());
+  return all.filter(
+    (r) =>
+      !deletedRelIds.has(r.id) &&
+      !deletedPersonIds.has(r.fromPersonId) &&
+      !deletedPersonIds.has(r.toPersonId)
+  );
 }
 
 export async function getRelationshipById(id: string): Promise<Relationship | undefined> {
   const db = await getDB();
+  const deletedRelIds = new Set(await getDeletedRelationshipIds());
+  if (deletedRelIds.has(id)) return undefined;
   return db.get('relationships', id);
 }
 
@@ -301,9 +403,13 @@ export async function saveRelationship(
 export async function deleteRelationship(id: string, reviewer = 'User'): Promise<void> {
   const db = await getDB();
   const rel = await db.get('relationships', id);
-  if (!rel) return;
+  if (!rel) {
+    await recordDeletedRelationshipId(id);
+    return;
+  }
 
   await db.delete('relationships', id);
+  await recordDeletedRelationshipId(id);
   await logAudit(
     'delete',
     'relationship',
@@ -367,6 +473,9 @@ export async function bulkLoadData(
   reviewer = 'User'
 ): Promise<void> {
   const db = await getDB();
+  const deletedPersonIds = new Set(await getDeletedPersonIds());
+  const deletedRelIds = new Set(await getDeletedRelationshipIds());
+
   const tx = db.transaction(
     ['people', 'relationships', 'sources', 'sourceOccurrences', 'metadata'],
     'readwrite'
@@ -379,11 +488,19 @@ export async function bulkLoadData(
   await tx.objectStore('sources').clear();
 
   for (const p of data.people) {
-    await tx.objectStore('people').put(p);
+    if (!deletedPersonIds.has(p.id)) {
+      await tx.objectStore('people').put(p);
+    }
   }
 
   for (const r of data.relationships) {
-    await tx.objectStore('relationships').put(r);
+    if (
+      !deletedRelIds.has(r.id) &&
+      !deletedPersonIds.has(r.fromPersonId) &&
+      !deletedPersonIds.has(r.toPersonId)
+    ) {
+      await tx.objectStore('relationships').put(r);
+    }
   }
 
   if (data.occurrences) {

@@ -145,7 +145,7 @@ export const INITIAL_PEOPLE: Person[] = [
     "isArchived": false,
     "createdAt": "2026-10-09T00:00:00.000Z",
     "updatedAt": "2026-10-09T00:00:00.000Z",
-    "spouseNote": "ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ"
+    "spouseNote": "መጻምድቲ: ሊዝ ሓሊቦ ወልደጊርጊስ"
   },
   {
     "id": "pers_p1_10",
@@ -4338,13 +4338,11 @@ export const INITIAL_PEOPLE: Person[] = [
     "updatedAt": "2026-10-09T00:00:00.000Z"
   },
   {
-    "id": "pers_partner_p15_309",
-    "canonicalName": "ኣቦይ ወለሓንስ ዓሊተና",
-    "status": "unverified",
-    "notes": "Named in union statement: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ` (PDF page 15)",
-    "sourcePage": 15,
-    "sourceHeading": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
-    "sourceOccurrenceId": "occ_partner_p15_309",
+    "id": "pers_partner_liz_halibo",
+    "canonicalName": "ሊዝ ሓሊቦ ወልደጊርጊስ",
+    "status": "verified",
+    "notes": "መጻምድቲ ትዕበ ከንቲባ ጉዕሽ",
+    "branch": "ትዕበ",
     "isArchived": false,
     "createdAt": "2026-10-09T00:00:00.000Z",
     "updatedAt": "2026-10-09T00:00:00.000Z"
@@ -4353,13 +4351,13 @@ export const INITIAL_PEOPLE: Person[] = [
     "id": "pers_p15_310",
     "canonicalName": "ዓዶ ዑመር",
     "displayName": "ዓዶ ዑመር (ዓዱዑማር)",
-    "fatherName": "ኣቦይ ወለሓንስ ዓሊተና",
+    "fatherName": "ሊዝ ሓሊቦ ወልደጊርጊስ",
     "motherName": "ትዕበ",
     "branch": "ትዕበ",
     "status": "verified",
-    "notes": "Recorded on PDF page 15 under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "notes": "ወዲ ትዕበ ከንቲባ ጉዕሽን ሊዝ ሓሊቦ ወልደጊርጊስን",
     "sourcePage": 15,
-    "sourceHeading": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "sourceHeading": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ`",
     "sourceOccurrenceId": "occ_p15_310",
     "isArchived": false,
     "createdAt": "2026-10-09T00:00:00.000Z",
@@ -4368,7 +4366,7 @@ export const INITIAL_PEOPLE: Person[] = [
   {
     "id": "pers_p15_311",
     "canonicalName": "ለቱ",
-    "fatherName": "ኣቦይ ወለሓንስ ዓሊተና",
+    "fatherName": "ሊዝ ሓሊቦ ወልደጊርጊስ",
     "motherName": "ትዕበ",
     "branch": "ትዕበ",
     "status": "unverified",
@@ -12299,16 +12297,16 @@ export const INITIAL_RELATIONSHIPS: Relationship[] = [
     "updatedAt": "2026-10-09T00:00:00.000Z"
   },
   {
-    "id": "rel_union_pers_p1_9_pers_partner_p15_309",
+    "id": "rel_union_pers_p1_9_pers_partner_liz_halibo",
     "fromPersonId": "pers_p1_9",
-    "toPersonId": "pers_partner_p15_309",
+    "toPersonId": "pers_partner_liz_halibo",
     "type": "partner_or_union",
-    "status": "unverified",
+    "status": "verified",
     "sourceFile": "ከሰተ-ብርሃነ.pdf",
     "sourcePage": 15,
-    "sourceWording": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
-    "reviewerNotes": "Union phrase: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
-    "isBiologicalConfirmed": false,
+    "sourceWording": "ትዕበ ዝተመርዓዉ ምስ ሊዝ ሓሊቦ ወልደጊርጊስ",
+    "reviewerNotes": "መጻምድቲ ትዕበ",
+    "isBiologicalConfirmed": true,
     "createdAt": "2026-10-09T00:00:00.000Z",
     "updatedAt": "2026-10-09T00:00:00.000Z"
   },
@@ -19409,12 +19407,12 @@ export const INITIAL_OCCURRENCES: SourceOccurrence[] = [
     "id": "occ_partner_p15_309",
     "sourceFile": "ከሰተ-ብርሃነ.pdf",
     "page": 15,
-    "headingOrBlock": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
-    "rawText": "ኣቦይ ወለሓንስ ዓሊተና",
+    "headingOrBlock": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ`",
+    "rawText": "ሊዝ ሓሊቦ ወልደጊርጊስ",
     "sequence": 309,
-    "linkedPersonId": "pers_partner_p15_309",
+    "linkedPersonId": "pers_partner_liz_halibo",
     "status": "linked",
-    "notes": "Partner recorded in union phrase"
+    "notes": "መጻምድቲ ትዕበ ከንቲባ ጉዕሽ"
   },
   {
     "id": "occ_p15_310",

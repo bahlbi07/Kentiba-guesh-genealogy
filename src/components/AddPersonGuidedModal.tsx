@@ -124,6 +124,11 @@ export function cleanCandidateSpouseName(raw?: string | null): string {
     }
   }
 
+  // Reject parser artifacts like "ኣቦይ ወለሓንስ ዓሊተና"
+  if (clean.includes('ወለሓንስ') && clean.includes('ዓሊተና')) {
+    return '';
+  }
+
   // Reject cut-off fragments like "ጉን ኮኾባይ..."
   if (/^ጉን\s+/i.test(clean)) {
     return '';
@@ -169,6 +174,106 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[bn.length][an.length];
 }
 
+export interface SpouseSelectionGuideProps {
+  existingSpouseName: string;
+  spouseId?: string;
+  relationshipId?: string;
+  currentValue?: string;
+  onUseExisting: (name: string) => void;
+  onKeepAndAddSecondSpouse?: () => void;
+  onDeleteErronousSpouse: () => Promise<void> | void;
+  canAddSecondSpouse?: boolean;
+}
+
+export const SpouseSelectionGuide: React.FC<SpouseSelectionGuideProps> = ({
+  existingSpouseName,
+  currentValue,
+  onUseExisting,
+  onKeepAndAddSecondSpouse,
+  onDeleteErronousSpouse,
+  canAddSecondSpouse = true,
+}) => {
+  const isSelected = Boolean(
+    currentValue &&
+      existingSpouseName &&
+      currentValue.trim().toLowerCase() === existingSpouseName.trim().toLowerCase()
+  );
+
+  return (
+    <div className="my-2 p-3.5 bg-gradient-to-br from-amber-50 to-rose-50/40 rounded-xl border border-amber-300 shadow-2xs space-y-3 font-ethiopic text-xs">
+      <div className="flex items-center gap-2 text-amber-950 font-bold border-b border-amber-200/80 pb-2">
+        <Heart className="w-4 h-4 text-rose-500 shrink-0" />
+        <span>ናይዚ መጻምድቲ መዝገብ (ምርጫታት ንተጠቃሚ)</span>
+      </div>
+
+      {/* Option 1: Reuse existing recorded spouse name */}
+      <div
+        className={`p-2.5 rounded-lg border transition-all ${
+          isSelected
+            ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+            : 'bg-white/95 border-amber-200 text-stone-800'
+        }`}
+      >
+        <div className="flex items-start gap-2 mb-2">
+          <span className="w-5 h-5 rounded-full bg-amber-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+            1
+          </span>
+          <div className="leading-relaxed">
+            ናይዚ መጻምድቲ <strong className="text-amber-950 text-sm font-bold">&laquo;{existingSpouseName}&raquo;</strong> ዝበሃል ድሮ ኣሎ፤ ካብ ደጊምኩም ምጽሓፍ ነዚ ስም ተጠቐሙ።
+          </div>
+        </div>
+        {!isSelected ? (
+          <button
+            type="button"
+            onClick={() => onUseExisting(existingSpouseName)}
+            className="ml-7 inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow-2xs transition-all cursor-pointer"
+          >
+            <CheckCircle className="w-3.5 h-3.5" />
+            <span>ነዚ ስም ተጠቐም ({existingSpouseName})</span>
+          </button>
+        ) : (
+          <div className="ml-7 text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5" />
+            <span>እዚ ስም ተመሪጹ ኣሎ</span>
+          </div>
+        )}
+      </div>
+
+      {/* Option 2: Decision / Validation */}
+      <div className="p-2.5 bg-white/95 rounded-lg border border-stone-200 text-stone-800 space-y-2">
+        <div className="flex items-start gap-2">
+          <span className="w-5 h-5 rounded-full bg-stone-700 text-white font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+            2
+          </span>
+          <div className="leading-relaxed text-stone-800">
+            እዚ ስም ትኽክለኛ መጻምድቲ እዩ ኢልኩም እንተዘይሓሲብኩም ይደምሰስ ዶ ጠቕሊሉ ወይስ እቲ መጻምዲ ከም መጻምዲ ይተሓዝ?
+          </div>
+        </div>
+        <div className="ml-7 flex flex-wrap items-center gap-2 pt-1">
+          {canAddSecondSpouse && onKeepAndAddSecondSpouse && (
+            <button
+              type="button"
+              onClick={onKeepAndAddSecondSpouse}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg font-semibold text-[11px] border border-stone-300 transition-colors cursor-pointer"
+            >
+              <Plus className="w-3 h-3 text-stone-600" />
+              <span>ትኽክል እዩ፡ + ካልኣይ መጻምድቲ ወስኽ</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onDeleteErronousSpouse}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-semibold text-[11px] border border-rose-200 transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-3 h-3 text-rose-600" />
+            <span>ጌጋ ስለዝኾነ ይደምሰስ</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export interface AddPersonGuidedModalProps {
   people: Person[];
   relationships: Relationship[];
@@ -176,6 +281,8 @@ export interface AddPersonGuidedModalProps {
   onSaveBatch?: (people: Person[], relationships: Relationship[]) => Promise<void>;
   onSavePerson?: (person: Person) => Promise<void>;
   onSaveRelationship?: (rel: Relationship) => Promise<{ success: boolean; error?: string }>;
+  onDeleteRelationship?: (relId: string) => Promise<void> | void;
+  onDeletePerson?: (personId: string) => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
 }
 
@@ -186,6 +293,8 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
   onSaveBatch,
   onSavePerson,
   onSaveRelationship,
+  onDeleteRelationship,
+  onDeletePerson,
   onComplete,
 }) => {
   // Form draft state
@@ -364,7 +473,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
   // Helper to retrieve auto-detected or registered spouse for an ancestor/person
   const getSpouseForPerson = useCallback(
-    (personId?: string | null, personName?: string): { spouseName: string; spouseId?: string; source: string } | null => {
+    (personId?: string | null, personName?: string): { spouseName: string; spouseId?: string; relationshipId?: string; source: string } | null => {
       if (!personId && !personName) return null;
 
       // 1. If personId is provided, look up by ID
@@ -403,6 +512,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                 return {
                   spouseName: cleaned,
                   spouseId: spouse.id,
+                  relationshipId: rel.id,
                   source: 'relationship',
                 };
               }
@@ -820,9 +930,13 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     });
   };
 
-  // Multiple Spouses and per-spouse Children management
+  // Multiple Spouses and per-spouse Children management (Max 3 spouses)
   const handleAddSpouse = () => {
     updateForm((prev) => {
+      if (prev.spouses.length >= 3) {
+        alert('ኣብዚ መዝገብ ዝፈቀድ ዝለዓለ ብዝሒ መጻምድቲ 3 እዩ።');
+        return prev;
+      }
       const nextSpouses: SpouseEntry[] = [
         ...prev.spouses,
         {
@@ -1828,6 +1942,40 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                                     ) : null;
                                   })()}
                                 </div>
+                                {(() => {
+                                  const recorded = getSpouseForPerson(step.selectedPersonId, step.name);
+                                  if (!recorded?.spouseName) return null;
+                                  return (
+                                    <SpouseSelectionGuide
+                                      existingSpouseName={recorded.spouseName}
+                                      spouseId={recorded.spouseId}
+                                      relationshipId={recorded.relationshipId}
+                                      currentValue={step.spouseName}
+                                      onUseExisting={(name) => handleUpdateCascadeSpouse(idx, name)}
+                                      onKeepAndAddSecondSpouse={() => {
+                                        handleUpdateCascadeSpouse(idx, recorded.spouseName);
+                                      }}
+                                      onDeleteErronousSpouse={async () => {
+                                        if (window.confirm(`ብሓቂ ን “${recorded.spouseName}” ካብ መጻምድቲ ክትድምስሶ ትደሊ ዲኻ?`)) {
+                                          if (recorded.relationshipId && onDeleteRelationship) {
+                                            await onDeleteRelationship(recorded.relationshipId);
+                                          }
+                                          if (recorded.spouseId && onDeletePerson) {
+                                            const remainingRels = relationships.filter(
+                                              (r) =>
+                                                r.id !== recorded.relationshipId &&
+                                                (r.fromPersonId === recorded.spouseId || r.toPersonId === recorded.spouseId)
+                                            );
+                                            if (remainingRels.length === 0) {
+                                              await onDeletePerson(recorded.spouseId);
+                                            }
+                                          }
+                                          handleUpdateCascadeSpouse(idx, '');
+                                        }
+                                      }}
+                                    />
+                                  );
+                                })()}
                                 <input
                                   type="text"
                                   placeholder="ስም መጻምድቲ..."
@@ -2023,6 +2171,40 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                             ) : null;
                           })()}
                         </div>
+                        {(() => {
+                          const recorded = getSpouseForPerson(gen.existingPersonId, gen.name);
+                          if (!recorded?.spouseName) return null;
+                          return (
+                            <SpouseSelectionGuide
+                              existingSpouseName={recorded.spouseName}
+                              spouseId={recorded.spouseId}
+                              relationshipId={recorded.relationshipId}
+                              currentValue={gen.spouseName}
+                              onUseExisting={(name) => handleUpdateGeneration(gen.id, { spouseName: name })}
+                              onKeepAndAddSecondSpouse={() => {
+                                handleUpdateGeneration(gen.id, { spouseName: recorded.spouseName });
+                              }}
+                              onDeleteErronousSpouse={async () => {
+                                if (window.confirm(`ብሓቂ ን “${recorded.spouseName}” ካብ መጻምድቲ ክትድምስሶ ትደሊ ዲኻ?`)) {
+                                  if (recorded.relationshipId && onDeleteRelationship) {
+                                    await onDeleteRelationship(recorded.relationshipId);
+                                  }
+                                  if (recorded.spouseId && onDeletePerson) {
+                                    const remainingRels = relationships.filter(
+                                      (r) =>
+                                        r.id !== recorded.relationshipId &&
+                                        (r.fromPersonId === recorded.spouseId || r.toPersonId === recorded.spouseId)
+                                    );
+                                    if (remainingRels.length === 0) {
+                                      await onDeletePerson(recorded.spouseId);
+                                    }
+                                  }
+                                  handleUpdateGeneration(gen.id, { spouseName: '' });
+                                }
+                              }}
+                            />
+                          );
+                        })()}
                         <input
                           type="text"
                           placeholder={idx === 0 ? 'ንኣብነት: ሃይለ...' : 'ስም መጻምድቲ...'}
@@ -2078,10 +2260,16 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               <button
                 type="button"
                 onClick={handleAddSpouse}
-                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                disabled={form.spouses.length >= 3}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                  form.spouses.length >= 3
+                    ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                    : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 cursor-pointer'
+                }`}
+                title={form.spouses.length >= 3 ? 'ዝለዓለ ብዝሒ መጻምድቲ 3 እዩ' : undefined}
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ መጻምድቲ ወስኽ</span>
+                <span>+ መጻምድቲ ወስኽ {form.spouses.length >= 3 ? '(ዝለዓለ 3)' : ''}</span>
               </button>
             </div>
 
@@ -2121,6 +2309,43 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                         <label className="block text-[11px] text-stone-600 font-medium mb-1">
                           ስም መጻምድቲ
                         </label>
+                        {(() => {
+                          const recorded = getSpouseForPerson(form.lineageChain[0]?.existingPersonId || undefined, form.canonicalName);
+                          if (!recorded?.spouseName) return null;
+                          if (spouse.spouseName?.trim().toLowerCase() === recorded.spouseName.trim().toLowerCase()) return null;
+                          return (
+                            <SpouseSelectionGuide
+                              existingSpouseName={recorded.spouseName}
+                              spouseId={recorded.spouseId}
+                              relationshipId={recorded.relationshipId}
+                              currentValue={spouse.spouseName}
+                              onUseExisting={(name) => handleUpdateSpouse(spouse.id, { spouseName: name })}
+                              onKeepAndAddSecondSpouse={form.spouses.length < 3 ? () => {
+                                handleUpdateSpouse(spouse.id, { spouseName: recorded.spouseName });
+                                handleAddSpouse();
+                              } : undefined}
+                              canAddSecondSpouse={form.spouses.length < 3}
+                              onDeleteErronousSpouse={async () => {
+                                if (window.confirm(`ብሓቂ ን “${recorded.spouseName}” ካብ መጻምድቲ ክትድምስሶ ትደሊ ዲኻ?`)) {
+                                  if (recorded.relationshipId && onDeleteRelationship) {
+                                    await onDeleteRelationship(recorded.relationshipId);
+                                  }
+                                  if (recorded.spouseId && onDeletePerson) {
+                                    const remainingRels = relationships.filter(
+                                      (r) =>
+                                        r.id !== recorded.relationshipId &&
+                                        (r.fromPersonId === recorded.spouseId || r.toPersonId === recorded.spouseId)
+                                    );
+                                    if (remainingRels.length === 0) {
+                                      await onDeletePerson(recorded.spouseId);
+                                    }
+                                  }
+                                  handleUpdateSpouse(spouse.id, { spouseName: '' });
+                                }
+                              }}
+                            />
+                          );
+                        })()}
                         <input
                           type="text"
                           placeholder="ንኣብነት: ስም መጻምድቲ..."

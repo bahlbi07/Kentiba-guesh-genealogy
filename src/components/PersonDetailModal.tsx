@@ -134,7 +134,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
   }, [relationships, person.id, peopleMap]);
 
   const partners = useMemo(() => {
-    return relationships
+    const raw = relationships
       .filter((r) => r.type === 'partner_or_union' && (r.fromPersonId === person.id || r.toPersonId === person.id))
       .map((r) => {
         const otherId = r.fromPersonId === person.id ? r.toPersonId : r.fromPersonId;
@@ -143,6 +143,24 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
           person: peopleMap.get(otherId),
         };
       });
+
+    const seen = new Set<string>();
+    const unique: { rel: Relationship; person?: Person }[] = [];
+
+    for (const item of raw) {
+      if (!item.person) continue;
+      if (item.person.canonicalName.includes('ወለሓንስ') && item.person.canonicalName.includes('ዓሊተና')) continue;
+      const norm = item.person.canonicalName
+        .replace(/["'”„]/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s*ዓሊተና/g, '')
+        .trim()
+        .toLowerCase();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      unique.push(item);
+    }
+    return unique;
   }, [relationships, person.id, peopleMap]);
 
   // Count children for a given person ID to display descendants indicator

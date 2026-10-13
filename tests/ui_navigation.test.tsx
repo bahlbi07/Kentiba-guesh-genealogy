@@ -8,7 +8,7 @@ import { FamilyInformationView } from '../src/components/FamilyInformationView';
 import { AboutArchive } from '../src/components/AboutArchive';
 import { AdminPanel } from '../src/components/AdminPanel';
 import { RecordEditorView } from '../src/components/RecordEditorView';
-import { AddPersonGuidedModal } from '../src/components/AddPersonGuidedModal';
+import { AddPersonGuidedModal, SpouseSelectionGuide } from '../src/components/AddPersonGuidedModal';
 import { UncertainRecordsView } from '../src/components/UncertainRecordsView';
 import { PersonDetailModal } from '../src/components/PersonDetailModal';
 import { GenealogyPdfExportModal } from '../src/components/GenealogyPdfExportModal';
@@ -1733,6 +1733,138 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
 
     const allAfterBulk = await getAllPeople(true);
     expect(allAfterBulk.some((p) => p.id === 'pers_perm_del_test_99')).toBe(false);
+  });
+
+  it('30. FamilyExplorer: deduplicates duplicate spouse cards, filters artifacts, and allows admin spouse deletion', async () => {
+    const mainPerson: Person = {
+      id: 'pers_p1_9',
+      canonicalName: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+    const spouse1: Person = {
+      id: 'pers_liz_1',
+      canonicalName: 'ሊዝ ሓሊቦ ወልደጊርጊስ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+    const spouse2: Person = {
+      id: 'pers_liz_2',
+      canonicalName: 'ሊዝ ሓሊቦ ወልደጊርጊስ "ዓሊተና"',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+    const artifactSpouse: Person = {
+      id: 'pers_partner_p15_309',
+      canonicalName: 'ኣቦይ ወለሓንስ ዓሊተና',
+      status: 'unverified',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+
+    const rels: Relationship[] = [
+      {
+        id: 'rel_sp_1',
+        fromPersonId: 'pers_p1_9',
+        toPersonId: 'pers_liz_1',
+        type: 'partner_or_union',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 15,
+        sourceWording: 'ትዕበ ዝተመርዓዉ ምስ ሊዝ ሓሊቦ ወልደጊርጊስ',
+        isBiologicalConfirmed: false,
+        createdAt: '2026-10-09',
+        updatedAt: '2026-10-09',
+      },
+      {
+        id: 'rel_sp_2',
+        fromPersonId: 'pers_p1_9',
+        toPersonId: 'pers_liz_2',
+        type: 'partner_or_union',
+        status: 'verified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 15,
+        sourceWording: 'ትዕበ ዝተመርዓዉ ምስ ሊዝ ሓሊቦ ወልደጊርጊስ',
+        isBiologicalConfirmed: false,
+        createdAt: '2026-10-09',
+        updatedAt: '2026-10-09',
+      },
+      {
+        id: 'rel_sp_art',
+        fromPersonId: 'pers_p1_9',
+        toPersonId: 'pers_partner_p15_309',
+        type: 'partner_or_union',
+        status: 'unverified',
+        sourceFile: 'ከሰተ-ብርሃነ.pdf',
+        sourcePage: 15,
+        sourceWording: 'ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ',
+        isBiologicalConfirmed: false,
+        createdAt: '2026-10-09',
+        updatedAt: '2026-10-09',
+      },
+    ];
+
+    const mockDeleteRel = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(
+      <FamilyExplorer
+        people={[mainPerson, spouse1, spouse2, artifactSpouse]}
+        relationships={rels}
+        selectedPersonId="pers_p1_9"
+        onSelectPerson={vi.fn()}
+        isAdmin={true}
+        onDeleteRelationship={mockDeleteRel}
+      />
+    );
+
+    // Artifact spouse "ኣቦይ ወለሓንስ ዓሊተና" should NOT be rendered
+    expect(screen.queryByText('ኣቦይ ወለሓንስ ዓሊተና')).toBeNull();
+
+    // The duplicate spouse cards should be deduplicated to exactly ONE card
+    const spouseCards = screen.getAllByText('ሊዝ ሓሊቦ ወልደጊርጊስ');
+    expect(spouseCards.length).toBe(1);
+
+    // The delete button on the spouse card should be clickable
+    const deleteBtn = screen.getByTitle('መጻምድቲ ደምስስ');
+    expect(deleteBtn).toBeDefined();
+    fireEvent.click(deleteBtn);
+
+    expect(mockDeleteRel).toHaveBeenCalled();
+  });
+
+  it('31. SpouseSelectionGuide: renders clear 2-option choices (reuse recorded name or delete erroneous spouse)', () => {
+    const onUseExisting = vi.fn();
+    const onDeleteErronous = vi.fn();
+
+    render(
+      <SpouseSelectionGuide
+        existingSpouseName="ሊዝ ሓሊቦ ወልደጊርጊስ"
+        onUseExisting={onUseExisting}
+        onDeleteErronousSpouse={onDeleteErronous}
+        canAddSecondSpouse={true}
+        onKeepAndAddSecondSpouse={vi.fn()}
+      />
+    );
+
+    // Option 1 text
+    expect(screen.getByText(/ዝበሃል ድሮ ኣሎ/)).toBeDefined();
+    const useBtn = screen.getByRole('button', { name: /ነዚ ስም ተጠቐም/ });
+    fireEvent.click(useBtn);
+    expect(onUseExisting).toHaveBeenCalledWith('ሊዝ ሓሊቦ ወልደጊርጊስ');
+
+    // Option 2 text
+    expect(screen.getByText(/እዚ ስም ትኽክለኛ መጻምድቲ እዩ ኢልኩም እንተዘይሓሲብኩም/)).toBeDefined();
+    const deleteBtn = screen.getByRole('button', { name: /ጌጋ ስለዝኾነ ይደምሰስ/ });
+    fireEvent.click(deleteBtn);
+    expect(onDeleteErronous).toHaveBeenCalled();
   });
 });
 

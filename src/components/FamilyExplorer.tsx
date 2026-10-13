@@ -11,7 +11,8 @@ import {
   AlertTriangle,
   FileText,
   ArrowUp,
-  Tag
+  Tag,
+  Trash2
 } from 'lucide-react';
 
 interface FamilyExplorerProps {
@@ -20,6 +21,9 @@ interface FamilyExplorerProps {
   onSelectPerson: (person: Person) => void;
   onOpenDetails?: (person: Person) => void;
   selectedPersonId?: string;
+  isAdmin?: boolean;
+  onDeleteRelationship?: (relId: string) => Promise<void> | void;
+  onDeletePerson?: (personId: string) => Promise<void> | void;
 }
 
 interface TrailSnapshot {
@@ -32,6 +36,9 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   relationships,
   onSelectPerson,
   selectedPersonId,
+  isAdmin,
+  onDeleteRelationship,
+  onDeletePerson,
 }) => {
   // Fast map of people by ID
   const peopleMap = useMemo(() => {
@@ -223,23 +230,26 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
   // Track partners / unions
   const partnerMap = useMemo(() => {
-    const map = new Map<string, { partnerId: string; wording: string }[]>();
+    const map = new Map<string, { partnerId: string; wording?: string; relationshipId: string }[]>();
     for (const r of relationships) {
       if (r.type === 'partner_or_union') {
+        const p1 = peopleMap.get(r.fromPersonId);
+        const p2 = peopleMap.get(r.toPersonId);
+        // Exclude parser artifacts like "ዓሊተና"
+        if (p1?.canonicalName?.includes('ዓሊተና') && p1?.canonicalName?.includes('ወለሓንስ')) continue;
+        if (p2?.canonicalName?.includes('ዓሊተና') && p2?.canonicalName?.includes('ወለሓንስ')) continue;
+
         const l1 = map.get(r.fromPersonId) || [];
-        if (!l1.some((item) => item.partnerId === r.toPersonId)) {
-          l1.push({ partnerId: r.toPersonId, wording: r.sourceWording });
-          map.set(r.fromPersonId, l1);
-        }
+        l1.push({ partnerId: r.toPersonId, wording: r.sourceWording, relationshipId: r.id });
+        map.set(r.fromPersonId, l1);
+
         const l2 = map.get(r.toPersonId) || [];
-        if (!l2.some((item) => item.partnerId === r.fromPersonId)) {
-          l2.push({ partnerId: r.fromPersonId, wording: r.sourceWording });
-          map.set(r.toPersonId, l2);
-        }
+        l2.push({ partnerId: r.fromPersonId, wording: r.sourceWording, relationshipId: r.id });
+        map.set(r.toPersonId, l2);
       }
     }
     return map;
-  }, [relationships]);
+  }, [relationships, peopleMap]);
 
   // Relationships of the focused person
   const parentIds = useMemo(
@@ -252,10 +262,33 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     [focusedPerson, parentToChildrenMap]
   );
 
-  const partners = useMemo(
-    () => (focusedPerson ? partnerMap.get(focusedPerson.id) || [] : []),
-    [focusedPerson, partnerMap]
-  );
+  // Strictly deduplicate unique spouses by normalized canonical name
+  const partners = useMemo(() => {
+    if (!focusedPerson) return [];
+    const rawList = partnerMap.get(focusedPerson.id) || [];
+    const seen = new Set<string>();
+    const unique: { partnerId: string; wording?: string; relationshipId: string; partner: Person }[] = [];
+
+    for (const item of rawList) {
+      const partner = peopleMap.get(item.partnerId);
+      if (!partner) continue;
+      // Filter out invalid or garbage spouse names
+      if (partner.canonicalName.includes('ወለሓንስ') && partner.canonicalName.includes('ዓሊተና')) continue;
+
+      // Normalize name ignoring quotes or location aliases so duplicate cards are merged
+      const normName = partner.canonicalName
+        .replace(/["'”„]/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s*ዓሊተና/g, '')
+        .trim()
+        .toLowerCase();
+
+      if (seen.has(normName)) continue;
+      seen.add(normName);
+      unique.push({ ...item, partner });
+    }
+    return unique;
+  }, [focusedPerson, partnerMap, peopleMap]);
 
   // Siblings (share at least one parent, excluding self)
   const siblingIds = useMemo(() => {
@@ -615,9 +648,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
               <span>ዝተመዝገበ መጻምድቲ / ሓዳር</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {partners.map(({ partnerId, wording }) => {
-                const partner = peopleMap.get(partnerId);
-                if (!partner) return null;
+              {partners.map(({ partner, wording, relationshipId }) => {
                 return (
                   <div
                     key={partner.id}
@@ -639,6 +670,36 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                         </div>
                       </div>
                     </button>
+
+                    {Boolean(onDeleteRelationship) && (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (
+                            window.confirm(
+                              `ብሓቂ ን “${partner.canonicalName}” ካብ መጻምድቲ ክትድምስሶ ትደሊ ዲኻ?`
+                            )
+                          ) {
+                            await onDeleteRelationship!(relationshipId);
+                            if (onDeletePerson) {
+                              const remainingRels = relationships.filter(
+                                (r) =>
+                                  r.id !== relationshipId &&
+                                  (r.fromPersonId === partner.id || r.toPersonId === partner.id)
+                              );
+                              if (remainingRels.length === 0) {
+                                await onDeletePerson(partner.id);
+                              }
+                            }
+                          }
+                        }}
+                        className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0 ml-2"
+                        title="መጻምድቲ ደምስስ"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 );
               })}

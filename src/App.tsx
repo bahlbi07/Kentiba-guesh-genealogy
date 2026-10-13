@@ -772,9 +772,12 @@ export const App: React.FC = () => {
             people={activePeople}
             relationships={relationships}
             selectedPersonId={selectedPerson?.id}
+            isAdmin={isAdminAuthenticated}
             onSelectPerson={(p) => {
               setSelectedPerson(p);
             }}
+            onDeleteRelationship={handleDeleteRelationship}
+            onDeletePerson={handleDeletePerson}
           />
         )}
 
@@ -894,6 +897,8 @@ export const App: React.FC = () => {
           onSaveRelationship={async (r) => {
             return await saveRelationship(r, 'Admin');
           }}
+          onDeleteRelationship={handleDeleteRelationship}
+          onDeletePerson={handleDeletePerson}
           onComplete={reloadData}
         />
       )}

@@ -50,7 +50,7 @@ describe('Multi-Device Cloud Synchronization & Google Sheets Lineage Verificatio
   });
 
   it('3. computeLineageChain generates clean chain for newly added member with parent link', () => {
-    const parentPerson = INITIAL_PEOPLE.find((p) => p.canonicalName.includes('ሓሊቦ') && p.branch === 'ትዕበ') || INITIAL_PEOPLE[1];
+    const parentPerson = INITIAL_PEOPLE.find((p) => p.canonicalName === 'ሓሊቦ' && p.branch === 'ትዕበ') || INITIAL_PEOPLE[1];
     const newPerson = {
       id: 'pers_test_new_member',
       canonicalName: 'ክብሮም ኣብርሃ',

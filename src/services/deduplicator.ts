@@ -134,6 +134,137 @@ export function findDuplicateCandidates(
 }
 
 /**
+ * Automatically purges parser artifact spouses (e.g. "ኣቦይ ወለሓንስ ዓሊተና")
+ * and merges duplicate partner relationships pointing to the same spouse name.
+ */
+function deduplicateSpousesAndArtifacts(
+  peopleMap: Map<string, Person>,
+  workingRelationships: Relationship[],
+  removedPersonIds: string[],
+  removedRelIds: string[],
+  details: string[]
+): void {
+  // 1. Purge known parser artifact spouses (specifically "ኣቦይ ወለሓንስ ዓሊተና" or pers_partner_p15_309)
+  for (const [pId, person] of peopleMap.entries()) {
+    if (removedPersonIds.includes(pId)) continue;
+    const isArtifact =
+      pId === 'pers_partner_p15_309' ||
+      (person.canonicalName.includes('ወለሓንስ') && person.canonicalName.includes('ዓሊተና')) ||
+      person.canonicalName === 'ኣቦይ ወለሓንስ ዓሊተና';
+
+    if (isArtifact) {
+      removedPersonIds.push(pId);
+      details.push(`ጌጋ መጻምድቲ/ኣርቲፋክት "${person.canonicalName}" (ID: ${pId}) ተደምሲሱ።`);
+      for (const rel of workingRelationships) {
+        if (rel.fromPersonId === pId || rel.toPersonId === pId) {
+          if (!removedRelIds.includes(rel.id)) {
+            removedRelIds.push(rel.id);
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Group partner relationships per person to eliminate duplicate spouse cards
+  const activePersonIds = Array.from(peopleMap.keys()).filter(
+    (id) => !removedPersonIds.includes(id)
+  );
+
+  for (const personId of activePersonIds) {
+    const person = peopleMap.get(personId);
+    if (!person) continue;
+
+    // Collect all partner_or_union rels where person is one of the partners
+    const personPartnerRels = workingRelationships.filter(
+      (r) =>
+        r.type === 'partner_or_union' &&
+        !removedRelIds.includes(r.id) &&
+        (r.fromPersonId === personId || r.toPersonId === personId)
+    );
+
+    if (personPartnerRels.length <= 1) continue;
+
+    // Map by normalized spouse name
+    const nameToRelsMap = new Map<string, { rel: Relationship; partner: Person }[]>();
+
+    for (const rel of personPartnerRels) {
+      const otherId = rel.fromPersonId === personId ? rel.toPersonId : rel.fromPersonId;
+      if (removedPersonIds.includes(otherId)) {
+        if (!removedRelIds.includes(rel.id)) removedRelIds.push(rel.id);
+        continue;
+      }
+      const otherPerson = peopleMap.get(otherId);
+      if (!otherPerson) continue;
+
+      // Clean and normalize spouse name (strip quotes, extra spaces, location aliases)
+      const norm = normalizeEthiopicName(otherPerson.canonicalName)
+        .replace(/["'”„]/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s*ዓሊተና/g, '')
+        .trim();
+
+      const list = nameToRelsMap.get(norm) || [];
+      list.push({ rel, partner: otherPerson });
+      nameToRelsMap.set(norm, list);
+    }
+
+    // For any normalized spouse name with > 1 relationship:
+    for (const [, entries] of nameToRelsMap.entries()) {
+      if (entries.length > 1) {
+        // Pick best keeper: prefer one with verified status, richer notes, or canonical name without quotes
+        const sorted = [...entries].sort((a, b) => {
+          let scoreA = 0;
+          let scoreB = 0;
+          if (a.partner.status === 'verified') scoreA += 50;
+          if (b.partner.status === 'verified') scoreB += 50;
+          if (!a.partner.canonicalName.includes('"')) scoreA += 20;
+          if (!b.partner.canonicalName.includes('"')) scoreB += 20;
+          if (a.rel.id.startsWith('rel_union_')) scoreA += 10;
+          if (b.rel.id.startsWith('rel_union_')) scoreB += 10;
+          return scoreB - scoreA;
+        });
+
+        const keeper = sorted[0];
+        const duplicates = sorted.slice(1);
+
+        for (const dup of duplicates) {
+          if (!removedRelIds.includes(dup.rel.id)) {
+            removedRelIds.push(dup.rel.id);
+          }
+          // If the partner person was a duplicate helper person different from keeper.partner
+          if (dup.partner.id !== keeper.partner.id) {
+            const otherRels = workingRelationships.filter(
+              (r) =>
+                r.id !== dup.rel.id &&
+                !removedRelIds.includes(r.id) &&
+                (r.fromPersonId === dup.partner.id || r.toPersonId === dup.partner.id)
+            );
+            if (otherRels.length === 0) {
+              if (!removedPersonIds.includes(dup.partner.id)) {
+                removedPersonIds.push(dup.partner.id);
+              }
+            } else {
+              for (const r of otherRels) {
+                if (r.type === 'parent_child') {
+                  if (r.fromPersonId === dup.partner.id) r.fromPersonId = keeper.partner.id;
+                  if (r.toPersonId === dup.partner.id) r.toPersonId = keeper.partner.id;
+                }
+              }
+              if (!removedPersonIds.includes(dup.partner.id)) {
+                removedPersonIds.push(dup.partner.id);
+              }
+            }
+          }
+          details.push(
+            `ተደጋጋሚ ዝምድና መጻምድቲ "${dup.partner.canonicalName}" (ID: ${dup.partner.id}) ናብ "${keeper.partner.canonicalName}" (ID: ${keeper.partner.id}) ተወሃሂዱ።`
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
  * Deduplicates and merges family records.
  * - Detects duplicate siblings and people with identical names under the same lineage.
  * - Chooses the authoritative keeper and transfers all children and partner relationships.
@@ -225,6 +356,16 @@ export function deduplicateFamilyRecords(
       }
     }
   }
+
+  // Automatically purge parser artifact spouses (e.g. "ኣቦይ ወለሓንስ ዓሊተና")
+  // and merge duplicate partner relationships
+  deduplicateSpousesAndArtifacts(
+    peopleMap,
+    workingRelationships,
+    removedPersonIds,
+    removedRelIds,
+    details
+  );
 
   // Deduplicate redundant relationship edges
   const edgeSeen = new Set<string>();

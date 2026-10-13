@@ -210,4 +210,58 @@ describe('Genealogy Deduplication & Merge Engine', () => {
     expect(result.relationships).toHaveLength(1);
     expect(result.removedRelationshipIds).toContain('rel_2');
   });
+
+  it('purges meaningless parser artifact spouses such as ኣቦይ ወለሓንስ ዓሊተና', () => {
+    const mainPerson = mockPerson({ id: 'pers_p1_9', canonicalName: 'ትዕበ' });
+    const artifactSpouse = mockPerson({ id: 'pers_partner_p15_309', canonicalName: 'ኣቦይ ወለሓንስ ዓሊተና' });
+    const unionRel = mockRel({
+      id: 'rel_union_1',
+      fromPersonId: mainPerson.id,
+      toPersonId: artifactSpouse.id,
+      type: 'partner_or_union',
+    });
+
+    const result = deduplicateFamilyRecords([mainPerson, artifactSpouse], [unionRel]);
+    expect(result.removedPersonIds).toContain(artifactSpouse.id);
+    expect(result.removedRelationshipIds).toContain(unionRel.id);
+    expect(result.people.some((p) => p.id === artifactSpouse.id)).toBe(false);
+  });
+
+  it('merges duplicate partner relationships pointing to the same spouse (e.g. multiple ሊዝ ሓሊቦ ወልደጊርጊስ)', () => {
+    const mainPerson = mockPerson({ id: 'pers_p1_9', canonicalName: 'ትዕበ' });
+    const primarySpouse = mockPerson({ id: 'pers_liz_1', canonicalName: 'ሊዝ ሓሊቦ ወልደጊርጊስ', status: 'verified' });
+    const duplicateSpouse = mockPerson({ id: 'pers_liz_2', canonicalName: 'ሊዝ ሓሊቦ ወልደጊርጊስ "ዓሊተና"' });
+
+    const rel1 = mockRel({
+      id: 'rel_union_liz_1',
+      fromPersonId: mainPerson.id,
+      toPersonId: primarySpouse.id,
+      type: 'partner_or_union',
+    });
+    const rel2 = mockRel({
+      id: 'rel_union_liz_2',
+      fromPersonId: mainPerson.id,
+      toPersonId: duplicateSpouse.id,
+      type: 'partner_or_union',
+    });
+    const rel3 = mockRel({
+      id: 'rel_union_liz_3',
+      fromPersonId: mainPerson.id,
+      toPersonId: primarySpouse.id,
+      type: 'partner_or_union',
+    });
+
+    const result = deduplicateFamilyRecords(
+      [mainPerson, primarySpouse, duplicateSpouse],
+      [rel1, rel2, rel3]
+    );
+
+    // Only 1 partner relationship should remain
+    const remainingPartnerRels = result.relationships.filter(
+      (r) => r.type === 'partner_or_union' && (r.fromPersonId === mainPerson.id || r.toPersonId === mainPerson.id)
+    );
+    expect(remainingPartnerRels).toHaveLength(1);
+    expect(result.removedRelationshipIds).toContain('rel_union_liz_2');
+    expect(result.removedRelationshipIds).toContain('rel_union_liz_3');
+  });
 });

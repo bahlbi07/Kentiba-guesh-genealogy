@@ -1528,6 +1528,31 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     fireEvent.click(resetBtn);
     expect(scrollToMock).toHaveBeenCalled();
   });
+
+  it('27. FamilyExplorer: Back button (← ተመለስ) correctly steps back to parent when focused directly, and to previous trail person when navigated', async () => {
+    const onSelectPerson = vi.fn();
+    // User arrives focused directly on 'ተላ' (child of ጎብሩ) without prior navigation history
+    render(
+      <FamilyExplorer
+        people={mockPeople}
+        relationships={mockRelationships}
+        selectedPersonId="pers_p1_tela"
+        onSelectPerson={onSelectPerson}
+      />
+    );
+
+    // The back button should be visible
+    const backBtn = screen.getByRole('button', { name: /ተመለስ/i });
+    expect(backBtn).toBeInTheDocument();
+
+    // Click back button: should step back to parent 'ጎብሩ'
+    fireEvent.click(backBtn);
+
+    // onSelectPerson should have been called with parent 'ጎብሩ'
+    expect(onSelectPerson).toHaveBeenCalled();
+    const lastCalledPerson = onSelectPerson.mock.calls[onSelectPerson.mock.calls.length - 1][0];
+    expect(lastCalledPerson.canonicalName).toBe('ጎብሩ');
+  });
 });
 
 

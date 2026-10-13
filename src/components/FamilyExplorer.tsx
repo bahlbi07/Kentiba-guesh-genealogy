@@ -120,14 +120,22 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     }
   }, [rootPerson, focusedPersonId]);
 
-  // Sync when selectedPersonId prop changes from parent
+  // Track previous prop to avoid canceling internal back / reset navigation
+  const prevPropSelectedPersonIdRef = useRef<string | undefined>(selectedPersonId);
+
+  // Sync when selectedPersonId prop changes from parent (e.g. user clicked person from Search or Directory)
   useEffect(() => {
-    if (selectedPersonId && selectedPersonId !== focusedPersonId && peopleMap.has(selectedPersonId)) {
+    if (
+      selectedPersonId &&
+      selectedPersonId !== prevPropSelectedPersonIdRef.current &&
+      peopleMap.has(selectedPersonId)
+    ) {
+      prevPropSelectedPersonIdRef.current = selectedPersonId;
       setFocusedPersonId(selectedPersonId);
       setExpandedOrder([]);
       scrollToTop(false);
     }
-  }, [selectedPersonId, peopleMap, focusedPersonId, scrollToTop]);
+  }, [selectedPersonId, peopleMap, scrollToTop]);
 
   // Automatically scroll to top whenever focused person changes so new view starts from the very top
   useEffect(() => {
@@ -269,8 +277,18 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       return;
     }
     pushBrowserHistoryState();
-    setTrailSnapshots((prev) => [...prev, { personId: focusedPersonId, expandedOrder }]);
-    setHistoryTrail((prev) => [...prev, focusedPersonId]);
+    prevPropSelectedPersonIdRef.current = personId;
+
+    // If navigating back to an earlier point in the trail, trim up to that point
+    const existingIndex = historyTrail.indexOf(personId);
+    if (existingIndex !== -1) {
+      setHistoryTrail((prev) => prev.slice(0, existingIndex));
+      setTrailSnapshots((prev) => prev.slice(0, existingIndex));
+    } else {
+      setTrailSnapshots((prev) => [...prev, { personId: focusedPersonId, expandedOrder }]);
+      setHistoryTrail((prev) => [...prev, focusedPersonId]);
+    }
+
     setFocusedPersonId(personId);
     setExpandedOrder([]);
     const p = peopleMap.get(personId);
@@ -280,10 +298,12 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
   const handleResetToRoot = () => {
     if (rootPerson) {
+      prevPropSelectedPersonIdRef.current = rootPerson.id;
       setFocusedPersonId(rootPerson.id);
       setHistoryTrail([]);
       setTrailSnapshots([]);
       setExpandedOrder([]);
+      onSelectPerson(rootPerson);
       scrollToTop(true);
     }
   };
@@ -304,6 +324,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       const lastSnap = trailSnapshots[trailSnapshots.length - 1];
       setHistoryTrail((prev) => prev.slice(0, prev.length - 1));
       setTrailSnapshots((prev) => prev.slice(0, prev.length - 1));
+      prevPropSelectedPersonIdRef.current = previous;
       setFocusedPersonId(previous);
       setExpandedOrder(lastSnap ? lastSnap.expandedOrder : []);
       const p = peopleMap.get(previous);
@@ -312,16 +333,43 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       return true;
     }
 
-    // 3. Fallback if focused person is not root
+    // 3. Fallback: navigate up one generation to immediate parent if available
+    if (parentIds.length > 0) {
+      const parentId = parentIds[0];
+      const parentPerson = peopleMap.get(parentId);
+      if (parentPerson && parentId !== focusedPersonId) {
+        prevPropSelectedPersonIdRef.current = parentId;
+        setFocusedPersonId(parentId);
+        setExpandedOrder([]);
+        onSelectPerson(parentPerson);
+        scrollToTop(false);
+        return true;
+      }
+    }
+
+    // 4. Fallback if focused person is not root: return to root ancestor
     if (rootPerson && focusedPersonId !== rootPerson.id) {
+      prevPropSelectedPersonIdRef.current = rootPerson.id;
       setFocusedPersonId(rootPerson.id);
       setExpandedOrder([]);
+      onSelectPerson(rootPerson);
       scrollToTop(false);
       return true;
     }
 
     return false;
-  }, [expandedOrder, historyTrail, trailSnapshots, rootPerson, focusedPersonId, getDescendantIds, peopleMap, onSelectPerson, scrollToTop]);
+  }, [
+    expandedOrder,
+    historyTrail,
+    trailSnapshots,
+    parentIds,
+    rootPerson,
+    focusedPersonId,
+    getDescendantIds,
+    peopleMap,
+    onSelectPerson,
+    scrollToTop,
+  ]);
 
   const toggleChildExpansion = (childId: string) => {
     if (expandedOrder.includes(childId)) {
@@ -338,6 +386,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   const canStepBack =
     expandedOrder.length > 0 ||
     historyTrail.length > 0 ||
+    parentIds.length > 0 ||
     Boolean(rootPerson && focusedPersonId && focusedPersonId !== rootPerson.id);
 
   const canStepBackRef = useRef(canStepBack);

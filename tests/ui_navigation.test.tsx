@@ -1553,6 +1553,47 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     const lastCalledPerson = onSelectPerson.mock.calls[onSelectPerson.mock.calls.length - 1][0];
     expect(lastCalledPerson.canonicalName).toBe('ጎብሩ');
   });
+
+  it('28. FamilyExplorer: Renders siblings as non-clickable informational tags to prevent expanding fake sibling branches', async () => {
+    const sibling1: Person = {
+      id: 'pers_p1_tela_sibling',
+      canonicalName: 'እምባየ',
+      branch: 'ጎብሩ',
+      status: 'verified',
+      sourcePage: 1,
+      isArchived: false,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+    const relSibling: Relationship = {
+      id: 'rel_sib_1',
+      fromPersonId: 'pers_p1_gobru',
+      toPersonId: sibling1.id,
+      type: 'parent_child',
+      status: 'verified',
+      sourceFile: '',
+      sourcePage: 1,
+      sourceWording: '',
+      isBiologicalConfirmed: true,
+      createdAt: '2026-10-09T00:00:00.000Z',
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    };
+
+    render(
+      <FamilyExplorer
+        people={[...mockPeople, sibling1]}
+        relationships={[...mockRelationships, relSibling]}
+        selectedPersonId="pers_p1_tela"
+        onSelectPerson={vi.fn()}
+      />
+    );
+
+    // Sibling 'እምባየ' should be displayed as a non-clickable tag
+    const siblingTag = screen.getByText('እምባየ');
+    expect(siblingTag).toBeInTheDocument();
+    expect(siblingTag.tagName.toLowerCase()).not.toBe('button');
+    expect(siblingTag.tagName.toLowerCase()).toBe('span');
+  });
 });
 
 

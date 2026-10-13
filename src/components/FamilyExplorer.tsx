@@ -270,6 +270,35 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     return Array.from(siblings);
   }, [focusedPerson, parentIds, parentToChildrenMap]);
 
+  // Compute true, clean ancestral lineage chain from root ancestor down to focusedPerson
+  const ancestralLineagePath = useMemo((): Person[] => {
+    if (!focusedPerson || !rootPerson) return [];
+    if (focusedPerson.id === rootPerson.id) return [rootPerson];
+
+    const visited = new Set<string>();
+    const findPathToRoot = (currId: string): string[] => {
+      if (currId === rootPerson.id) return [currId];
+      if (visited.has(currId)) return [];
+      visited.add(currId);
+
+      const parents = childToParentsMap.get(currId) || [];
+      for (const parentId of parents) {
+        const parentPath = findPathToRoot(parentId);
+        if (parentPath.length > 0) {
+          return [...parentPath, currId];
+        }
+      }
+      return [];
+    };
+
+    const pathIds = findPathToRoot(focusedPerson.id);
+    if (pathIds.length > 0) {
+      return pathIds.map((id) => peopleMap.get(id)).filter(Boolean) as Person[];
+    }
+
+    return [rootPerson, focusedPerson];
+  }, [focusedPerson, rootPerson, childToParentsMap, peopleMap]);
+
   // Navigation handlers
   const handleFocusPerson = (personId: string) => {
     if (personId === focusedPersonId) {
@@ -426,40 +455,33 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
       {/* Top Controls: Breadcrumb Trail and Action Buttons */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs w-full min-w-0 max-w-full overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          {/* Trail / Breadcrumb */}
+          {/* Authentic Ancestral Lineage Trail (Root down to Focused Person) */}
           <div className="flex items-center gap-2 overflow-x-auto text-sm font-ethiopic py-1 w-full sm:w-auto">
             <span className="text-stone-400 font-semibold shrink-0">መስመር:</span>
-            <button
-              onClick={handleResetToRoot}
-              className={`font-bold hover:underline shrink-0 ${
-                focusedPerson.id === rootPerson?.id ? 'text-amber-800' : 'text-stone-600'
-              }`}
-            >
-              {rootPerson?.canonicalName}
-            </button>
-            {historyTrail.map((pId) => {
-              const p = peopleMap.get(pId);
-              if (!p || p.id === rootPerson?.id) return null;
+            {ancestralLineagePath.map((p, index) => {
+              const isCurrent = index === ancestralLineagePath.length - 1;
+              if (isCurrent) {
+                return (
+                  <React.Fragment key={p.id}>
+                    {index > 0 && <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />}
+                    <span className="font-bold text-amber-900 shrink-0 bg-amber-100/60 px-2.5 py-0.5 rounded-lg">
+                      {p.canonicalName}
+                    </span>
+                  </React.Fragment>
+                );
+              }
               return (
                 <React.Fragment key={p.id}>
-                  <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
+                  {index > 0 && <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />}
                   <button
                     onClick={() => handleFocusPerson(p.id)}
-                    className="hover:underline text-stone-600 shrink-0 font-medium"
+                    className="hover:underline text-stone-600 shrink-0 font-medium cursor-pointer"
                   >
                     {p.canonicalName}
                   </button>
                 </React.Fragment>
               );
             })}
-            {focusedPerson.id !== rootPerson?.id && (
-              <>
-                <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
-                <span className="font-bold text-amber-900 shrink-0 bg-amber-100/60 px-2.5 py-0.5 rounded-lg">
-                  {focusedPerson.canonicalName}
-                </span>
-              </>
-            )}
           </div>
 
           {/* Action Buttons: Reset & Back */}
@@ -624,29 +646,28 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
           </div>
         )}
 
-        {/* Siblings Preview if any */}
+        {/* Siblings Display (Informational badges, non-clickable to prevent fake branch expansion) */}
         {siblingIds.length > 0 && (
           <div className="mt-4 pt-3 border-t border-stone-200/60 font-ethiopic">
             <span className="text-xs text-stone-600 font-bold mr-2">
               ኣሕዋት ({siblingIds.length}):
             </span>
             <div className="inline-flex flex-wrap gap-2 mt-1">
-              {siblingIds.slice(0, 10).map((sibId) => {
+              {siblingIds.slice(0, 15).map((sibId) => {
                 const sibling = peopleMap.get(sibId);
                 if (!sibling) return null;
                 return (
-                  <button
+                  <span
                     key={sibling.id}
-                    onClick={() => handleFocusPerson(sibling.id)}
-                    className="px-3 py-1.5 text-sm rounded-lg bg-white border border-stone-200 hover:bg-stone-100 text-stone-800 font-ethiopic font-semibold transition-colors"
+                    className="px-3 py-1 text-sm rounded-lg bg-stone-100 border border-stone-200 text-stone-800 font-ethiopic font-semibold select-none shadow-2xs"
                   >
                     {sibling.canonicalName}
-                  </button>
+                  </span>
                 );
               })}
-              {siblingIds.length > 10 && (
-                <span className="text-xs text-stone-500 self-center">
-                  +{siblingIds.length - 10} ተወሳኺ
+              {siblingIds.length > 15 && (
+                <span className="text-xs text-stone-500 self-center font-medium">
+                  +{siblingIds.length - 15} ተወሳኺ
                 </span>
               )}
             </div>

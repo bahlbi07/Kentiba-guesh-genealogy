@@ -1866,6 +1866,132 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     fireEvent.click(deleteBtn);
     expect(onDeleteErronous).toHaveBeenCalled();
   });
+
+  it('32. AddPersonGuidedModal: female gender registers person as mother of children and preserves child gender toggles', async () => {
+    const handleSaveBatch = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <AddPersonGuidedModal
+        people={[]}
+        relationships={[]}
+        onClose={vi.fn()}
+        onSaveBatch={handleSaveBatch}
+      />
+    );
+
+    // Enter name
+    const nameInput = screen.getByPlaceholderText('ንኣብነት: ባህልቢ ሃይለ...');
+    fireEvent.change(nameInput, { target: { value: 'ሮዛ ተስፋይ' } });
+
+    // Select female gender (ኣንስተይቲ)
+    const femaleBtn = screen.getByRole('button', { name: /👩 ኣንስተይቲ/ });
+    fireEvent.click(femaleBtn);
+
+    // Verify parentage notification explains mother role
+    expect(screen.getByText(/እዛ ኣባል ከም/)).toBeDefined();
+    expect(screen.getByText(/ኣዶ \(Mother\)/)).toBeDefined();
+
+    // Enter spouse name
+    const spouseInput = screen.getByPlaceholderText('ንኣብነት: ስም መጻምድቲ...');
+    fireEvent.change(spouseInput, { target: { value: 'ሃይለ ገብረሚካኤል' } });
+
+    // Add child
+    const addChildBtn = screen.getByRole('button', { name: /\+ ቆልዓ ወስኽ/ });
+    fireEvent.click(addChildBtn);
+
+    const childInput = screen.getByPlaceholderText('ስም ቆልዓ...');
+    fireEvent.change(childInput, { target: { value: 'ኣበባ ሃይለ' } });
+
+    // Toggle child gender to female (ጓል)
+    const girlBtn = screen.getByRole('button', { name: 'ጓል' });
+    fireEvent.click(girlBtn);
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /ኣረጋግጽን መዝግብን/ });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(handleSaveBatch).toHaveBeenCalledTimes(1);
+    });
+
+    const [savedPeople, savedRels] = handleSaveBatch.mock.calls[0];
+
+    // Main person should be female
+    const mainPers = savedPeople.find((p: Person) => p.canonicalName === 'ሮዛ ተስፋይ');
+    expect(mainPers).toBeDefined();
+    expect(mainPers.gender).toBe('female');
+
+    // Child should have motherName = ሮዛ ተስፋይ, fatherName = ሃይለ ገብረሚካኤል, gender = female
+    const childPers = savedPeople.find((p: Person) => p.canonicalName === 'ኣበባ ሃይለ');
+    expect(childPers).toBeDefined();
+    expect(childPers.motherName).toBe('ሮዛ ተስፋይ');
+    expect(childPers.fatherName).toBe('ሃይለ ገብረሚካኤል');
+    expect(childPers.gender).toBe('female');
+
+    // Spouse should be male
+    const spousePers = savedPeople.find((p: Person) => p.canonicalName === 'ሃይለ ገብረሚካኤል');
+    expect(spousePers).toBeDefined();
+    expect(spousePers.gender).toBe('male');
+  });
+
+  it('33. AddPersonGuidedModal: "መጻምድቲ የብሎምን" option avoids empty spouse card and saves without spouse relationship', async () => {
+    const handleSaveBatch = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <AddPersonGuidedModal
+        people={[]}
+        relationships={[]}
+        onClose={vi.fn()}
+        onSaveBatch={handleSaveBatch}
+      />
+    );
+
+    // Enter name
+    const nameInput = screen.getByPlaceholderText('ንኣብነት: ባህልቢ ሃይለ...');
+    fireEvent.change(nameInput, { target: { value: 'ይስሓቅ ተወልደ' } });
+
+    // Select "መጻምድቲ የብሎምን (ዘይብሎም)"
+    const noSpouseCheckbox = screen.getByLabelText(/መጻምድቲ የብሎምን/);
+    fireEvent.click(noSpouseCheckbox);
+
+    // Empty spouse input box should be gone
+    expect(screen.queryByPlaceholderText('ንኣብነት: ስም መጻምድቲ...')).toBeNull();
+    // Replaced by clean banner
+    expect(screen.getByText(/ነዚ ኣባል ዝተመዝገበ መጻምድቲ የለን/)).toBeDefined();
+
+    // Still allows adding direct children if needed
+    const addChildBtn = screen.getByRole('button', { name: /\+ ቆልዓ ወስኽ/ });
+    fireEvent.click(addChildBtn);
+
+    const childInput = screen.getByPlaceholderText('ስም ቆልዓ...');
+    fireEvent.change(childInput, { target: { value: 'ሳሙኤል ይስሓቅ' } });
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /ኣረጋግጽን መዝግብን/ });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(handleSaveBatch).toHaveBeenCalledTimes(1);
+    });
+
+    const [savedPeople, savedRels] = handleSaveBatch.mock.calls[0];
+
+    // Person saved with no spouseNote
+    const mainPers = savedPeople.find((p: Person) => p.canonicalName === 'ይስሓቅ ተወልደ');
+    expect(mainPers).toBeDefined();
+    expect(mainPers.spouseNote).toBeUndefined();
+
+    // No spouse relationship created
+    const spouseRels = savedRels.filter((r: Relationship) => r.type === 'partner_or_union');
+    expect(spouseRels.length).toBe(0);
+
+    // Child is saved and linked directly to main person with fatherName = ይስሓቅ ተወልደ
+    const childPers = savedPeople.find((p: Person) => p.canonicalName === 'ሳሙኤል ይስሓቅ');
+    expect(childPers).toBeDefined();
+    expect(childPers.fatherName).toBe('ይስሓቅ ተወልደ');
+    expect(childPers.motherName).toBeUndefined();
+    expect(childPers.gender).toBe('male');
+  });
 });
 
 

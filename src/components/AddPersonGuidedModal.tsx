@@ -59,11 +59,13 @@ export interface SpouseEntry {
   id: string;
   spouseName: string;
   spouseWording?: string;
-  children: Array<{ id: string; name: string; notes?: string }>;
+  children: Array<{ id: string; name: string; notes?: string; gender?: 'male' | 'female' }>;
 }
 
 export interface DraftState {
   canonicalName: string;
+  gender: 'male' | 'female';
+  hasNoSpouse?: boolean;
   branch: string;
   customBranch?: string;
   notes: string;
@@ -77,13 +79,15 @@ export interface DraftState {
   spouseName: string;
   spouseWording?: string;
   // Children of this person (combined across spouses for backward compatibility)
-  children: Array<{ id: string; name: string; notes?: string }>;
+  children: Array<{ id: string; name: string; notes?: string; gender?: 'male' | 'female' }>;
   // Cascading hierarchy steps under branch
   cascadeSteps?: CascadeStep[];
 }
 
 const initialDraft: DraftState = {
   canonicalName: '',
+  gender: 'male',
+  hasNoSpouse: false,
   branch: '',
   customBranch: '',
   notes: '',
@@ -381,7 +385,14 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             id: s.id || `sp_${Date.now()}_${idx}`,
             spouseName: cleanCandidateSpouseName(s.spouseName),
             spouseWording: s.spouseWording || '',
-            children: Array.isArray(s.children) ? s.children : [],
+            children: Array.isArray(s.children)
+              ? s.children.map((c: any, cIdx: number) => ({
+                  id: c.id || `c_${Date.now()}_${cIdx}`,
+                  name: c.name || '',
+                  notes: c.notes || '',
+                  gender: c.gender === 'female' ? 'female' : 'male',
+                }))
+              : [],
           }));
         } else {
           parsed.spouses = [
@@ -389,10 +400,19 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               id: 'sp_init_1',
               spouseName: cleanCandidateSpouseName(parsed.spouseName),
               spouseWording: parsed.spouseWording || '',
-              children: Array.isArray(parsed.children) ? parsed.children : [],
+              children: Array.isArray(parsed.children)
+                ? parsed.children.map((c: any, cIdx: number) => ({
+                    id: c.id || `c_${Date.now()}_${cIdx}`,
+                    name: c.name || '',
+                    notes: c.notes || '',
+                    gender: c.gender === 'female' ? 'female' : 'male',
+                  }))
+                : [],
             },
           ];
         }
+        parsed.gender = parsed.gender === 'female' ? 'female' : 'male';
+        parsed.hasNoSpouse = Boolean(parsed.hasNoSpouse);
         parsed.spouseName = parsed.spouses[0]?.spouseName || '';
         parsed.spouseWording = parsed.spouses[0]?.spouseWording || '';
         parsed.children = parsed.spouses.flatMap((s: any) => s.children);
@@ -1006,7 +1026,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           ...s,
           children: [
             ...s.children,
-            { id: `c_${Date.now()}_${s.children.length}`, name: '', notes: '' },
+            { id: `c_${Date.now()}_${s.children.length}`, name: '', notes: '', gender: 'male' as const },
           ],
         };
       });
@@ -1022,12 +1042,13 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
     updateForm((prev) => {
       const nextSpouses = prev.spouses.map((s) => {
         if (s.id !== spouseId) return s;
-        const newRows: Array<{ id: string; name: string; notes?: string }> = Array.from(
+        const newRows: Array<{ id: string; name: string; notes?: string; gender: 'male' | 'female' }> = Array.from(
           { length: count },
           (_, i) => ({
             id: `c_${Date.now()}_${s.children.length + i}`,
             name: '',
             notes: '',
+            gender: 'male' as const,
           })
         );
         return {
@@ -1050,6 +1071,23 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         return {
           ...s,
           children: s.children.map((c) => (c.id === childId ? { ...c, name } : c)),
+        };
+      });
+      return {
+        ...prev,
+        spouses: nextSpouses,
+        children: nextSpouses.flatMap((s) => s.children),
+      };
+    });
+  };
+
+  const handleUpdateSpouseChildGender = (spouseId: string, childId: string, gender: 'male' | 'female') => {
+    updateForm((prev) => {
+      const nextSpouses = prev.spouses.map((s) => {
+        if (s.id !== spouseId) return s;
+        return {
+          ...s,
+          children: s.children.map((c) => (c.id === childId ? { ...c, gender } : c)),
         };
       });
       return {
@@ -1418,22 +1456,25 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
         ? existingChildUnderSameParent.id
         : `pers_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-      const spouseNoteSummary =
-        form.spouses
-          .filter((s) => s.spouseName.trim())
-          .map((s) => s.spouseName.trim())
-          .join('፣ ') || undefined;
+      const spouseNoteSummary = form.hasNoSpouse
+        ? undefined
+        : form.spouses
+            .filter((s) => s.spouseName.trim())
+            .map((s) => s.spouseName.trim())
+            .join('፣ ') || undefined;
 
       const mainPerson: Person = existingChildUnderSameParent
         ? {
             ...existingChildUnderSameParent,
+            gender: form.gender || existingChildUnderSameParent.gender || 'male',
             notes: form.notes?.trim() || existingChildUnderSameParent.notes,
-            spouseNote: spouseNoteSummary || existingChildUnderSameParent.spouseNote,
+            spouseNote: form.hasNoSpouse ? undefined : (spouseNoteSummary || existingChildUnderSameParent.spouseNote),
             updatedAt: now,
           }
         : {
             id: mainPersonId,
             canonicalName: form.canonicalName.trim(),
+            gender: form.gender || 'male',
             branch:
               (form.branch && form.branch !== '__custom__' ? form.branch.trim() : undefined) ||
               (validGenerations.length > 0 ? validGenerations[validGenerations.length - 1].name : undefined),
@@ -1441,7 +1482,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             status: 'verified',
             isArchived: false,
             notes: form.notes?.trim() || undefined,
-            spouseNote: spouseNoteSummary,
+            spouseNote: form.hasNoSpouse ? undefined : spouseNoteSummary,
             createdAt: now,
             updatedAt: now,
           };
@@ -1474,7 +1515,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               status: 'verified',
               sourceFile: 'ከሰተ-ብርሃነ.pdf',
               sourcePage: null,
-              sourceWording: `${form.canonicalName} ወዲ/ጓል ${immediateParentName}`,
+              sourceWording: `${form.canonicalName} ${form.gender === 'female' ? 'ጓል' : 'ወዲ'} ${immediateParentName}`,
               isBiologicalConfirmed: true,
               createdAt: now,
               updatedAt: now,
@@ -1486,13 +1527,14 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
       // 3. Save Main Person's Multiple Spouses and their respective Children
       const existingMainChildren = getChildrenForPerson(mainPersonId);
+      const isFemaleParent = form.gender === 'female';
 
       for (let sIdx = 0; sIdx < form.spouses.length; sIdx++) {
         const spouseEntry = form.spouses[sIdx];
-        const trimmedSpouse = spouseEntry.spouseName?.trim();
+        const trimmedSpouse = !form.hasNoSpouse ? spouseEntry.spouseName?.trim() : '';
         let spouseId: string | null = null;
 
-        if (trimmedSpouse) {
+        if (trimmedSpouse && !form.hasNoSpouse) {
           // Reuse spouse ONLY if already linked to this specific mainPersonId
           let existingSpouseForMain: Person | undefined;
           for (const r of relationships) {
@@ -1519,6 +1561,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
             const spousePerson: Person = {
               id: spouseId,
               canonicalName: trimmedSpouse,
+              gender: isFemaleParent ? 'male' : 'female',
               branch: form.branch && form.branch !== '__custom__' ? form.branch : undefined,
               status: 'verified',
               isArchived: false,
@@ -1578,14 +1621,24 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           let childId: string;
           if (existingChild) {
             childId = existingChild.id;
+            if (child.gender && (!existingChild.gender || existingChild.gender !== child.gender)) {
+              await persistPerson({
+                ...existingChild,
+                gender: child.gender,
+                fatherName: existingChild.fatherName || (isFemaleParent ? (trimmedSpouse || undefined) : form.canonicalName.trim()),
+                motherName: existingChild.motherName || (isFemaleParent ? form.canonicalName.trim() : (trimmedSpouse || undefined)),
+                updatedAt: now,
+              });
+            }
           } else {
             childId = `pers_${Date.now()}_c_${sIdx}_${cIdx}_${Math.random().toString(36).substring(2, 7)}`;
             const childPerson: Person = {
               id: childId,
               canonicalName: trimmedChildName,
+              gender: child.gender || 'male',
               branch: form.branch && form.branch !== '__custom__' ? form.branch : undefined,
-              fatherName: form.canonicalName.trim(),
-              motherName: trimmedSpouse || undefined,
+              fatherName: isFemaleParent ? (trimmedSpouse || undefined) : form.canonicalName.trim(),
+              motherName: isFemaleParent ? form.canonicalName.trim() : (trimmedSpouse || undefined),
               status: 'verified',
               isArchived: false,
               notes: child.notes?.trim() || undefined,
@@ -1619,7 +1672,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               status: 'verified',
               sourceFile: 'ከሰተ-ብርሃነ.pdf',
               sourcePage: null,
-              sourceWording: `${trimmedChildName} ወዲ/ጓል ${form.canonicalName.trim()}`,
+              sourceWording: `${trimmedChildName} ${child.gender === 'female' ? 'ጓል' : 'ወዲ'} ${form.canonicalName.trim()}`,
               isBiologicalConfirmed: true,
               createdAt: now,
               updatedAt: now,
@@ -1645,14 +1698,14 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
             if (!alreadySpouseChildLinked) {
               const spouseChildRel: Relationship = {
-                id: `rel_${Date.now()}_sp_c_${childId}`,
+                id: `rel_${Date.now()}_c_sp_${sIdx}_${cIdx}_${childId}`,
                 fromPersonId: spouseId,
                 toPersonId: childId,
                 type: 'parent_child',
                 status: 'verified',
                 sourceFile: 'ከሰተ-ብርሃነ.pdf',
                 sourcePage: null,
-                sourceWording: `${trimmedChildName} ወዲ/ጓል ${trimmedSpouse}`,
+                sourceWording: `${trimmedChildName} ${child.gender === 'female' ? 'ጓል' : 'ወዲ'} ${trimmedSpouse}`,
                 isBiologicalConfirmed: true,
                 createdAt: now,
                 updatedAt: now,
@@ -1662,6 +1715,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
           }
         }
       }
+    
 
       // 5. Fast Atomic Batch Commit or Complete Callback
       if (onSaveBatch) {
@@ -1766,7 +1820,7 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
               <span>1. ውልቃዊ ሓበሬታ</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-stone-800 mb-1">
                   ምሉእ ስም (ብትግርኛ) *
@@ -1779,6 +1833,36 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                   onChange={(e) => handleCanonicalNameChange(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 text-sm focus:ring-2 focus:ring-amber-500 font-ethiopic"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-800 mb-1">
+                  ፆታ *
+                </label>
+                <div className="flex items-center gap-1.5 h-[42px]">
+                  <button
+                    type="button"
+                    onClick={() => updateForm((prev) => ({ ...prev, gender: 'male' }))}
+                    className={`flex-1 h-full rounded-xl border flex items-center justify-center gap-1.5 font-bold text-xs transition-all cursor-pointer ${
+                      form.gender === 'male'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                        : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                    }`}
+                  >
+                    <span>👨 ተባዕታይ</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateForm((prev) => ({ ...prev, gender: 'female' }))}
+                    className={`flex-1 h-full rounded-xl border flex items-center justify-center gap-1.5 font-bold text-xs transition-all cursor-pointer ${
+                      form.gender === 'female'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                        : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                    }`}
+                  >
+                    <span>👩 ኣንስተይቲ</span>
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -1834,6 +1918,16 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Explanatory note for gender parentage role */}
+            <div className="text-[11px] text-stone-600 bg-stone-100/70 px-3 py-1.5 rounded-lg border border-stone-200 flex items-center gap-1.5">
+              <span className="font-bold text-stone-800">ምልክታ ፆታ፦</span>
+              {form.gender === 'female' ? (
+                <span>ፆታ <strong>ኣንስተይቲ</strong> ስለዝተመርጸ፡ ኣብ ትሕቲኣ ንዝምዝገቡ ውሉዳት እዛ ኣባል ከም <strong>ኣዶ (Mother)</strong> ኮይና ትስፈር።</span>
+              ) : (
+                <span>ፆታ <strong>ተባዕታይ</strong> ስለዝተመርጸ፡ ኣብ ትሕቲኡ ንዝምዝገቡ ውሉዳት እዚ ኣባል ከም <strong>ኣቦ (Father)</strong> ኮይኑ ይስፈር።</span>
+              )}
             </div>
 
             {/* REQUIREMENT 1: Cascading Branch Descendants Hierarchy Navigation */}
@@ -2250,192 +2344,371 @@ export const AddPersonGuidedModal: React.FC<AddPersonGuidedModalProps> = ({
 
           {/* SECTION 3: መጻምድትን ውሉዳትን */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-stone-200">
               <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
                 <Heart className="w-4 h-4 text-rose-500" />
                 <span>
-                  3. መጻምድትን ውሉዳትን ({form.spouses.length} መጻምድቲ{form.children.length > 0 ? `፡ ${form.children.length} ውሉዳት` : ''})
+                  3. መጻምድትን ውሉዳትን {form.hasNoSpouse ? '(መጻምድቲ የብሎምን)' : `(${form.spouses.length} መጻምድቲ${form.children.length > 0 ? `፡ ${form.children.length} ውሉዳት` : ''})`}
                 </span>
               </h3>
-              <button
-                type="button"
-                onClick={handleAddSpouse}
-                disabled={form.spouses.length >= 3}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
-                  form.spouses.length >= 3
-                    ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
-                    : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 cursor-pointer'
-                }`}
-                title={form.spouses.length >= 3 ? 'ዝለዓለ ብዝሒ መጻምድቲ 3 እዩ' : undefined}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ መጻምድቲ ወስኽ {form.spouses.length >= 3 ? '(ዝለዓለ 3)' : ''}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Requirement 3: Option for no spouse to keep box from remaining empty */}
+                <label
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all select-none shadow-2xs ${
+                    form.hasNoSpouse
+                      ? 'bg-amber-100/90 border-amber-400 text-amber-950 ring-1 ring-amber-400'
+                      : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.hasNoSpouse)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      updateForm((prev) => ({
+                        ...prev,
+                        hasNoSpouse: checked,
+                        spouses: checked
+                          ? [
+                              {
+                                id: prev.spouses[0]?.id || `sp_${Date.now()}`,
+                                spouseName: '',
+                                spouseWording: '',
+                                children: prev.spouses.flatMap((s) => s.children),
+                              },
+                            ]
+                          : prev.spouses,
+                        spouseName: '',
+                        spouseWording: '',
+                      }));
+                    }}
+                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                  />
+                  <span>መጻምድቲ የብሎምን (ዘይብሎም)</span>
+                </label>
+
+                {!form.hasNoSpouse && (
+                  <button
+                    type="button"
+                    onClick={handleAddSpouse}
+                    disabled={form.spouses.length >= 3}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                      form.spouses.length >= 3
+                        ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                        : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 cursor-pointer'
+                    }`}
+                    title={form.spouses.length >= 3 ? 'ዝለዓለ ብዝሒ መጻምድቲ 3 እዩ' : undefined}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ መጻምድቲ ወስኽ {form.spouses.length >= 3 ? '(ዝለዓለ 3)' : ''}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4">
-              {form.spouses.map((spouse, sIdx) => {
-                const spouseChildrenCount = spouse.children.length;
-                return (
-                  <div
-                    key={spouse.id}
-                    className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3.5 relative transition-all"
-                  >
-                    <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-900 font-bold text-[11px] flex items-center justify-center shrink-0">
-                          {sIdx + 1}
-                        </span>
-                        <span className="font-bold text-stone-800 text-xs">
-                          {sIdx === 0 ? 'ቀዳማይ መጻምድቲ' : `መጻምድቲ ${sIdx + 1}`}
-                          {spouse.spouseName ? ` (${spouse.spouseName})` : ''}
+              {form.hasNoSpouse ? (
+                /* Requirement 3: When no spouse is chosen, avoid empty spouse card */
+                <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/90 space-y-3.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-200">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-600"></span>
+                      <span className="font-bold text-amber-950 text-xs">
+                        ነዚ ኣባል ዝተመዝገበ መጻምድቲ የለን (መጻምድቲ የብሎምን / ዘይተመርዓዉ)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateForm((prev) => ({ ...prev, hasNoSpouse: false }))}
+                      className="text-[11px] text-amber-800 hover:text-amber-950 font-bold underline cursor-pointer"
+                    >
+                      መጻምድቲ ኣለዎም (ቀይር)
+                    </button>
+                  </div>
+
+                  {/* Dedicated Children Section without spouse */}
+                  <div className="p-3 bg-white rounded-xl border border-amber-200/90 shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-amber-100">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                        <GitFork className="w-3.5 h-3.5 rotate-180 text-amber-700" />
+                        <span>
+                          ውሉዳት ({form.spouses[0]?.children.length || 0})
                         </span>
                       </div>
-                      {form.spouses.length > 1 && (
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleRemoveSpouse(spouse.id)}
-                          className="text-[11px] text-stone-400 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
-                          title="እዚ መጻምድቲ ኣልግስ"
+                          onClick={() => handleAddChildToSpouse(form.spouses[0]?.id || 'sp_1')}
+                          className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>ኣልግስ</span>
+                          <Plus className="w-3 h-3" />
+                          <span>+ ቆልዓ ወስኽ</span>
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => handleAddMultipleChildrenToSpouse(form.spouses[0]?.id || 'sp_1', 4)}
+                          className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                          title="4 መስመራት ውሉዳት ብሓባር ወስኽ"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>+ 4 ውሉዳት</span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                          ስም መጻምድቲ
-                        </label>
-                        {(() => {
-                          const recorded = getSpouseForPerson(form.lineageChain[0]?.existingPersonId || undefined, form.canonicalName);
-                          if (!recorded?.spouseName) return null;
-                          if (spouse.spouseName?.trim().toLowerCase() === recorded.spouseName.trim().toLowerCase()) return null;
-                          return (
-                            <SpouseSelectionGuide
-                              existingSpouseName={recorded.spouseName}
-                              spouseId={recorded.spouseId}
-                              relationshipId={recorded.relationshipId}
-                              currentValue={spouse.spouseName}
-                              onUseExisting={(name) => handleUpdateSpouse(spouse.id, { spouseName: name })}
-                              onKeepAndAddSecondSpouse={form.spouses.length < 3 ? () => {
-                                handleUpdateSpouse(spouse.id, { spouseName: recorded.spouseName });
-                                handleAddSpouse();
-                              } : undefined}
-                              canAddSecondSpouse={form.spouses.length < 3}
-                              onDeleteErronousSpouse={async () => {
-                                if (window.confirm(`ብሓቂ ን “${recorded.spouseName}” ካብ መጻምድቲ ክትድምስሶ ትደሊ ዲኻ?`)) {
-                                  if (recorded.relationshipId && onDeleteRelationship) {
-                                    await onDeleteRelationship(recorded.relationshipId);
-                                  }
-                                  if (recorded.spouseId && onDeletePerson) {
-                                    const remainingRels = relationships.filter(
-                                      (r) =>
-                                        r.id !== recorded.relationshipId &&
-                                        (r.fromPersonId === recorded.spouseId || r.toPersonId === recorded.spouseId)
-                                    );
-                                    if (remainingRels.length === 0) {
-                                      await onDeletePerson(recorded.spouseId);
-                                    }
-                                  }
-                                  handleUpdateSpouse(spouse.id, { spouseName: '' });
-                                }
-                              }}
+                    {(!form.spouses[0]?.children || form.spouses[0].children.length === 0) ? (
+                      <p className="text-[11px] text-stone-500 italic py-1">
+                        ውሉዳት እንተሃልዮም፡ «+ ቆልዓ ወስኽ» ብምትንካፍ ኣእትዉ።
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {form.spouses[0].children.map((child, cIdx) => (
+                          <div
+                            key={child.id}
+                            className="flex items-center gap-2 p-2 rounded-lg bg-amber-50/40 border border-amber-200/70"
+                          >
+                            <span className="w-5 h-5 rounded-md bg-amber-200 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
+                              {cIdx + 1}
+                            </span>
+                            <input
+                              type="text"
+                              placeholder="ስም ቆልዓ..."
+                              value={child.name}
+                              onChange={(e) => handleUpdateSpouseChild(form.spouses[0].id, child.id, e.target.value)}
+                              className="flex-1 px-2.5 py-1 rounded-md border border-stone-300 bg-white text-xs font-ethiopic"
                             />
-                          );
-                        })()}
-                        <input
-                          type="text"
-                          placeholder="ንኣብነት: ስም መጻምድቲ..."
-                          value={spouse.spouseName}
-                          onChange={(e) => handleUpdateSpouse(spouse.id, { spouseName: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                          መግለፂ ሓዳር / ዝምድና
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="ንኣብነት: ዝተመርዓዉ፡ ዝወለድዎም..."
-                          value={spouse.spouseWording || ''}
-                          onChange={(e) => handleUpdateSpouse(spouse.id, { spouseWording: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Dedicated Children Section for this specific Spouse */}
-                    <div className="p-3 bg-white rounded-xl border border-amber-200/90 shadow-2xs space-y-2.5">
-                      <div className="flex items-center justify-between pb-1.5 border-b border-amber-100">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
-                          <GitFork className="w-3.5 h-3.5 rotate-180 text-amber-700" />
-                          <span>
-                            ውሉዳት {spouse.spouseName ? `(ምስ ${spouse.spouseName})` : ''} ({spouseChildrenCount})
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleAddChildToSpouse(spouse.id)}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>+ ቆልዓ ወስኽ</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAddMultipleChildrenToSpouse(spouse.id, 4)}
-                            className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                            title="4 መስመራት ውሉዳት ብሓባር ወስኽ"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>+ 4 ውሉዳት</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {spouse.children.length === 0 ? (
-                        <p className="text-[11px] text-stone-500 italic py-1">
-                          ውሉዳት {spouse.spouseName ? `ምስ ${spouse.spouseName}` : 'ናይዚ መጻምድቲ'} እንተሃልዮም፡ «+ ቆልዓ ወስኽ» ብምትንካፍ ኣእትዉ።
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {spouse.children.map((child, cIdx) => (
-                            <div
-                              key={child.id}
-                              className="flex items-center gap-2 p-2 rounded-lg bg-amber-50/40 border border-amber-200/70"
-                            >
-                              <span className="w-5 h-5 rounded-md bg-amber-200 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
-                                {cIdx + 1}
-                              </span>
-                              <input
-                                type="text"
-                                placeholder="ስም ቆልዓ..."
-                                value={child.name}
-                                onChange={(e) => handleUpdateSpouseChild(spouse.id, child.id, e.target.value)}
-                                className="flex-1 px-2.5 py-1 rounded-md border border-stone-300 bg-white text-xs font-ethiopic"
-                              />
+                            {/* Requirement 2: Child gender toggle */}
+                            <div className="flex items-center gap-1 shrink-0 bg-stone-100 p-0.5 rounded-lg border border-stone-200">
                               <button
                                 type="button"
-                                onClick={() => handleRemoveSpouseChild(spouse.id, child.id)}
-                                className="p-1 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
-                                title="ደምስስ"
+                                onClick={() => handleUpdateSpouseChildGender(form.spouses[0].id, child.id, 'male')}
+                                className={`px-2 py-1 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                                  (child.gender || 'male') === 'male'
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'text-stone-600 hover:text-stone-900'
+                                }`}
+                                title="ተባዕታይ (ወዲ)"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                ወዲ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateSpouseChildGender(form.spouses[0].id, child.id, 'female')}
+                                className={`px-2 py-1 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                                  child.gender === 'female'
+                                    ? 'bg-rose-600 text-white shadow-2xs'
+                                    : 'text-stone-600 hover:text-stone-900'
+                                }`}
+                                title="ኣንስተይቲ (ጓል)"
+                              >
+                                ጓል
                               </button>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSpouseChild(form.spouses[0].id, child.id)}
+                              className="p-1 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
+                              title="ደምስስ"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              ) : (
+                form.spouses.map((spouse, sIdx) => {
+                  const spouseChildrenCount = spouse.children.length;
+                  return (
+                    <div
+                      key={spouse.id}
+                      className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3.5 relative transition-all"
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-900 font-bold text-[11px] flex items-center justify-center shrink-0">
+                            {sIdx + 1}
+                          </span>
+                          <span className="font-bold text-stone-800 text-xs">
+                            {sIdx === 0 ? 'ቀዳማይ መጻምድቲ' : `መጻምድቲ ${sIdx + 1}`}
+                            {spouse.spouseName ? ` (${spouse.spouseName})` : ''}
+                          </span>
+                        </div>
+                        {form.spouses.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSpouse(spouse.id)}
+                            className="text-[11px] text-stone-400 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
+                            title="እዚ መጻምድቲ ኣልግስ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>ኣልግስ</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                            ስም መጻምድቲ
+                          </label>
+                          {(() => {
+                            const recorded = getSpouseForPerson(form.lineageChain[0]?.existingPersonId || undefined, form.canonicalName);
+                            if (!recorded?.spouseName) return null;
+                            if (spouse.spouseName?.trim().toLowerCase() === recorded.spouseName.trim().toLowerCase()) return null;
+                            return (
+                              <SpouseSelectionGuide
+                                existingSpouseName={recorded.spouseName}
+                                spouseId={recorded.spouseId}
+                                relationshipId={recorded.relationshipId}
+                                currentValue={spouse.spouseName}
+                                onUseExisting={(name) => handleUpdateSpouse(spouse.id, { spouseName: name })}
+                                onKeepAndAddSecondSpouse={form.spouses.length < 3 ? () => {
+                                  handleUpdateSpouse(spouse.id, { spouseName: recorded.spouseName });
+                                  handleAddSpouse();
+                                } : undefined}
+                                canAddSecondSpouse={form.spouses.length < 3}
+                                onDeleteErronousSpouse={async () => {
+                                  if (window.confirm(`ብሓቂ ን “${recorded.spouseName}” ካብ መጻምድቲ ክትድምስሶ ትደሊ ዲኻ?`)) {
+                                    if (recorded.relationshipId && onDeleteRelationship) {
+                                      await onDeleteRelationship(recorded.relationshipId);
+                                    }
+                                    if (recorded.spouseId && onDeletePerson) {
+                                      const remainingRels = relationships.filter(
+                                        (r) =>
+                                          r.id !== recorded.relationshipId &&
+                                          (r.fromPersonId === recorded.spouseId || r.toPersonId === recorded.spouseId)
+                                      );
+                                      if (remainingRels.length === 0) {
+                                        await onDeletePerson(recorded.spouseId);
+                                      }
+                                    }
+                                    handleUpdateSpouse(spouse.id, { spouseName: '' });
+                                  }
+                                }}
+                              />
+                            );
+                          })()}
+                          <input
+                            type="text"
+                            placeholder="ንኣብነት: ስም መጻምድቲ..."
+                            value={spouse.spouseName}
+                            onChange={(e) => handleUpdateSpouse(spouse.id, { spouseName: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                            መግለፂ ሓዳር / ዝምድና
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="ንኣብነት: ዝተመርዓዉ፡ ዝወለድዎም..."
+                            value={spouse.spouseWording || ''}
+                            onChange={(e) => handleUpdateSpouse(spouse.id, { spouseWording: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-ethiopic"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Dedicated Children Section for this specific Spouse */}
+                      <div className="p-3 bg-white rounded-xl border border-amber-200/90 shadow-2xs space-y-2.5">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-amber-100">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                            <GitFork className="w-3.5 h-3.5 rotate-180 text-amber-700" />
+                            <span>
+                              ውሉዳት {spouse.spouseName ? `(ምስ ${spouse.spouseName})` : ''} ({spouseChildrenCount})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleAddChildToSpouse(spouse.id)}
+                              className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>+ ቆልዓ ወስኽ</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddMultipleChildrenToSpouse(spouse.id, 4)}
+                              className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                              title="4 መስመራት ውሉዳት ብሓባር ወስኽ"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>+ 4 ውሉዳት</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {spouse.children.length === 0 ? (
+                          <p className="text-[11px] text-stone-500 italic py-1">
+                            ውሉዳት {spouse.spouseName ? `ምስ ${spouse.spouseName}` : 'ናይዚ መጻምድቲ'} እንተሃልዮም፡ «+ ቆልዓ ወስኽ» ብምትንካፍ ኣእትዉ።
+                          </p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {spouse.children.map((child, cIdx) => (
+                              <div
+                                key={child.id}
+                                className="flex items-center gap-2 p-2 rounded-lg bg-amber-50/40 border border-amber-200/70"
+                              >
+                                <span className="w-5 h-5 rounded-md bg-amber-200 text-amber-900 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                  {cIdx + 1}
+                                </span>
+                                <input
+                                  type="text"
+                                  placeholder="ስም ቆልዓ..."
+                                  value={child.name}
+                                  onChange={(e) => handleUpdateSpouseChild(spouse.id, child.id, e.target.value)}
+                                  className="flex-1 px-2.5 py-1 rounded-md border border-stone-300 bg-white text-xs font-ethiopic"
+                                />
+                                {/* Requirement 2: Child gender toggle */}
+                                <div className="flex items-center gap-1 shrink-0 bg-stone-100 p-0.5 rounded-lg border border-stone-200">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateSpouseChildGender(spouse.id, child.id, 'male')}
+                                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                                      (child.gender || 'male') === 'male'
+                                        ? 'bg-blue-600 text-white shadow-2xs'
+                                        : 'text-stone-600 hover:text-stone-900'
+                                    }`}
+                                    title="ተባዕታይ (ወዲ)"
+                                  >
+                                    ወዲ
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateSpouseChildGender(spouse.id, child.id, 'female')}
+                                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                                      child.gender === 'female'
+                                        ? 'bg-rose-600 text-white shadow-2xs'
+                                        : 'text-stone-600 hover:text-stone-900'
+                                    }`}
+                                    title="ኣንስተይቲ (ጓል)"
+                                  >
+                                    ጓል
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSpouseChild(spouse.id, child.id)}
+                                  className="p-1 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
+                                  title="ደምስስ"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 

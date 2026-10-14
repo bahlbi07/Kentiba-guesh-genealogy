@@ -1066,11 +1066,11 @@ export const App: React.FC = () => {
                   const granted = await requestNotificationPermission();
                   setHasNotificationPermission(granted);
                 }}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 cursor-pointer transition-colors"
-                title="ሓድሽ ሓበሬታ ምስ ዝኣቱ ኖቲፊኬሽን ንኽበጽሓኩም ፍቐዱ"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full border border-amber-300 cursor-pointer transition-colors shadow-2xs active:scale-95"
+                title="ሓድሽ ወለዶ ምስ ዝኣቱ መልእኽቲ ንኽበጽሓኩም እዚ ተንክፉ"
               >
-                <Bell className="w-3 h-3 text-amber-700" />
-                <span>ኖቲፊኬሽን ኣግብር</span>
+                <Bell className="w-3.5 h-3.5 text-amber-700" />
+                <span>ሓድሽ መልእኽቲ ንኽመጸኩም እዚ ተንክፉ</span>
               </button>
             )}
             {isSyncing && (

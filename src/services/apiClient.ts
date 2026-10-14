@@ -27,14 +27,34 @@ export interface CloudOverlayState {
   updatedAt: string;
 }
 
-interface CloudDeltaMessage {
+export interface CloudDeltaNotification {
+  branch?: string;
+  names?: string[];
+  message: string;
+}
+
+export interface CloudDeltaMessage {
   v: 2;
   people?: Person[];
   relationships?: Relationship[];
   deletedPersonIds?: string[];
   deletedRelationshipIds?: string[];
+  senderId?: string;
+  notification?: CloudDeltaNotification;
   ts: string;
 }
+
+export const CLIENT_SESSION_ID =
+  typeof sessionStorage !== 'undefined'
+    ? (sessionStorage.getItem('kinteba_client_session_id') ||
+        (() => {
+          const id = `cli_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          try {
+            sessionStorage.setItem('kinteba_client_session_id', id);
+          } catch {}
+          return id;
+        })())
+    : `cli_${Date.now()}`;
 
 const OVERLAY_STORAGE_KEY = 'kinteba_cloud_overlay_cache_v2';
 
@@ -342,6 +362,19 @@ async function publishDeltaToNtfy(delta: CloudDeltaMessage): Promise<boolean> {
     const deletedPersonIds = delta.deletedPersonIds || [];
     const deletedRelationshipIds = delta.deletedRelationshipIds || [];
 
+    // Ensure notification and senderId are attached
+    if (!delta.notification && people.length > 0) {
+      const branchName = people.find((p) => p.branch && p.branch !== '__custom__')?.branch;
+      delta.notification = {
+        branch: branchName,
+        names: people.map((p) => p.canonicalName).filter(Boolean),
+        message: branchName ? `ጨንፈር ${branchName} ሓድሽ ወለዶ ኣትዩ ኣሎ` : 'ሓድሽ ወለዶ ኣትዩ ኣሎ',
+      };
+    }
+    if (!delta.senderId) {
+      delta.senderId = CLIENT_SESSION_ID;
+    }
+
     // Chunk payloads so each POST stays well below ntfy's 4096-byte message limit
     const chunks: CloudDeltaMessage[] = [];
     const maxItemsPerChunk = 3;
@@ -357,6 +390,8 @@ async function publishDeltaToNtfy(delta: CloudDeltaMessage): Promise<boolean> {
         chunks.push({
           v: 2,
           people: people.slice(i, i + maxItemsPerChunk),
+          notification: i === 0 ? delta.notification : undefined,
+          senderId: delta.senderId,
           ts: delta.ts,
         });
       }
@@ -364,6 +399,7 @@ async function publishDeltaToNtfy(delta: CloudDeltaMessage): Promise<boolean> {
         chunks.push({
           v: 2,
           relationships: relationships.slice(i, i + maxItemsPerChunk),
+          senderId: delta.senderId,
           ts: delta.ts,
         });
       }
@@ -372,6 +408,7 @@ async function publishDeltaToNtfy(delta: CloudDeltaMessage): Promise<boolean> {
           v: 2,
           deletedPersonIds,
           deletedRelationshipIds,
+          senderId: delta.senderId,
           ts: delta.ts,
         });
       }
@@ -381,10 +418,17 @@ async function publishDeltaToNtfy(delta: CloudDeltaMessage): Promise<boolean> {
     for (const chunk of chunks) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const headers: Record<string, string> = {
+        'Content-Type': 'text/plain;charset=utf-8',
+      };
+      if (chunk.notification?.message) {
+        headers['X-Title'] = 'መዝገብ ወለዶ ከንቲባ ጉዕሽ';
+        headers['X-Tags'] = 'family,sparkles';
+      }
       const res = await fetch(CLOUD_NTFY_URL, {
         method: 'POST',
         signal: controller.signal,
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        headers,
         body: JSON.stringify(chunk),
       });
       clearTimeout(timeoutId);
@@ -397,56 +441,138 @@ async function publishDeltaToNtfy(delta: CloudDeltaMessage): Promise<boolean> {
 }
 
 /**
- * Subscribe to real-time SSE updates from ntfy.sh so all open phones update within < 0.5s
- * whenever an Admin adds, edits, or deletes a member, using zero Vercel credits.
+ * Subscribe to real-time SSE updates and fast background polling from ntfy.sh
+ * so all open phones update instantly (< 0.5s via SSE, < 4s via fallback fast poll)
+ * like a Telegram group whenever an Admin adds or edits a member.
  */
-export function subscribeToLiveCloudUpdates(onSyncNeeded: () => void): () => void {
-  if (isTestEnv() || typeof window === 'undefined' || typeof EventSource === 'undefined') {
+export function subscribeToLiveCloudUpdates(
+  onDeltaReceived: (delta: CloudDeltaMessage) => void
+): () => void {
+  if (isTestEnv() || typeof window === 'undefined') {
     return () => {};
   }
 
+  const processedMsgIds = new Set<string>();
   let es: EventSource | null = null;
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let isClosed = false;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
 
-  try {
-    es = new EventSource(`${CLOUD_NTFY_URL}/sse`);
-    es.onmessage = (event) => {
-      try {
-        if (!event.data) return;
-        // Parse the SSE envelope directly (which escapes inner JSON quotes)
-        const envelope = JSON.parse(event.data);
-        if (envelope && envelope.event === 'message') {
-          if (typeof envelope.message === 'string') {
-            try {
-              const delta = JSON.parse(envelope.message) as CloudDeltaMessage;
-              if (delta && delta.v === 2) {
-                applyDeltaToOverlay(memoryOverlay, delta);
-              }
-            } catch {
-              // Ignore payload parse error
+  const processRawMessage = (rawText: string, msgId?: string) => {
+    try {
+      if (msgId && processedMsgIds.has(msgId)) return;
+      if (msgId) processedMsgIds.add(msgId);
+
+      const delta = JSON.parse(rawText) as CloudDeltaMessage;
+      if (delta && delta.v === 2) {
+        const deltaKey = `${delta.ts}_${delta.senderId || ''}_${(delta.people || []).map((p) => p.id).join('_')}`;
+        if (processedMsgIds.has(deltaKey)) return;
+        processedMsgIds.add(deltaKey);
+
+        applyDeltaToOverlay(memoryOverlay, delta);
+        onDeltaReceived(delta);
+      }
+    } catch {
+      // Ignore non-JSON payload
+    }
+  };
+
+  const connectSSE = () => {
+    if (isClosed || typeof EventSource === 'undefined') return;
+    try {
+      if (es) {
+        try {
+          es.close();
+        } catch {
+          // Ignore
+        }
+      }
+      es = new EventSource(`${CLOUD_NTFY_URL}/sse`);
+      es.onmessage = (event) => {
+        try {
+          if (!event.data) return;
+          const envelope = JSON.parse(event.data);
+          if (envelope && envelope.event === 'message') {
+            if (typeof envelope.message === 'string') {
+              processRawMessage(envelope.message, envelope.id);
             }
           }
-          if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => {
-            onSyncNeeded();
-          }, 250);
+        } catch {
+          // Ignore keepalive
         }
-      } catch {
-        // Ignore non-JSON keepalive
+      };
+
+      es.onerror = () => {
+        if (es) {
+          try {
+            es.close();
+          } catch {
+            // Ignore
+          }
+          es = null;
+        }
+        if (!isClosed && !reconnectTimer) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            connectSSE();
+          }, 3000);
+        }
+      };
+    } catch {
+      // Fallback to fast poll
+    }
+  };
+
+  connectSSE();
+
+  // Fast periodic poll fallback (every 4 seconds) to guarantee real-time delivery even if mobile carrier drops SSE
+  const runFastPoll = async () => {
+    if (isClosed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
+      return;
+    }
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`${CLOUD_NTFY_URL}/json?poll=1&since=20s`, {
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) return;
+      const text = await res.text();
+      if (!text.trim()) return;
+
+      const lines = text.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const envelope = JSON.parse(trimmed);
+          if (envelope && envelope.event === 'message' && typeof envelope.message === 'string') {
+            processRawMessage(envelope.message, envelope.id);
+          }
+        } catch {
+          // Ignore
+        }
       }
-    };
-  } catch {
-    // Fallback to periodic sync
-  }
+    } catch {
+      // Offline fallback
+    }
+  };
+
+  pollInterval = setInterval(runFastPoll, 4000);
 
   return () => {
-    if (debounceTimer) clearTimeout(debounceTimer);
+    isClosed = true;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (pollInterval) clearInterval(pollInterval);
     if (es) {
       try {
         es.close();
       } catch {
-        // Ignore close error
+        // Ignore
       }
+      es = null;
     }
   };
 }
@@ -668,6 +794,7 @@ export async function apiSaveBatch(
   })();
 
   const serverlessPromise = (async () => {
+    if (isTestEnv()) return true;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
@@ -714,6 +841,7 @@ export async function apiDeletePerson(
   token?: string
 ): Promise<{ success: boolean; error?: string }> {
   const res = await apiSaveBatch([], [], token, [personId], []);
+  if (isTestEnv()) return { success: res.success };
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -739,6 +867,7 @@ export async function apiDeleteRelationship(
   token?: string
 ): Promise<{ success: boolean; error?: string }> {
   const res = await apiSaveBatch([], [], token, [], [relId]);
+  if (isTestEnv()) return { success: res.success };
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);

@@ -31,7 +31,14 @@ import {
   apiDeleteRelationship,
   apiUnmarkDeletedPerson,
   subscribeToLiveCloudUpdates,
+  CLIENT_SESSION_ID,
 } from './services/apiClient';
+import {
+  playNotificationChime,
+  showBrowserNotification,
+  requestNotificationPermission,
+  isNotificationPermissionGranted,
+} from './services/notificationService';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS, INITIAL_OCCURRENCES } from './data/initialGenealogyData';
 import { deduplicateFamilyRecords } from './services/deduplicator';
 import { syncNewBatchToGoogleSheets } from './services/googleSheetsService';
@@ -46,7 +53,7 @@ import { PersonDetailModal } from './components/PersonDetailModal';
 import { AddPersonGuidedModal } from './components/AddPersonGuidedModal';
 import { GenealogyPdfExportModal } from './components/GenealogyPdfExportModal';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
-import { RotateCw } from 'lucide-react';
+import { RotateCw, Bell, X } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
@@ -91,6 +98,16 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncBadge, setLastSyncBadge] = useState<string | null>(null);
+  const [liveToast, setLiveToast] = useState<{
+    id: string;
+    message: string;
+    branch?: string;
+    personName?: string;
+    personId?: string;
+  } | null>(null);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
+    return isNotificationPermissionGranted();
+  });
 
   // Modals and selection state: immediately select root ancestor
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(() => {
@@ -475,9 +492,74 @@ export const App: React.FC = () => {
   useEffect(() => {
     reloadData();
 
-    // Subscribe to real-time SSE cloud updates so all open phones immediately sync when an Admin makes a change
-    const unsubscribeLive = subscribeToLiveCloudUpdates(() => {
-      syncWithServerInBackground();
+    // Subscribe to real-time SSE + fast delta cloud updates so all open phones update instantly without clicking refresh
+    const unsubscribeLive = subscribeToLiveCloudUpdates((delta) => {
+      // 1. Immediately apply new people into React state so tree & directory update in 0ms!
+      if (delta.people && delta.people.length > 0) {
+        setPeople((prev) => {
+          const map = new Map(prev.map((p) => [p.id, p]));
+          for (const p of delta.people!) {
+            if (!delta.deletedPersonIds?.includes(p.id)) {
+              map.set(p.id, p);
+            }
+          }
+          return Array.from(map.values());
+        });
+      }
+
+      if (delta.relationships && delta.relationships.length > 0) {
+        setRelationships((prev) => {
+          const map = new Map(prev.map((r) => [r.id, r]));
+          for (const r of delta.relationships!) {
+            if (!delta.deletedRelationshipIds?.includes(r.id)) {
+              map.set(r.id, r);
+            }
+          }
+          return Array.from(map.values());
+        });
+      }
+
+      if (delta.deletedPersonIds && delta.deletedPersonIds.length > 0) {
+        const delSet = new Set(delta.deletedPersonIds);
+        setPeople((prev) => prev.filter((p) => !delSet.has(p.id)));
+      }
+      if (delta.deletedRelationshipIds && delta.deletedRelationshipIds.length > 0) {
+        const delRelSet = new Set(delta.deletedRelationshipIds);
+        setRelationships((prev) => prev.filter((r) => !delRelSet.has(r.id)));
+      }
+
+      // 2. Persist to IndexedDB in background
+      if ((delta.people && delta.people.length > 0) || (delta.relationships && delta.relationships.length > 0)) {
+        saveBatchData(delta.people || [], delta.relationships || [], 'LiveSync').catch(() => {});
+      }
+
+      // 3. If from another admin/phone and contains new people, play chime & show notification
+      const isFromOther = !delta.senderId || delta.senderId !== CLIENT_SESSION_ID;
+      if (isFromOther && delta.people && delta.people.length > 0) {
+        const branchName = delta.notification?.branch || delta.people.find((p) => p.branch && p.branch !== '__custom__')?.branch;
+        const firstPerson = delta.people[0];
+        const msg = branchName ? `ጨንፈር ${branchName} ሓድሽ ወለዶ ኣትዩ ኣሎ` : 'ሓድሽ ወለዶ ኣትዩ ኣሎ';
+
+        // Play chime sound
+        playNotificationChime();
+
+        // Browser system notification
+        showBrowserNotification('መዝገብ ወለዶ ከንቲባ ጉዕሽ', msg);
+
+        // In-app pop-up toast banner
+        setLiveToast({
+          id: `toast_${Date.now()}`,
+          message: msg,
+          branch: branchName,
+          personName: firstPerson?.canonicalName,
+          personId: firstPerson?.id,
+        });
+
+        // Auto dismiss after 9 seconds
+        setTimeout(() => {
+          setLiveToast((curr) => (curr?.id === `toast_${Date.now()}` ? null : curr));
+        }, 9000);
+      }
     });
 
     // Automatically check for new data whenever user focuses the app, switches back to tab, or every 60s while open
@@ -912,7 +994,60 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Footer with App Version and Quick Force-Refresh / Cache Clear button */}
+      {/* Live Telegram-style Real-Time Notification Toast Banner */}
+      {liveToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-60 w-11/12 max-w-md animate-in slide-in-from-top-4 duration-300">
+          <div className="p-3.5 bg-gradient-to-r from-amber-900 via-stone-900 to-stone-900 text-white rounded-2xl shadow-2xl border border-amber-500/50 flex items-center justify-between gap-3 font-ethiopic">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shrink-0">
+                <Bell className="w-5 h-5 animate-bounce text-amber-400" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>ሓድሽ ሓበሬታ ወለዶ (ብቐጥታ)</span>
+                </div>
+                <div className="text-xs sm:text-sm font-bold text-white truncate">
+                  {liveToast.message}
+                </div>
+                {liveToast.personName && (
+                  <div className="text-[11px] text-amber-200/80 truncate">
+                    &laquo;{liveToast.personName}&raquo; ተመዝጊቡ ኣሎ
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {liveToast.personId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activePeople.find((p) => p.id === liveToast.personId);
+                    if (target) {
+                      setSelectedPerson(target);
+                      setShowPersonModal(true);
+                    }
+                    setLiveToast(null);
+                  }}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold rounded-lg cursor-pointer transition-colors"
+                >
+                  ተመልከት
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setLiveToast(null)}
+                className="p-1 text-stone-400 hover:text-white rounded-lg cursor-pointer transition-colors"
+                title="ዕጾ"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer with App Version, Live Telegram-like Sync Status, and Quick Force-Refresh button */}
       <footer className="mt-auto border-t border-stone-200 bg-white/80 py-4 pb-20 md:pb-4 px-4 text-center text-sm text-stone-600 font-ethiopic">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="font-medium">© {new Date().getFullYear()} ተወለድ እንዳቦይ ከንቲባ ጉዕሽ &middot; መዝገብ ወለዶ</p>
@@ -920,6 +1055,24 @@ export const App: React.FC = () => {
             <span className="text-xs sm:text-sm font-bold text-stone-600 bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200">
               ስሪት 7.2 ({activePeople.length} ኣባላት)
             </span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-900 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>ብቐጥታ ዝተዛመደ (Live)</span>
+            </span>
+            {!hasNotificationPermission && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const granted = await requestNotificationPermission();
+                  setHasNotificationPermission(granted);
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 cursor-pointer transition-colors"
+                title="ሓድሽ ሓበሬታ ምስ ዝኣቱ ኖቲፊኬሽን ንኽበጽሓኩም ፍቐዱ"
+              >
+                <Bell className="w-3 h-3 text-amber-700" />
+                <span>ኖቲፊኬሽን ኣግብር</span>
+              </button>
+            )}
             {isSyncing && (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-300">
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />

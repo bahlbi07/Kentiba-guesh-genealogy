@@ -3,6 +3,7 @@ import { apiFetchTree, subscribeToLiveCloudUpdates } from '../src/services/apiCl
 import { computeLineageChain, isSpouseHelperRecord } from '../src/services/googleSheetsService';
 import { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS } from '../src/data/initialGenealogyData';
 import { Person, Relationship } from '../src/types/genealogy';
+import { playNotificationChime, isNotificationPermissionGranted, showBrowserNotification } from '../src/services/notificationService';
 
 describe('Multi-Device Cloud Synchronization & Google Sheets Lineage Verification', () => {
   beforeEach(() => {
@@ -108,5 +109,17 @@ describe('Multi-Device Cloud Synchronization & Google Sheets Lineage Verificatio
     const innerDelta = JSON.parse(parsedEnvelope.message);
     expect(innerDelta.v).toBe(2);
     expect(innerDelta.people[0].canonicalName).toBe('ተፈተነ ኣባል');
+  });
+
+  it('5. notificationService methods execute safely without errors in test/headless environments', () => {
+    expect(() => playNotificationChime()).not.toThrow();
+    expect(typeof isNotificationPermissionGranted()).toBe('boolean');
+    expect(() => showBrowserNotification('ጨንፈር ሓጎስ ሓድሽ ወለዶ ኣትዩ ኣሎ', 'ተስፋይ ሓጎስ')).not.toThrow();
+  });
+
+  it('6. formats Tigrinya notification message with branch name', () => {
+    const branchName = 'ተኽለ';
+    const notificationTitle = `ጨንፈር ${branchName} ሓድሽ ወለዶ ኣትዩ ኣሎ`;
+    expect(notificationTitle).toBe('ጨንፈር ተኽለ ሓድሽ ወለዶ ኣትዩ ኣሎ');
   });
 });

@@ -162,6 +162,31 @@ function deduplicateSpousesAndArtifacts(
           }
         }
       }
+    } else {
+      // Auto-correct text typos on valid records
+      if (person.spouseNote && (person.spouseNote.includes('ወለሓንስ') || person.spouseNote.includes('ዓሊተና'))) {
+        person.spouseNote = person.spouseNote
+          .replace(/ኣቦይ\s*ወለሓንስ\s*ዓሊተና/g, 'ሊዝ ሓሊቦ ወልደገርግስ')
+          .replace(/ወለሓንስ\s*ዓሊተና/g, 'ሊዝ ሓሊቦ ወልደገርግስ');
+        details.push(`ናይ ${person.canonicalName} ናይ መርዓ መብርሂ ናብ "ሊዝ ሓሊቦ ወልደገርግስ" ተኣሪሙ።`);
+      }
+      if (person.notes && (person.notes.includes('ወለሓንስ') || person.notes.includes('ዓሊተና'))) {
+        person.notes = person.notes
+          .replace(/ኣቦይ\s*ወለሓንስ\s*ዓሊተና/g, 'ሊዝ ሓሊቦ ወልደገርግስ')
+          .replace(/ወለሓንስ\s*ዓሊተና/g, 'ሊዝ ሓሊቦ ወልደገርግስ');
+      }
+      if (person.id === 'pers_p1_9' && (!person.spouseNote || person.spouseNote.includes('ወለሓንስ') || person.spouseNote.includes('ዓሊተና'))) {
+        person.spouseNote = 'ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ';
+      }
+    }
+  }
+
+  // Sanitize sourceWording on working relationships
+  for (const rel of workingRelationships) {
+    if (rel.sourceWording && (rel.sourceWording.includes('ወለሓንስ') || rel.sourceWording.includes('ዓሊተና'))) {
+      rel.sourceWording = rel.sourceWording
+        .replace(/ኣቦይ\s*ወለሓንስ\s*ዓሊተና/g, 'ሊዝ ሓሊቦ ወልደገርግስ')
+        .replace(/ወለሓንስ\s*ዓሊተና/g, 'ሊዝ ሓሊቦ ወልደገርግስ');
     }
   }
 

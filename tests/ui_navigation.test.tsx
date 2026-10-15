@@ -1992,6 +1992,159 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(childPers.motherName).toBeUndefined();
     expect(childPers.gender).toBe('male');
   });
+
+  it('34. RecordEditorView: allows editing spouse / marriage note (spouseNote) and saving changes', async () => {
+    const mockTibe: Person = {
+      id: 'pers_p1_9',
+      canonicalName: 'ትዕበ',
+      fatherName: 'ከንቲባ ጉዕሽ ሓጎስ',
+      branch: 'ትዕበ',
+      status: 'verified',
+      spouseNote: 'ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+
+    const handleUpdate = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecordEditorView
+        people={[mockTibe]}
+        relationships={[]}
+        onUpdatePerson={handleUpdate}
+        onDeletePerson={vi.fn().mockResolvedValue(undefined)}
+        onSaveRelationship={vi.fn().mockResolvedValue({ success: true })}
+        onDeleteRelationship={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    // Open edit modal for Tibe
+    const editBtn = screen.getByRole('button', { name: /ኣስተኻኽል/ });
+    fireEvent.click(editBtn);
+
+    // Verify Spouse Note input exists and is pre-filled with the current note
+    const spouseNoteInput = screen.getByPlaceholderText(/ንኣብነት፡ ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ/);
+    expect(spouseNoteInput).toBeDefined();
+    expect((spouseNoteInput as HTMLInputElement).value).toBe('ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ');
+
+    // Change spouse note
+    fireEvent.change(spouseNoteInput, {
+      target: { value: 'ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ሓድሽ መብርሂ' },
+    });
+
+    // Save changes
+    const saveBtn = screen.getByRole('button', { name: /ለውጢ ኣቐምጥ/ });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(handleUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spouseNote: 'ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ሓድሽ መብርሂ',
+        })
+      );
+    });
+  });
+
+  it('35. RecordEditorView: provides branch selection dropdown on parent relationship row and reassigns branch', async () => {
+    const parentTibe: Person = {
+      id: 'pers_p1_9',
+      canonicalName: 'ትዕበ',
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+    const branchHeadGobru: Person = {
+      id: 'pers_p1_gobru',
+      canonicalName: 'ጎብሩ',
+      fatherName: 'ከንቲባ ጉዕሽ ሓጎስ',
+      branch: 'ጎብሩ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+    const childPerson: Person = {
+      id: 'pers_p15_310',
+      canonicalName: 'ዓዶ ዑመር',
+      motherName: 'ትዕበ',
+      branch: 'ትዕበ',
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+
+    const parentRel: Relationship = {
+      id: 'rel_tibe_to_child',
+      fromPersonId: parentTibe.id,
+      toPersonId: childPerson.id,
+      type: 'parent_child',
+      status: 'verified',
+      sourceFile: 'ከሰተ-ብርሃነ.pdf',
+      sourcePage: 15,
+      sourceWording: 'ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ',
+      isBiologicalConfirmed: true,
+      createdAt: '2026-10-09',
+      updatedAt: '2026-10-09',
+    };
+
+    const handleUpdate = vi.fn().mockResolvedValue(undefined);
+    const handleSaveRel = vi.fn().mockResolvedValue({ success: true });
+
+    render(
+      <RecordEditorView
+        people={[parentTibe, branchHeadGobru, childPerson]}
+        relationships={[parentRel]}
+        onUpdatePerson={handleUpdate}
+        onDeletePerson={vi.fn().mockResolvedValue(undefined)}
+        onSaveRelationship={handleSaveRel}
+        onDeleteRelationship={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    // Open edit modal for Child (ዓዶ ዑመር)
+    const editBtns = screen.getAllByRole('button', { name: /ኣስተኻኽል/ });
+    fireEvent.click(editBtns[2]); // click edit on child
+
+    // Check connected parent row
+    expect(screen.getAllByText('ትዕበ').length).toBeGreaterThan(0);
+
+    // The branch selector dropdown must exist on the row with title "ካብቶም ጨንፈራት ምረጹ"
+    const branchSelect = screen.getByTitle('ካብቶም ጨንፈራት ምረጹ');
+    expect(branchSelect).toBeDefined();
+
+    // Select branch "ጎብሩ"
+    fireEvent.change(branchSelect, { target: { value: 'ጎብሩ' } });
+
+    await waitFor(() => {
+      // Relationship should be updated to point to Gobru
+      expect(handleSaveRel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromPersonId: 'pers_p1_gobru',
+          sourceWording: 'ጨንፈር ጎብሩ',
+        })
+      );
+      // Child person's branch and fatherName should be updated
+      expect(handleUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          branch: 'ጎብሩ',
+          fatherName: 'ጎብሩ',
+        })
+      );
+    });
+  });
+
+  it('36. Authoritative dataset: Tibe marriage note is correctly recorded as ሊዝ ሓሊቦ ወልደገርግስ', async () => {
+    const { INITIAL_PEOPLE } = await import('../src/data/initialGenealogyData');
+    const tibe = INITIAL_PEOPLE.find((p) => p.id === 'pers_p1_9');
+    expect(tibe).toBeDefined();
+    expect(tibe?.spouseNote).toContain('ሊዝ ሓሊቦ ወልደገርግስ');
+    expect(tibe?.spouseNote).not.toContain('ወለሓንስ');
+    expect(tibe?.spouseNote).not.toContain('ዓሊተና');
+  });
 });
 
 

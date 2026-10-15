@@ -68,6 +68,7 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
   const [formBranch, setFormBranch] = useState('');
   const [formCustomBranch, setFormCustomBranch] = useState('');
   const [formStatus, setFormStatus] = useState<RecordStatus>('verified');
+  const [formSpouseNote, setFormSpouseNote] = useState('');
   const [formNotes, setFormNotes] = useState('');
 
   // UI state for saving / alerts
@@ -180,6 +181,7 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
     }
 
     setFormStatus(p.status);
+    setFormSpouseNote(p.spouseNote || '');
     setFormNotes(p.notes || '');
     setSaveError(null);
     setSaveSuccessMsg(null);
@@ -253,6 +255,7 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
       gender: formGender,
       branch: finalBranch || undefined,
       status: formStatus,
+      spouseNote: formSpouseNote.trim() || undefined,
       notes: formNotes.trim() || undefined,
       updatedAt: new Date().toISOString(),
     };
@@ -268,6 +271,79 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
       setSaveError(err instanceof Error ? err.message : 'ምዕራይ ኣይተዓወተን። ዳግማይ ፈትኑ።');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Handle Reassigning a Parent's Branch or Relationship (Screenshot 4)
+  const handleReassignParentBranch = async (rel: Relationship, newBranchName: string) => {
+    if (!newBranchName || !editingPerson) return;
+    try {
+      const now = new Date().toISOString();
+
+      // Find branch head person
+      const branchHead =
+        people.find(
+          (p) =>
+            p.canonicalName === newBranchName &&
+            (p.fatherName?.includes('ከንቲባ') || p.id.startsWith('pers_p1_'))
+        ) || people.find((p) => p.canonicalName === newBranchName);
+
+      if (branchHead && branchHead.id !== rel.fromPersonId) {
+        const updatedRel: Relationship = {
+          ...rel,
+          fromPersonId: branchHead.id,
+          sourceWording: `ጨንፈር ${newBranchName}`,
+          updatedAt: now,
+        };
+        await onSaveRelationship(updatedRel);
+      }
+
+      // Update editing person's branch & father/mother name
+      const isFemaleBranchHead =
+        branchHead?.gender === 'female' ||
+        newBranchName === 'ትዕበ' ||
+        newBranchName === 'ደስታ' ||
+        newBranchName === 'ግብፂት';
+
+      const updatedPerson: Person = {
+        ...editingPerson,
+        branch: newBranchName,
+        fatherName: isFemaleBranchHead ? editingPerson.fatherName : newBranchName,
+        motherName: isFemaleBranchHead ? newBranchName : editingPerson.motherName,
+        updatedAt: now,
+      };
+
+      await onUpdatePerson(updatedPerson);
+      setEditingPerson(updatedPerson);
+      setFormBranch(newBranchName);
+      if (!isFemaleBranchHead) {
+        setFormFatherName(newBranchName);
+      } else {
+        setFormMotherName(newBranchName);
+      }
+
+      setSaveSuccessMsg(`ናብ ጨንፈር "${newBranchName}" ብዓወት ተቐይሩ ኣሎ!`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+    } catch {
+      setSaveError('ጨንፈር ምቕያር ኣይተዓወተን።');
+    }
+  };
+
+  // Handle Reassigning a Child's Branch directly
+  const handleReassignChildBranch = async (childPerson: Person | undefined, newBranchName: string) => {
+    if (!childPerson || !newBranchName) return;
+    try {
+      const now = new Date().toISOString();
+      const updatedChild: Person = {
+        ...childPerson,
+        branch: newBranchName,
+        updatedAt: now,
+      };
+      await onUpdatePerson(updatedChild);
+      setSaveSuccessMsg(`ናይ ${childPerson.canonicalName} ጨንፈር ናብ "${newBranchName}" ተቐይሩ ኣሎ!`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+    } catch {
+      setSaveError('ናይ ውሉድ ጨንፈር ምቕያር ኣይተዓወተን።');
     }
   };
 
@@ -758,6 +834,29 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                   </div>
                 </div>
 
+                {/* Section: Spouse / Marriage Note (Screenshot 2 & 3) */}
+                <div className="bg-stone-50/70 p-4 rounded-2xl border border-stone-200 space-y-2">
+                  <label className="block text-xs font-bold text-stone-700 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Heart className="w-3.5 h-3.5 text-rose-500" />
+                      <span>ናይ መርዓ / መጻምድቲ መብርሂ (Spouse Note)</span>
+                    </span>
+                    <span className="text-[10px] text-stone-400 font-normal">ኣብ ስክሪን ዝረአ ናይ መርዓ ጽሑፍ</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formSpouseNote}
+                    onChange={(e) => setFormSpouseNote(e.target.value)}
+                    placeholder="ንኣብነት፡ ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ"
+                    className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-stone-300 bg-white font-ethiopic text-stone-900 focus:ring-2 focus:ring-amber-500"
+                  />
+                  {formSpouseNote && (
+                    <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+                      እዚ ጽሑፍ ኣብቲ ቀንዲ ካርድ መዝገብ ከምዚ ኮይኑ ይወጽእ: <strong>{formSpouseNote}</strong>
+                    </p>
+                  )}
+                </div>
+
                 {/* Section 3: Notes */}
                 <div className="bg-stone-50/70 p-4 rounded-2xl border border-stone-200 space-y-2">
                   <label className="block text-xs font-bold text-stone-700">
@@ -814,26 +913,44 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                       {currentRelationships.parents.map(({ rel, person }) => (
                         <div
                           key={rel.id}
-                          className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-stone-200 text-xs"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs"
                         >
-                          <div>
-                            <span className="font-bold text-stone-900">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-bold text-stone-900 text-sm block">
                               {person ? person.canonicalName : rel.fromPersonId}
                             </span>
                             {rel.sourceWording && (
-                              <span className="text-[10px] text-stone-500 block">
+                              <span className="text-[11px] text-stone-500 block break-words">
                                 {rel.sourceWording}
                               </span>
                             )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRel(rel.id)}
-                            className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                            title="ዝምድና ሰርዝ"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Branch Selector Option (Screenshot 4) */}
+                            <select
+                              value={person?.branch || editingPerson.branch || ''}
+                              onChange={(e) => handleReassignParentBranch(rel, e.target.value)}
+                              className="px-2.5 py-1 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg cursor-pointer transition-colors shadow-2xs"
+                              title="ካብቶም ጨንፈራት ምረጹ"
+                            >
+                              <option value="" disabled>🌿 ጨንፈር ምረጽ...</option>
+                              {availableBranches.map((b) => (
+                                <option key={b} value={b}>
+                                  ጨንፈር {b}
+                                </option>
+                              ))}
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRel(rel.id)}
+                              className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                              title="ዝምድና ሰርዝ"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -852,9 +969,9 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                       {currentRelationships.children.map(({ rel, person }) => (
                         <div
                           key={rel.id}
-                          className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-stone-200 text-xs"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white px-3 py-2 rounded-xl border border-stone-200 text-xs"
                         >
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <span className="font-bold text-stone-900">
                               {person ? person.canonicalName : rel.toPersonId}
                             </span>
@@ -864,14 +981,33 @@ export const RecordEditorView: React.FC<RecordEditorViewProps> = ({
                               </span>
                             )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRel(rel.id)}
-                            className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                            title="ዝምድና ሰርዝ"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {person && (
+                              <select
+                                value={person.branch || ''}
+                                onChange={(e) => handleReassignChildBranch(person, e.target.value)}
+                                className="px-2 py-0.5 text-[11px] font-medium bg-stone-50 hover:bg-stone-100 text-stone-800 border border-stone-300 rounded-lg cursor-pointer"
+                                title="ናይዚ ውሉድ ጨንፈር ምረጽ"
+                              >
+                                <option value="" disabled>ጨንፈር ምረጽ...</option>
+                                {availableBranches.map((b) => (
+                                  <option key={b} value={b}>
+                                    ጨንፈር {b}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRel(rel.id)}
+                              className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                              title="ዝምድና ሰርዝ"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

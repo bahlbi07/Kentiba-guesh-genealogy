@@ -145,7 +145,7 @@ export const INITIAL_PEOPLE: Person[] = [
     "isArchived": false,
     "createdAt": "2026-10-09T00:00:00.000Z",
     "updatedAt": "2026-10-09T00:00:00.000Z",
-    "spouseNote": "መጻምድቲ: ሊዝ ሓሊቦ ወልደጊርጊስ"
+    "spouseNote": "ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ"
   },
   {
     "id": "pers_p1_10",
@@ -4370,9 +4370,9 @@ export const INITIAL_PEOPLE: Person[] = [
     "motherName": "ትዕበ",
     "branch": "ትዕበ",
     "status": "unverified",
-    "notes": "Recorded on PDF page 15 under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "notes": "Recorded on PDF page 15 under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
     "sourcePage": 15,
-    "sourceHeading": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "sourceHeading": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
     "sourceOccurrenceId": "occ_p15_311",
     "isArchived": false,
     "createdAt": "2026-10-09T00:00:00.000Z",
@@ -12318,8 +12318,8 @@ export const INITIAL_RELATIONSHIPS: Relationship[] = [
     "status": "unverified",
     "sourceFile": "ከሰተ-ብርሃነ.pdf",
     "sourcePage": 15,
-    "sourceWording": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
-    "reviewerNotes": "Child of union under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "sourceWording": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
+    "reviewerNotes": "Child of union under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
     "isBiologicalConfirmed": false,
     "createdAt": "2026-10-09T00:00:00.000Z",
     "updatedAt": "2026-10-09T00:00:00.000Z"
@@ -12332,8 +12332,8 @@ export const INITIAL_RELATIONSHIPS: Relationship[] = [
     "status": "unverified",
     "sourceFile": "ከሰተ-ብርሃነ.pdf",
     "sourcePage": 15,
-    "sourceWording": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
-    "reviewerNotes": "Child of union under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "sourceWording": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
+    "reviewerNotes": "Child of union under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
     "isBiologicalConfirmed": false,
     "createdAt": "2026-10-09T00:00:00.000Z",
     "updatedAt": "2026-10-09T00:00:00.000Z"
@@ -19418,23 +19418,23 @@ export const INITIAL_OCCURRENCES: SourceOccurrence[] = [
     "id": "occ_p15_310",
     "sourceFile": "ከሰተ-ብርሃነ.pdf",
     "page": 15,
-    "headingOrBlock": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "headingOrBlock": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
     "rawText": "ዓዱዑማር",
     "sequence": 310,
     "linkedPersonId": "pers_p15_310",
     "status": "linked",
-    "notes": "Union/marriage statement: ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ"
+    "notes": "Union/marriage statement: ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ"
   },
   {
     "id": "occ_p15_311",
     "sourceFile": "ከሰተ-ብርሃነ.pdf",
     "page": 15,
-    "headingOrBlock": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`",
+    "headingOrBlock": "Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
     "rawText": "ለቱ",
     "sequence": 311,
     "linkedPersonId": "pers_p15_311",
     "status": "linked",
-    "notes": "Union/marriage statement: ትዕበ ከንቲባ ጉዕሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ"
+    "notes": "Union/marriage statement: ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ"
   },
   {
     "id": "occ_parent_head_p15_312",

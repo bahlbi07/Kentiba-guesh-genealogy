@@ -57,7 +57,7 @@ import { RotateCw, Bell, X } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.13.v13_permanent_deletion_smooth_approval';
+export const CURRENT_DATASET_VERSION = '2026.10.15.v14_tibe_liz_halibo_correction';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');

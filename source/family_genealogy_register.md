@@ -580,7 +580,7 @@ The phrase appears on the page, followed by the names below after a large blank 
 
 ## PDF page 15
 
-### Source relationship: `ትዕበ ከንቲባ ጉዑሽ ናብ ኣቦይ ወለሓንስ ዓሊተና ኣትያ ዝወለደቶም ድማ`
+### Source relationship: `ትዕበ ከንቲባ ጉዑሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`
 
 - ዓዱዑማር
 - ለቱ

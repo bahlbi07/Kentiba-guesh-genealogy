@@ -58,7 +58,7 @@ import { RotateCw, Bell, X } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.15.v16_tibe_mana_medhin_lineage_verified';
+export const CURRENT_DATASET_VERSION = '2026.10.15.v17_letu_lineage_fix';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -442,6 +442,46 @@ export const App: React.FC = () => {
         storedOccs = await getAllOccurrences();
         storedAudits = await getAllAuditEvents();
         mode = 'real';
+      }
+
+      // Safety merge: ensure all authoritative people/rels are present in IndexedDB.
+      // Guards against cases where a person was added to INITIAL_* after the browser
+      // had already seeded from an older version (e.g. pers_p15_311 / ለቱ).
+      {
+        const storedPeopleIds = new Set(storedPeople.map((p) => p.id));
+        const storedRelIds = new Set(storedRels.map((r) => r.id));
+        const authorPrefixes = ['pers_p', 'pers_root', 'pers_tibe', 'pers_partner'];
+        const deletedPIds = new Set(await getDeletedPersonIds());
+        let mergedAny = false;
+
+        for (const ip of INITIAL_PEOPLE) {
+          if (
+            authorPrefixes.some((pfx) => ip.id.startsWith(pfx)) &&
+            !storedPeopleIds.has(ip.id) &&
+            !deletedPIds.has(ip.id)
+          ) {
+            await savePerson(ip, 'SafetyMerge');
+            storedPeople.push(ip);
+            mergedAny = true;
+          }
+        }
+
+        for (const ir of INITIAL_RELATIONSHIPS) {
+          if (!storedRelIds.has(ir.id) && !deletedPIds.has(ir.fromPersonId) && !deletedPIds.has(ir.toPersonId)) {
+            const fromExists = storedPeople.some((p) => p.id === ir.fromPersonId);
+            const toExists = storedPeople.some((p) => p.id === ir.toPersonId);
+            if (fromExists && toExists) {
+              await saveRelationship(ir, 'SafetyMerge');
+              storedRels.push(ir);
+              mergedAny = true;
+            }
+          }
+        }
+
+        if (mergedAny) {
+          storedPeople = await getAllPeople(true);
+          storedRels = await getAllRelationships();
+        }
       }
 
       // Automatically detect and merge duplicate family records

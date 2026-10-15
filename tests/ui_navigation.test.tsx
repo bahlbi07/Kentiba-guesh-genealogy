@@ -2318,6 +2318,33 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(medhinKids).toContain('ሃብተ');
     expect(medhinKids).toContain('ህይወት');
   });
+
+  it('40. Protection of Authoritative Records: Letu (pers_p15_311) and rel_child_pers_p1_9_pers_p15_311 are protected from deletion', async () => {
+    const { isProtectedGenealogyPersonId, isProtectedGenealogyRelationshipId, apiDeletePerson, apiDeleteRelationship } =
+      await import('../src/services/apiClient');
+
+    // Authoritative people protection check
+    expect(isProtectedGenealogyPersonId('pers_p15_311')).toBe(true);
+    expect(isProtectedGenealogyPersonId('pers_p1_9')).toBe(true);
+    expect(isProtectedGenealogyPersonId('pers_p16_319')).toBe(true);
+    expect(isProtectedGenealogyPersonId('pers_root_kinteba_guush')).toBe(true);
+    expect(isProtectedGenealogyPersonId('pers_custom_12345')).toBe(false);
+
+    // Authoritative relationship protection check
+    expect(isProtectedGenealogyRelationshipId('rel_child_pers_p1_9_pers_p15_311')).toBe(true);
+    expect(isProtectedGenealogyRelationshipId('rel_child_pers_p1_9_pers_p15_310')).toBe(true);
+    expect(isProtectedGenealogyRelationshipId('rel_custom_99999')).toBe(false);
+
+    // apiDeletePerson rejects deletion of protected records
+    const delPResult = await apiDeletePerson('pers_p15_311');
+    expect(delPResult.success).toBe(false);
+    expect(delPResult.error).toContain('Cannot delete');
+
+    // apiDeleteRelationship rejects deletion of protected relationships
+    const delRResult = await apiDeleteRelationship('rel_child_pers_p1_9_pers_p15_311');
+    expect(delRResult.success).toBe(false);
+    expect(delRResult.error).toContain('Cannot delete');
+  });
 });
 
 

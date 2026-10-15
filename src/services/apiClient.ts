@@ -58,6 +58,27 @@ export const CLIENT_SESSION_ID =
 
 const OVERLAY_STORAGE_KEY = 'kinteba_cloud_overlay_cache_v2';
 
+export function isProtectedGenealogyPersonId(id: string): boolean {
+  if (!id) return false;
+  return (
+    id.startsWith('pers_p') ||
+    id.startsWith('pers_root') ||
+    id.startsWith('pers_tibe') ||
+    id.startsWith('pers_partner')
+  );
+}
+
+export function isProtectedGenealogyRelationshipId(id: string): boolean {
+  if (!id) return false;
+  return (
+    id.startsWith('rel_') &&
+    (id.includes('pers_p') ||
+      id.includes('pers_tibe') ||
+      id.includes('pers_root') ||
+      id.includes('pers_partner'))
+  );
+}
+
 function loadCachedOverlay(): CloudOverlayState {
   try {
     if (typeof localStorage !== 'undefined') {
@@ -68,8 +89,12 @@ function loadCachedOverlay(): CloudOverlayState {
           return {
             peopleById: parsed.peopleById || {},
             relationshipsById: parsed.relationshipsById || {},
-            deletedPersonIds: Array.isArray(parsed.deletedPersonIds) ? parsed.deletedPersonIds : [],
-            deletedRelationshipIds: Array.isArray(parsed.deletedRelationshipIds) ? parsed.deletedRelationshipIds : [],
+            deletedPersonIds: (Array.isArray(parsed.deletedPersonIds) ? parsed.deletedPersonIds : []).filter(
+              (id: string) => !isProtectedGenealogyPersonId(id)
+            ),
+            deletedRelationshipIds: (Array.isArray(parsed.deletedRelationshipIds) ? parsed.deletedRelationshipIds : []).filter(
+              (id: string) => !isProtectedGenealogyRelationshipId(id)
+            ),
             updatedAt: parsed.updatedAt || new Date().toISOString(),
           };
         }
@@ -144,7 +169,7 @@ function applyDeltaToOverlay(
 
   if (Array.isArray(delta.deletedPersonIds)) {
     for (const delPId of delta.deletedPersonIds) {
-      if (!delPId) continue;
+      if (!delPId || isProtectedGenealogyPersonId(delPId)) continue;
       if (overlay.peopleById[delPId]) {
         delete overlay.peopleById[delPId];
         changed = true;
@@ -158,7 +183,7 @@ function applyDeltaToOverlay(
 
   if (Array.isArray(delta.deletedRelationshipIds)) {
     for (const delRId of delta.deletedRelationshipIds) {
-      if (!delRId) continue;
+      if (!delRId || isProtectedGenealogyRelationshipId(delRId)) continue;
       if (overlay.relationshipsById[delRId]) {
         delete overlay.relationshipsById[delRId];
         changed = true;
@@ -713,6 +738,10 @@ export async function apiSaveBatch(
 ): Promise<{ success: boolean; count?: { people: number; relationships: number }; error?: string }> {
   const now = new Date().toISOString();
 
+  // Strip any accidental deletions of authoritative records
+  deletedPersonIds = (deletedPersonIds || []).filter((id) => !isProtectedGenealogyPersonId(id));
+  deletedRelationshipIds = (deletedRelationshipIds || []).filter((id) => !isProtectedGenealogyRelationshipId(id));
+
   // Filter out unmodified initial dataset records so the cloud overlay stays compact and fast
   const initialPersonMap = new Map(INITIAL_PEOPLE.map((p) => [p.id, p]));
   const initialRelMap = new Map(INITIAL_RELATIONSHIPS.map((r) => [r.id, r]));
@@ -840,6 +869,9 @@ export async function apiDeletePerson(
   personId: string,
   token?: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (isProtectedGenealogyPersonId(personId)) {
+    return { success: false, error: 'Cannot delete authoritative genealogical record' };
+  }
   const res = await apiSaveBatch([], [], token, [personId], []);
   if (isTestEnv()) return { success: res.success };
   try {
@@ -866,6 +898,9 @@ export async function apiDeleteRelationship(
   relId: string,
   token?: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (isProtectedGenealogyRelationshipId(relId)) {
+    return { success: false, error: 'Cannot delete authoritative genealogical relationship' };
+  }
   const res = await apiSaveBatch([], [], token, [], [relId]);
   if (isTestEnv()) return { success: res.success };
   try {
@@ -883,6 +918,73 @@ export async function apiDeleteRelationship(
     // Handled by cloud overlay
   }
   return { success: res.success };
+}
+
+/**
+ * Actively purge accidental deletions of authoritative people / relationships from cloud stores
+ * and broadcast the restoration to all connected clients via ntfy and primary cloud store.
+ */
+export async function apiHealAuthoritativeCloudRecords(): Promise<void> {
+  if (isTestEnv()) return;
+
+  // 1. Purge all protected IDs from memory overlay
+  memoryOverlay.deletedPersonIds = (memoryOverlay.deletedPersonIds || []).filter(
+    (id) => !isProtectedGenealogyPersonId(id)
+  );
+  memoryOverlay.deletedRelationshipIds = (memoryOverlay.deletedRelationshipIds || []).filter(
+    (id) => !isProtectedGenealogyRelationshipId(id)
+  );
+  persistOverlayCache(memoryOverlay);
+
+  // 2. Identify all people and relationships in Letu's immediate lineage
+  const letuFamilyPersonIds = new Set([
+    'pers_p15_311', // ለቱ
+    'pers_partner_p16_318', // ኣቦይ ባሻይ ዝግታ ዓደርሖ
+    'pers_p16_319', // ባሻይ ድሩይ
+    'pers_p16_320', // ሃይለ
+    'pers_p16_321', // ኣብርሀት
+  ]);
+
+  const peopleToRestore = INITIAL_PEOPLE.filter((p) => letuFamilyPersonIds.has(p.id));
+  const relsToRestore = INITIAL_RELATIONSHIPS.filter(
+    (r) =>
+      r.id === 'rel_child_pers_p1_9_pers_p15_311' ||
+      r.fromPersonId === 'pers_p15_311' ||
+      r.toPersonId === 'pers_p15_311' ||
+      letuFamilyPersonIds.has(r.fromPersonId) ||
+      letuFamilyPersonIds.has(r.toPersonId)
+  );
+
+  // 3. Update memory overlay with these people
+  for (const p of peopleToRestore) {
+    memoryOverlay.peopleById[p.id] = { ...p, updatedAt: new Date().toISOString() };
+  }
+  for (const r of relsToRestore) {
+    memoryOverlay.relationshipsById[r.id] = { ...r, updatedAt: new Date().toISOString() };
+  }
+  persistOverlayCache(memoryOverlay);
+
+  // 4. Broadcast restoration via ntfy
+  try {
+    await publishDeltaToNtfy({
+      v: 2,
+      people: peopleToRestore,
+      relationships: relsToRestore,
+      deletedPersonIds: [],
+      deletedRelationshipIds: [],
+      notification: {
+        branch: 'ትዕበ',
+        names: ['ለቱ'],
+        message: 'ጨንፈር ትዕበ: ናይ ለቱ ወለዶ ብትክክል ተመዝጊቡ ኣሎ',
+      },
+      ts: new Date().toISOString(),
+    });
+  } catch {}
+
+  // 5. Persist healed cloud object
+  try {
+    await savePrimaryCloudObject(memoryOverlay);
+  } catch {}
 }
 
 /**
@@ -971,6 +1073,14 @@ export async function apiFetchTree(): Promise<{
     if (ntfyAddedNewData) {
       savePrimaryCloudObject(memoryOverlay).catch(() => {});
     }
+
+    // Ensure memoryOverlay never retains deletions of authoritative genealogical records
+    memoryOverlay.deletedPersonIds = (memoryOverlay.deletedPersonIds || []).filter(
+      (id) => !isProtectedGenealogyPersonId(id)
+    );
+    memoryOverlay.deletedRelationshipIds = (memoryOverlay.deletedRelationshipIds || []).filter(
+      (id) => !isProtectedGenealogyRelationshipId(id)
+    );
 
     // Build merged dataset from INITIAL_PEOPLE / INITIAL_RELATIONSHIPS + memoryOverlay
     const deletedPersonSet = new Set(memoryOverlay.deletedPersonIds);

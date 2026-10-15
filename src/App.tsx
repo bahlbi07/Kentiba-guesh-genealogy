@@ -33,6 +33,9 @@ import {
   apiUnmarkDeletedPerson,
   subscribeToLiveCloudUpdates,
   CLIENT_SESSION_ID,
+  isProtectedGenealogyPersonId,
+  isProtectedGenealogyRelationshipId,
+  apiHealAuthoritativeCloudRecords,
 } from './services/apiClient';
 import {
   playNotificationChime,
@@ -58,7 +61,7 @@ import { RotateCw, Bell, X } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.15.v17_letu_lineage_fix';
+export const CURRENT_DATASET_VERSION = '2026.10.15.v18_permanent_letu_lineage_cloud_healed';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -208,8 +211,25 @@ export const App: React.FC = () => {
 
       const localDelP = await getDeletedPersonIds();
       const localDelR = await getDeletedRelationshipIds();
-      const deletedPeopleSet = new Set([...(serverTree.deletedPersonIds || []), ...localDelP]);
-      const deletedRelsSet = new Set([...(serverTree.deletedRelationshipIds || []), ...localDelR]);
+
+      // Cleanse any accidental local deletion records of authoritative members
+      for (const pId of localDelP) {
+        if (isProtectedGenealogyPersonId(pId)) {
+          await removeDeletedPersonId(pId);
+        }
+      }
+      for (const rId of localDelR) {
+        if (isProtectedGenealogyRelationshipId(rId)) {
+          await removeDeletedRelationshipId(rId);
+        }
+      }
+
+      const deletedPeopleSet = new Set(
+        [...(serverTree.deletedPersonIds || []), ...localDelP].filter((id) => !isProtectedGenealogyPersonId(id))
+      );
+      const deletedRelsSet = new Set(
+        [...(serverTree.deletedRelationshipIds || []), ...localDelR].filter((id) => !isProtectedGenealogyRelationshipId(id))
+      );
 
       const currentStoredPeople = await getAllPeople(true);
       const localPersonMap = new Map(currentStoredPeople.map((p) => [p.id, p]));
@@ -217,7 +237,7 @@ export const App: React.FC = () => {
 
       let localChanged = false;
 
-      // 1. Apply server deletions to local IndexedDB
+      // 1. Apply server deletions to local IndexedDB (only for non-protected records)
       for (const delPId of deletedPeopleSet) {
         if (localPersonMap.has(delPId)) {
           await deletePerson(delPId, 'ServerAutoSync');
@@ -446,12 +466,26 @@ export const App: React.FC = () => {
 
       // Safety merge: ensure all authoritative people/rels are present in IndexedDB.
       // Guards against cases where a person was added to INITIAL_* after the browser
-      // had already seeded from an older version (e.g. pers_p15_311 / ለቱ).
+      // had already seeded from an older version or was affected by accidental deletions.
       {
+        const rawDelP = await getDeletedPersonIds();
+        for (const pId of rawDelP) {
+          if (isProtectedGenealogyPersonId(pId)) {
+            await removeDeletedPersonId(pId);
+          }
+        }
+        const rawDelR = await getDeletedRelationshipIds();
+        for (const rId of rawDelR) {
+          if (isProtectedGenealogyRelationshipId(rId)) {
+            await removeDeletedRelationshipId(rId);
+          }
+        }
+
         const storedPeopleIds = new Set(storedPeople.map((p) => p.id));
         const storedRelIds = new Set(storedRels.map((r) => r.id));
         const authorPrefixes = ['pers_p', 'pers_root', 'pers_tibe', 'pers_partner'];
-        const deletedPIds = new Set(await getDeletedPersonIds());
+        const deletedPIds = new Set((await getDeletedPersonIds()).filter((id) => !isProtectedGenealogyPersonId(id)));
+        const deletedRIds = new Set((await getDeletedRelationshipIds()).filter((id) => !isProtectedGenealogyRelationshipId(id)));
         let mergedAny = false;
 
         for (const ip of INITIAL_PEOPLE) {
@@ -467,7 +501,7 @@ export const App: React.FC = () => {
         }
 
         for (const ir of INITIAL_RELATIONSHIPS) {
-          if (!storedRelIds.has(ir.id) && !deletedPIds.has(ir.fromPersonId) && !deletedPIds.has(ir.toPersonId)) {
+          if (!storedRelIds.has(ir.id) && !deletedRIds.has(ir.id) && !deletedPIds.has(ir.fromPersonId) && !deletedPIds.has(ir.toPersonId)) {
             const fromExists = storedPeople.some((p) => p.id === ir.fromPersonId);
             const toExists = storedPeople.some((p) => p.id === ir.toPersonId);
             if (fromExists && toExists) {
@@ -482,6 +516,9 @@ export const App: React.FC = () => {
           storedPeople = await getAllPeople(true);
           storedRels = await getAllRelationships();
         }
+
+        // Heal cloud state asynchronously so all other open devices receive the restored records
+        apiHealAuthoritativeCloudRecords().catch(() => {});
       }
 
       // Automatically detect and merge duplicate family records
@@ -576,12 +613,20 @@ export const App: React.FC = () => {
       }
 
       if (delta.deletedPersonIds && delta.deletedPersonIds.length > 0) {
-        const delSet = new Set(delta.deletedPersonIds);
-        setPeople((prev) => prev.filter((p) => !delSet.has(p.id)));
+        const delSet = new Set(
+          delta.deletedPersonIds.filter((id) => !isProtectedGenealogyPersonId(id))
+        );
+        if (delSet.size > 0) {
+          setPeople((prev) => prev.filter((p) => !delSet.has(p.id)));
+        }
       }
       if (delta.deletedRelationshipIds && delta.deletedRelationshipIds.length > 0) {
-        const delRelSet = new Set(delta.deletedRelationshipIds);
-        setRelationships((prev) => prev.filter((r) => !delRelSet.has(r.id)));
+        const delRelSet = new Set(
+          delta.deletedRelationshipIds.filter((id) => !isProtectedGenealogyRelationshipId(id))
+        );
+        if (delRelSet.size > 0) {
+          setRelationships((prev) => prev.filter((r) => !delRelSet.has(r.id)));
+        }
       }
 
       // 2. Persist to IndexedDB in background

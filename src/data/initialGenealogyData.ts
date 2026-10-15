@@ -4369,6 +4369,7 @@ export const INITIAL_PEOPLE: Person[] = [
     "fatherName": "ሊዝ ሓሊቦ ወልደጊርጊስ",
     "motherName": "ትዕበ",
     "branch": "ትዕበ",
+    "gender": "female",
     "status": "verified",
     "notes": "Recorded on PDF page 15 under: Source relationship: `ትዕበ ከንቲባ ጉዕሽ ናብ ሊዝ ሓሊቦ ወልደገርግስ ኣትያ ዝወለደቶም ድማ`",
     "sourcePage": 15,

@@ -1840,31 +1840,32 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(mockDeleteRel).toHaveBeenCalled();
   });
 
-  it('31. SpouseSelectionGuide: renders clear 2-option choices (reuse recorded name or delete erroneous spouse)', () => {
+  it('31. SpouseSelectionGuide: renders clear 2-option choices (Option 1 confirm recorded spouse, Option 2 write custom spouse)', () => {
     const onUseExisting = vi.fn();
-    const onDeleteErronous = vi.fn();
+    const onKeepAndAddSecond = vi.fn();
 
     render(
       <SpouseSelectionGuide
         existingSpouseName="ሊዝ ሓሊቦ ወልደጊርጊስ"
         onUseExisting={onUseExisting}
-        onDeleteErronousSpouse={onDeleteErronous}
         canAddSecondSpouse={true}
-        onKeepAndAddSecondSpouse={vi.fn()}
+        onKeepAndAddSecondSpouse={onKeepAndAddSecond}
       />
     );
 
-    // Option 1 text
-    expect(screen.getByText(/ዝበሃል ድሮ ኣሎ/)).toBeDefined();
-    const useBtn = screen.getByRole('button', { name: /ነዚ ስም ተጠቐም/ });
-    fireEvent.click(useBtn);
+    // Option 1: Confirm recorded spouse
+    expect(screen.getByText(/ኦፕሽን 1:/)).toBeDefined();
+    expect(screen.getByText(/«ሊዝ ሓሊቦ ወልደጊርጊስ» ኣጽዲቕካ ቀጽል/)).toBeDefined();
+    const opt1Btn = screen.getByRole('button', { name: /ኣጽዲቕካ ቀጽል/ });
+    fireEvent.click(opt1Btn);
     expect(onUseExisting).toHaveBeenCalledWith('ሊዝ ሓሊቦ ወልደጊርጊስ');
 
-    // Option 2 text
-    expect(screen.getByText(/እዚ ስም ትኽክለኛ መጻምድቲ እዩ ኢልኩም እንተዘይሓሲብኩም/)).toBeDefined();
-    const deleteBtn = screen.getByRole('button', { name: /ጌጋ ስለዝኾነ ይደምሰስ/ });
-    fireEvent.click(deleteBtn);
-    expect(onDeleteErronous).toHaveBeenCalled();
+    // Option 2: Custom spouse manual entry
+    expect(screen.getByText(/ኦፕሽን 2:/)).toBeDefined();
+    expect(screen.getByText(/ካልእ መጻምድቲ ባዕልኻ ጽሓፍ/)).toBeDefined();
+    const opt2Btn = screen.getByRole('button', { name: /ካልእ መጻምድቲ ባዕልኻ ጽሓፍ/ });
+    fireEvent.click(opt2Btn);
+    expect(onKeepAndAddSecond).toHaveBeenCalled();
   });
 
   it('32. AddPersonGuidedModal: female gender registers person as mother of children and preserves child gender toggles', async () => {
@@ -2144,6 +2145,107 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(tibe?.spouseNote).toContain('ሊዝ ሓሊቦ ወልደገርግስ');
     expect(tibe?.spouseNote).not.toContain('ወለሓንስ');
     expect(tibe?.spouseNote).not.toContain('ዓሊተና');
+  });
+
+  it('37. FamilyExplorer: supports Admin child reordering from firstborn (ቦኽሪ) to youngest (ሕሳስ) with Up/Down buttons and badges', () => {
+    const mockReorder = vi.fn();
+    const createPerson = (id: string, name: string, order?: number): Person => ({
+      id,
+      canonicalName: name,
+      birthOrder: order,
+      status: 'verified',
+      isArchived: false,
+      createdAt: '2026-10-10T00:00:00.000Z',
+      updatedAt: '2026-10-10T00:00:00.000Z',
+    });
+    const createRel = (id: string, fromId: string, toId: string): Relationship => ({
+      id,
+      fromPersonId: fromId,
+      toPersonId: toId,
+      type: 'parent_child',
+      status: 'verified',
+      sourceFile: 'ከሰተ-ብርሃነ.pdf',
+      sourcePage: 1,
+      sourceWording: 'ዝወለዶም',
+      isBiologicalConfirmed: true,
+      createdAt: '2026-10-10T00:00:00.000Z',
+      updatedAt: '2026-10-10T00:00:00.000Z',
+    });
+
+    const parentPerson = createPerson('pers_test_parent', 'ወላዲ');
+    const child1 = createPerson('pers_child_1', 'ውሉድ ሓደ', 1);
+    const child2 = createPerson('pers_child_2', 'ውሉድ ክልተ', 2);
+    const child3 = createPerson('pers_child_3', 'ውሉድ ሰለስተ', 3);
+
+    const rels: Relationship[] = [
+      createRel('rel_c1', parentPerson.id, child1.id),
+      createRel('rel_c2', parentPerson.id, child2.id),
+      createRel('rel_c3', parentPerson.id, child3.id),
+    ];
+
+    render(
+      <FamilyExplorer
+        people={[parentPerson, child1, child2, child3]}
+        relationships={rels}
+        selectedPersonId={parentPerson.id}
+        isAdmin={true}
+        onSelectPerson={vi.fn()}
+        onReorderChildren={mockReorder}
+      />
+    );
+
+    // Verify birth order badges
+    expect(screen.getByText('ቦኽሪ')).toBeDefined();
+    expect(screen.getByText('2ይ')).toBeDefined();
+    expect(screen.getByText('ሕሳስ')).toBeDefined();
+    expect(screen.getByText(/ካብ ቦኽሪ ናብ ሕሳስ/)).toBeDefined();
+
+    // Click move up on second child (ውሉድ ክልተ)
+    const upBtns = screen.getAllByRole('button', { name: /ተዋረድ ናብ ቦኽሪ ኣደይብ/ });
+    expect(upBtns.length).toBe(3);
+    fireEvent.click(upBtns[1]);
+
+    expect(mockReorder).toHaveBeenCalledWith('pers_test_parent', [
+      'pers_child_2',
+      'pers_child_1',
+      'pers_child_3',
+    ]);
+  });
+
+  it('38. Authoritative dataset: Letu lineage under Branch Tibe is verified with children and descendants intact', async () => {
+    const { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS } = await import('../src/data/initialGenealogyData');
+
+    const tibe = INITIAL_PEOPLE.find((p) => p.id === 'pers_p1_9');
+    expect(tibe?.status).toBe('verified');
+
+    const letu = INITIAL_PEOPLE.find((p) => p.id === 'pers_p15_311');
+    expect(letu).toBeDefined();
+    expect(letu?.canonicalName).toBe('ለቱ');
+    expect(letu?.branch).toBe('ትዕበ');
+    expect(letu?.status).toBe('verified');
+
+    // Child of Tibe
+    const relTibeLetu = INITIAL_RELATIONSHIPS.find(
+      (r) => r.fromPersonId === 'pers_p1_9' && r.toPersonId === 'pers_p15_311'
+    );
+    expect(relTibeLetu).toBeDefined();
+    expect(relTibeLetu?.status).toBe('verified');
+    expect(relTibeLetu?.isBiologicalConfirmed).toBe(true);
+
+    // Letu's children
+    const bashayDruy = INITIAL_PEOPLE.find((p) => p.id === 'pers_p16_319');
+    expect(bashayDruy).toBeDefined();
+    expect(bashayDruy?.canonicalName).toBe('ባሻይ ድሩይ');
+    expect(bashayDruy?.status).toBe('verified');
+    expect(bashayDruy?.branch).toBe('ትዕበ');
+
+    const hayle = INITIAL_PEOPLE.find((p) => p.id === 'pers_p16_320');
+    expect(hayle).toBeDefined();
+    expect(hayle?.status).toBe('verified');
+
+    const abrehet = INITIAL_PEOPLE.find((p) => p.id === 'pers_p16_321');
+    expect(abrehet).toBeDefined();
+    expect(abrehet?.status).toBe('verified');
   });
 });
 

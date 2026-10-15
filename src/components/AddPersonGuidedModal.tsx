@@ -17,7 +17,8 @@ import {
   Sparkles,
   Link2,
   Info,
-  ChevronDown
+  ChevronDown,
+  Edit3
 } from 'lucide-react';
 
 const DRAFT_STORAGE_KEY = 'kinteba_add_person_draft';
@@ -184,8 +185,9 @@ export interface SpouseSelectionGuideProps {
   relationshipId?: string;
   currentValue?: string;
   onUseExisting: (name: string) => void;
+  onCustomEntry?: () => void;
   onKeepAndAddSecondSpouse?: () => void;
-  onDeleteErronousSpouse: () => Promise<void> | void;
+  onDeleteErronousSpouse?: () => Promise<void> | void;
   canAddSecondSpouse?: boolean;
 }
 
@@ -193,8 +195,8 @@ export const SpouseSelectionGuide: React.FC<SpouseSelectionGuideProps> = ({
   existingSpouseName,
   currentValue,
   onUseExisting,
+  onCustomEntry,
   onKeepAndAddSecondSpouse,
-  onDeleteErronousSpouse,
   canAddSecondSpouse = true,
 }) => {
   const isSelected = Boolean(
@@ -203,76 +205,102 @@ export const SpouseSelectionGuide: React.FC<SpouseSelectionGuideProps> = ({
       currentValue.trim().toLowerCase() === existingSpouseName.trim().toLowerCase()
   );
 
+  const [isCustomMode, setIsCustomMode] = useState(false);
+
+  const handleChooseRecorded = () => {
+    setIsCustomMode(false);
+    onUseExisting(existingSpouseName);
+  };
+
+  const handleChooseCustom = () => {
+    setIsCustomMode(true);
+    if (onCustomEntry) {
+      onCustomEntry();
+    } else {
+      onUseExisting('');
+    }
+    if (onKeepAndAddSecondSpouse && canAddSecondSpouse) {
+      onKeepAndAddSecondSpouse();
+    }
+  };
+
   return (
-    <div className="my-2 p-3.5 bg-gradient-to-br from-amber-50 to-rose-50/40 rounded-xl border border-amber-300 shadow-2xs space-y-3 font-ethiopic text-xs">
+    <div className="my-2.5 p-3.5 bg-gradient-to-br from-amber-50 to-stone-50 rounded-2xl border border-amber-300 shadow-2xs space-y-2.5 font-ethiopic text-xs">
       <div className="flex items-center gap-2 text-amber-950 font-bold border-b border-amber-200/80 pb-2">
         <Heart className="w-4 h-4 text-rose-500 shrink-0" />
-        <span>ናይዚ መጻምድቲ መዝገብ (ምርጫታት ንተጠቃሚ)</span>
+        <span>ዝተረኸበ መጻምድቲ: <strong className="text-stone-900">&laquo;{existingSpouseName}&raquo;</strong></span>
       </div>
 
-      {/* Option 1: Reuse existing recorded spouse name */}
-      <div
-        className={`p-2.5 rounded-lg border transition-all ${
-          isSelected
-            ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
-            : 'bg-white/95 border-amber-200 text-stone-800'
-        }`}
-      >
-        <div className="flex items-start gap-2 mb-2">
-          <span className="w-5 h-5 rounded-full bg-amber-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-            1
-          </span>
-          <div className="leading-relaxed">
-            ናይዚ መጻምድቲ <strong className="text-amber-950 text-sm font-bold">&laquo;{existingSpouseName}&raquo;</strong> ዝበሃል ድሮ ኣሎ፤ ካብ ደጊምኩም ምጽሓፍ ነዚ ስም ተጠቐሙ።
-          </div>
-        </div>
-        {!isSelected ? (
-          <button
-            type="button"
-            onClick={() => onUseExisting(existingSpouseName)}
-            className="ml-7 inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow-2xs transition-all cursor-pointer"
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+        {/* ኦፕሽን 1: ንዚ ኣጽዲቕኩም ቀጽሉ */}
+        <button
+          type="button"
+          onClick={handleChooseRecorded}
+          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+            isSelected && !isCustomMode
+              ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-300/50 text-emerald-950 shadow-2xs'
+              : 'bg-white hover:bg-emerald-50/50 border-stone-200 hover:border-emerald-300 text-stone-800'
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs ${
+              isSelected && !isCustomMode
+                ? 'bg-emerald-600 text-white'
+                : 'bg-stone-100 text-stone-700'
+            }`}
           >
             <CheckCircle className="w-3.5 h-3.5" />
-            <span>ነዚ ስም ተጠቐም ({existingSpouseName})</span>
-          </button>
-        ) : (
-          <div className="ml-7 text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1">
-            <CheckCircle className="w-3.5 h-3.5" />
-            <span>እዚ ስም ተመሪጹ ኣሎ</span>
           </div>
-        )}
-      </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5 flex-wrap">
+              <span className="text-amber-800">ኦፕሽን 1:</span>
+              <span className="text-emerald-900">&laquo;{existingSpouseName}&raquo; ኣጽዲቕካ ቀጽል</span>
+            </div>
+            <div className="text-[11px] text-stone-500 mt-0.5">
+              ኣብ መዝገብ ዝሰፈረ መጻምድቲ ምረጽ
+            </div>
+            {isSelected && !isCustomMode && (
+              <span className="inline-flex items-center gap-1 mt-1 text-[10.5px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md">
+                ✓ ዝተመርጸ መጻምድቲ
+              </span>
+            )}
+          </div>
+        </button>
 
-      {/* Option 2: Decision / Validation */}
-      <div className="p-2.5 bg-white/95 rounded-lg border border-stone-200 text-stone-800 space-y-2">
-        <div className="flex items-start gap-2">
-          <span className="w-5 h-5 rounded-full bg-stone-700 text-white font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-            2
-          </span>
-          <div className="leading-relaxed text-stone-800">
-            እዚ ስም ትኽክለኛ መጻምድቲ እዩ ኢልኩም እንተዘይሓሲብኩም ይደምሰስ ዶ ጠቕሊሉ ወይስ እቲ መጻምዲ ከም መጻምዲ ይተሓዝ?
-          </div>
-        </div>
-        <div className="ml-7 flex flex-wrap items-center gap-2 pt-1">
-          {canAddSecondSpouse && onKeepAndAddSecondSpouse && (
-            <button
-              type="button"
-              onClick={onKeepAndAddSecondSpouse}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg font-semibold text-[11px] border border-stone-300 transition-colors cursor-pointer"
-            >
-              <Plus className="w-3 h-3 text-stone-600" />
-              <span>ትኽክል እዩ፡ + ካልኣይ መጻምድቲ ወስኽ</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onDeleteErronousSpouse}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-semibold text-[11px] border border-rose-200 transition-colors cursor-pointer"
+        {/* ኦፕሽን 2: ካልእ እንተኾይኑ ባዕልኹም ጽሓፉ */}
+        <button
+          type="button"
+          onClick={handleChooseCustom}
+          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+            isCustomMode || (!isSelected && currentValue && currentValue.trim().length > 0)
+              ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300/50 text-amber-950 shadow-2xs'
+              : 'bg-white hover:bg-amber-50/50 border-stone-200 hover:border-amber-300 text-stone-800'
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs ${
+              isCustomMode || (!isSelected && currentValue && currentValue.trim().length > 0)
+                ? 'bg-amber-700 text-white'
+                : 'bg-stone-100 text-stone-700'
+            }`}
           >
-            <Trash2 className="w-3 h-3 text-rose-600" />
-            <span>ጌጋ ስለዝኾነ ይደምሰስ</span>
-          </button>
-        </div>
+            <Edit3 className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5 flex-wrap">
+              <span className="text-amber-800">ኦፕሽን 2:</span>
+              <span className="text-amber-950">ካልእ መጻምድቲ ባዕልኻ ጽሓፍ</span>
+            </div>
+            <div className="text-[11px] text-stone-500 mt-0.5">
+              ሓድሽ ወይ ካልኣይ መጻምድቲ ብነጻነት ምእታው
+            </div>
+            {(isCustomMode || (!isSelected && currentValue && currentValue.trim().length > 0)) && (
+              <span className="inline-flex items-center gap-1 mt-1 text-[10.5px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md">
+                ✏️ ናጻ ናይ ጽሕፈት ሰደቓ ተኸፊቱ ኣሎ
+              </span>
+            )}
+          </div>
+        </button>
       </div>
     </div>
   );

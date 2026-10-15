@@ -3,6 +3,7 @@ import { Person, Relationship } from '../types/genealogy';
 import {
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   User,
   Heart,
   Users,
@@ -12,7 +13,8 @@ import {
   FileText,
   ArrowUp,
   Tag,
-  Trash2
+  Trash2,
+  ArrowUpDown
 } from 'lucide-react';
 
 interface FamilyExplorerProps {
@@ -24,6 +26,7 @@ interface FamilyExplorerProps {
   isAdmin?: boolean;
   onDeleteRelationship?: (relId: string) => Promise<void> | void;
   onDeletePerson?: (personId: string) => Promise<void> | void;
+  onReorderChildren?: (parentId: string, orderedChildIds: string[]) => Promise<void> | void;
 }
 
 interface TrailSnapshot {
@@ -39,6 +42,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
   isAdmin,
   onDeleteRelationship,
   onDeletePerson,
+  onReorderChildren,
 }) => {
   // Fast map of people by ID
   const peopleMap = useMemo(() => {
@@ -257,9 +261,51 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
     [focusedPerson, childToParentsMap]
   );
 
+  // Sort children by birthOrder (from firstborn/ቦኽሪ to youngest/ሕሳስ)
+  const sortChildrenByOrder = useCallback(
+    (childIds: string[]) => {
+      return [...childIds].sort((aId, bId) => {
+        const pA = peopleMap.get(aId);
+        const pB = peopleMap.get(bId);
+        const orderA = pA?.birthOrder ?? 9999;
+        const orderB = pB?.birthOrder ?? 9999;
+        if (orderA !== orderB) return orderA - orderB;
+        return 0;
+      });
+    },
+    [peopleMap]
+  );
+
   const childrenIds = useMemo(
-    () => (focusedPerson ? parentToChildrenMap.get(focusedPerson.id) || [] : []),
-    [focusedPerson, parentToChildrenMap]
+    () => {
+      if (!focusedPerson) return [];
+      const list = parentToChildrenMap.get(focusedPerson.id) || [];
+      return sortChildrenByOrder(list);
+    },
+    [focusedPerson, parentToChildrenMap, sortChildrenByOrder]
+  );
+
+  // Move child up or down in chronological sequence (ቦኽሪ ➔ ሕሳስ)
+  const handleMoveChild = useCallback(
+    async (parentId: string, childId: string, direction: 'up' | 'down') => {
+      const currentKids = parentToChildrenMap.get(parentId) || [];
+      const sorted = sortChildrenByOrder(currentKids);
+      const currentIndex = sorted.indexOf(childId);
+      if (currentIndex === -1) return;
+
+      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (newIndex < 0 || newIndex >= sorted.length) return;
+
+      const newOrdered = [...sorted];
+      const temp = newOrdered[currentIndex];
+      newOrdered[currentIndex] = newOrdered[newIndex];
+      newOrdered[newIndex] = temp;
+
+      if (onReorderChildren) {
+        await onReorderChildren(parentId, newOrdered);
+      }
+    },
+    [parentToChildrenMap, sortChildrenByOrder, onReorderChildren]
   );
 
   // Strictly deduplicate unique spouses by normalized canonical name
@@ -738,27 +784,40 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
       {/* SECTION 3: CHILDREN & DESCENDANTS (Descending generation) */}
       <div className="bg-white p-3.5 sm:p-6 rounded-2xl border border-stone-200 shadow-2xs space-y-3.5 w-full min-w-0 max-w-full overflow-hidden">
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between gap-2 min-w-0 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <Users className="w-5 h-5 sm:w-6 sm:h-6 text-amber-700 shrink-0" />
             <h3 className="text-lg sm:text-xl font-bold text-stone-900 font-ethiopic">
               ውሉዳት ({childrenIds.length})
             </h3>
+            {childrenIds.length > 1 && (
+              <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300 font-ethiopic flex items-center gap-1 shadow-2xs">
+                <ArrowUpDown className="w-3 h-3 text-amber-700" />
+                ካብ ቦኽሪ ናብ ሕሳስ
+              </span>
+            )}
           </div>
           {childrenIds.length > 0 && (
             <span className="text-xs text-stone-500 font-ethiopic shrink-0">
-              ጨንፈር ንምርኣይ ነቲ ቀስቲ ተንክፍ
+              {isAdmin ? '▲/▼ ብምጥዋቕ ተዋረድ ቦኽሪ/ሕሳስ ኣስተኻኽል' : 'ጨንፈር ንምርኣይ ነቲ ቀስቲ ተንክፍ'}
             </span>
           )}
         </div>
 
         {/* Recursive multi-generational branch node renderer: Zero truncation & adaptive left-shift for deep levels */}
         {(() => {
-          const renderBranchNode = (personId: string, depth = 1): React.ReactNode => {
+          const renderBranchNode = (
+            personId: string,
+            depth = 1,
+            parentId = focusedPerson.id,
+            childIndex = 0,
+            totalSiblings = 1
+          ): React.ReactNode => {
             const p = peopleMap.get(personId);
             if (!p) return null;
             const kids = parentToChildrenMap.get(personId) || [];
-            const hasKids = kids.length > 0;
+            const sortedKids = sortChildrenByOrder(kids);
+            const hasKids = sortedKids.length > 0;
             const isExpanded = expandedChildIds.has(personId);
 
             return (
@@ -773,6 +832,46 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                 }`}
               >
                 <div className="flex items-start justify-between gap-1.5 sm:gap-2.5 min-w-0 w-full">
+                  {/* If Admin: Reorder Up/Down arrows in front of the child card */}
+                  {isAdmin && totalSiblings > 1 && (
+                    <div className="flex flex-col items-center justify-center shrink-0 self-center pr-1 sm:pr-1.5 py-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveChild(parentId, personId, 'up');
+                        }}
+                        disabled={childIndex === 0}
+                        className={`p-1 rounded transition-colors ${
+                          childIndex === 0
+                            ? 'text-stone-300 cursor-not-allowed'
+                            : 'text-amber-700 hover:bg-amber-100 hover:text-amber-900 cursor-pointer active:scale-95'
+                        }`}
+                        title="ናብ ላዕሊ ኣደይብ (ናብ ቦኽሪ)"
+                        aria-label={`ናይ ${p.canonicalName} ተዋረድ ናብ ቦኽሪ ኣደይብ`}
+                      >
+                        <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveChild(parentId, personId, 'down');
+                        }}
+                        disabled={childIndex === totalSiblings - 1}
+                        className={`p-1 rounded transition-colors ${
+                          childIndex === totalSiblings - 1
+                            ? 'text-stone-300 cursor-not-allowed'
+                            : 'text-amber-700 hover:bg-amber-100 hover:text-amber-900 cursor-pointer active:scale-95'
+                        }`}
+                        title="ናብ ታሕቲ ኣውርድ (ናብ ሕሳስ)"
+                        aria-label={`ናይ ${p.canonicalName} ተዋረድ ናብ ሕሳስ ኣውርድ`}
+                      >
+                        <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+                      </button>
+                    </div>
+                  )}
+
                   {/* Clicking name/card opens their dedicated generational page */}
                   <button
                     type="button"
@@ -793,11 +892,38 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                       <User className={depth === 1 ? 'w-5 h-5' : depth === 2 ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      {/* Name Row: STRICT ZERO TRUNCATION, WRAPS NATURALLY */}
-                      <div className="flex items-start justify-between gap-1 min-w-0">
-                        <span className="font-black text-stone-900 font-ethiopic text-sm sm:text-base group-hover:text-amber-800 transition-colors break-words whitespace-normal leading-snug">
-                          {p.canonicalName}
-                        </span>
+                      {/* Name Row: STRICT ZERO TRUNCATION, WRAPS NATURALLY + BIRTH ORDER BADGE */}
+                      <div className="flex items-start justify-between gap-1 min-w-0 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                          <span className="font-black text-stone-900 font-ethiopic text-sm sm:text-base group-hover:text-amber-800 transition-colors break-words whitespace-normal leading-snug">
+                            {p.canonicalName}
+                          </span>
+                          {/* Birth Order Badge: ቦኽሪ, 2ይ, 3ይ ... ሕሳስ */}
+                          {totalSiblings > 1 && (
+                            <span
+                              className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-md shrink-0 border font-ethiopic ${
+                                childIndex === 0
+                                  ? 'bg-amber-100 text-amber-950 border-amber-300 shadow-2xs'
+                                  : childIndex === totalSiblings - 1
+                                  ? 'bg-sky-50 text-sky-950 border-sky-300 shadow-2xs'
+                                  : 'bg-stone-100 text-stone-700 border-stone-200'
+                              }`}
+                              title={
+                                childIndex === 0
+                                  ? 'ቦኽሪ (ቀዳማይ ውሉድ)'
+                                  : childIndex === totalSiblings - 1
+                                  ? 'ሕሳስ (ናይ መወዳእታ ውሉድ)'
+                                  : `${childIndex + 1}ይ ውሉድ`
+                              }
+                            >
+                              {childIndex === 0
+                                ? 'ቦኽሪ'
+                                : childIndex === totalSiblings - 1
+                                ? 'ሕሳስ'
+                                : `${childIndex + 1}ይ`}
+                            </span>
+                          )}
+                        </div>
                         {depth > 1 && (
                           <span className="text-[10px] sm:text-[10.5px] font-black text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded-md shrink-0 border border-amber-200/80 font-ethiopic ml-1.5 self-start">
                             ደረጃ {depth}
@@ -814,7 +940,7 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                         )}
                         {hasKids ? (
                           <span className="text-amber-700 font-bold shrink-0 text-xs">
-                            {kids.length} ውሉዳት
+                            {sortedKids.length} ውሉዳት
                           </span>
                         ) : (
                           <span className="text-stone-400 shrink-0 text-xs">
@@ -884,11 +1010,13 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                     <div className="flex items-center text-xs text-stone-600 font-bold px-1 pb-1 gap-1">
                       <span className="text-amber-700 font-extrabold shrink-0">↳</span>
                       <span className="text-stone-800 break-words whitespace-normal text-xs sm:text-sm font-ethiopic leading-snug">
-                        ናይ {p.canonicalName} ውሉዳት ({kids.length}):
+                        ናይ {p.canonicalName} ውሉዳት ({sortedKids.length}):
                       </span>
                     </div>
                     <div className="space-y-2">
-                      {kids.map((kidId) => renderBranchNode(kidId, depth + 1))}
+                      {sortedKids.map((kidId, kidIdx) =>
+                        renderBranchNode(kidId, depth + 1, personId, kidIdx, sortedKids.length)
+                      )}
                     </div>
                   </div>
                 )}
@@ -906,7 +1034,9 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
 
           return (
             <div className="space-y-2.5">
-              {childrenIds.map((childId) => renderBranchNode(childId, 1))}
+              {childrenIds.map((childId, idx) =>
+                renderBranchNode(childId, 1, focusedPerson.id, idx, childrenIds.length)
+              )}
             </div>
           );
         })()}

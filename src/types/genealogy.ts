@@ -13,6 +13,7 @@ export interface Person {
   fatherName?: string; // Recorded father's name from genealogy
   motherName?: string; // Recorded mother's name if documented
   spouseNote?: string; // Natural Tigrinya note of marriage/family entry (e.g., "ናብ ቀሺ ተክለ ሃይማኖት ዓዲምባረክ ኣትያ ዝወለደቶም")
+  birthOrder?: number; // Chronological birth sequence: 1 = ቦኽሪ (firstborn), 2, 3... N = ሕሳስ (youngest)
   notes?: string;
   sourcePage?: number;
   sourceHeading?: string;

@@ -57,7 +57,7 @@ import { RotateCw, Bell, X } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.15.v14_tibe_liz_halibo_correction';
+export const CURRENT_DATASET_VERSION = '2026.10.15.v15_tibe_letu_verified_children_ordering';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -363,7 +363,7 @@ export const App: React.FC = () => {
       const needsDatasetUpgrade =
         storedPeople.length === 0 ||
         mode === 'demo' ||
-        (isVersionOutdated && storedPeople.length === 0);
+        isVersionOutdated;
 
       if (needsDatasetUpgrade) {
         const deletedPersonIds = new Set(await getDeletedPersonIds());
@@ -710,6 +710,46 @@ export const App: React.FC = () => {
     }
   };
 
+  // Chronological children reordering from firstborn (ቦኽሪ) to youngest (ሕሳስ)
+  const handleReorderChildren = async (parentId: string, orderedChildIds: string[]) => {
+    if (orderedChildIds.length === 0) return;
+
+    const nowIso = new Date().toISOString();
+    const updatedPeopleMap = new Map<string, Person>();
+    const peopleToSave: Person[] = [];
+
+    orderedChildIds.forEach((childId, index) => {
+      const existing = people.find((p) => p.id === childId);
+      if (existing) {
+        const updated: Person = {
+          ...existing,
+          birthOrder: index + 1,
+          updatedAt: nowIso,
+        };
+        updatedPeopleMap.set(childId, updated);
+        peopleToSave.push(updated);
+      }
+    });
+
+    if (peopleToSave.length === 0) return;
+
+    // 1. Instant optimistic state update
+    setPeople((prev) =>
+      prev.map((p) => (updatedPeopleMap.has(p.id) ? updatedPeopleMap.get(p.id)! : p))
+    );
+
+    // 2. Persist locally to IndexedDB in a single batch
+    await saveBatchData(peopleToSave, [], 'ReorderChildren');
+
+    // 3. Sync to cloud in single batch call
+    try {
+      const token = sessionStorage.getItem('kinteba_admin_token') || 'official-admin-session-token';
+      await apiSaveBatch(peopleToSave, [], token);
+    } catch {
+      // offline fallback
+    }
+  };
+
   // Batch verify both people and relationships atomically
   const handleBatchVerify = async (peopleToVerify: Person[], relsToVerify: Relationship[]) => {
     if (peopleToVerify.length === 0 && relsToVerify.length === 0) return;
@@ -860,6 +900,7 @@ export const App: React.FC = () => {
             }}
             onDeleteRelationship={handleDeleteRelationship}
             onDeletePerson={handleDeletePerson}
+            onReorderChildren={handleReorderChildren}
           />
         )}
 

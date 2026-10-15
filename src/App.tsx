@@ -21,6 +21,7 @@ import {
   getDeletedPersonIds,
   getDeletedRelationshipIds,
   removeDeletedPersonId,
+  removeDeletedRelationshipId,
 } from './services/db';
 import { isCloudConfigured } from './services/supabaseClient';
 import {
@@ -57,7 +58,7 @@ import { RotateCw, Bell, X } from 'lucide-react';
 
 // Authoritative genealogy dataset schema version. Incrementing this triggers an automatic,
 // seamless upgrade of local IndexedDB across all visiting phones and browsers.
-export const CURRENT_DATASET_VERSION = '2026.10.15.v15_tibe_letu_verified_children_ordering';
+export const CURRENT_DATASET_VERSION = '2026.10.15.v16_tibe_mana_medhin_lineage_verified';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppDestination>('tree');
@@ -368,6 +369,21 @@ export const App: React.FC = () => {
       if (needsDatasetUpgrade) {
         const deletedPersonIds = new Set(await getDeletedPersonIds());
         const deletedRelIds = new Set(await getDeletedRelationshipIds());
+
+        // Protect authoritative historical people and relationships from being suppressed by accidental deletions
+        const protectedPersonPrefixes = ['pers_p', 'pers_root', 'pers_tibe', 'pers_partner'];
+        for (const delId of Array.from(deletedPersonIds)) {
+          if (protectedPersonPrefixes.some((pfx) => delId.startsWith(pfx))) {
+            deletedPersonIds.delete(delId);
+            await removeDeletedPersonId(delId);
+          }
+        }
+        for (const delRId of Array.from(deletedRelIds)) {
+          if (delRId.startsWith('rel_') && (delRId.includes('pers_p') || delRId.includes('pers_tibe') || delRId.includes('pers_root'))) {
+            deletedRelIds.delete(delRId);
+            await removeDeletedRelationshipId(delRId);
+          }
+        }
 
         const filteredInitialPeople = INITIAL_PEOPLE.filter((p) => !deletedPersonIds.has(p.id));
         const filteredInitialRels = INITIAL_RELATIONSHIPS.filter(

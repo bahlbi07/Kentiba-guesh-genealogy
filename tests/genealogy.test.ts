@@ -581,7 +581,7 @@ describe('Kinteba Guush Family Genealogy Test Suite', () => {
     expect(result.stats.pagesInspectedCount).toBe(36);
     expect(result.stats.pagesTranscribedCount).toBe(29);
     expect(result.stats.confirmedContinuationsCount).toBe(19);
-    expect(result.stats.duplicateNameOccurrences.length).toBe(92);
+    expect(result.stats.duplicateNameOccurrences.length).toBe(95);
   });
 
   // Test 19: cleanCandidateSpouseName strictly rejects narrative phrases and junk text

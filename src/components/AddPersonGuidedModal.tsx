@@ -232,7 +232,7 @@ export const SpouseSelectionGuide: React.FC<SpouseSelectionGuideProps> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
-        {/* ኦፕሽን 1: ንዚ ኣጽዲቕኩም ቀጽሉ */}
+        {/* ምርጫ 1: ንዚ ኣጽዲቕኩም ቀጽሉ */}
         <button
           type="button"
           onClick={handleChooseRecorded}
@@ -253,7 +253,7 @@ export const SpouseSelectionGuide: React.FC<SpouseSelectionGuideProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5 flex-wrap">
-              <span className="text-amber-800">ኦፕሽን 1:</span>
+              <span className="text-amber-800">ምርጫ 1:</span>
               <span className="text-emerald-900">&laquo;{existingSpouseName}&raquo; ኣጽዲቕካ ቀጽል</span>
             </div>
             <div className="text-[11px] text-stone-500 mt-0.5">
@@ -267,7 +267,7 @@ export const SpouseSelectionGuide: React.FC<SpouseSelectionGuideProps> = ({
           </div>
         </button>
 
-        {/* ኦፕሽን 2: ካልእ እንተኾይኑ ባዕልኹም ጽሓፉ */}
+        {/* ምርጫ 2: ካልእ እንተኾይኑ ባዕልኹም ጽሓፉ */}
         <button
           type="button"
           onClick={handleChooseCustom}
@@ -288,7 +288,7 @@ export const SpouseSelectionGuide: React.FC<SpouseSelectionGuideProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="font-bold text-xs text-stone-900 flex items-center gap-1.5 flex-wrap">
-              <span className="text-amber-800">ኦፕሽን 2:</span>
+              <span className="text-amber-800">ምርጫ 2:</span>
               <span className="text-amber-950">ካልእ መጻምድቲ ባዕልኻ ጽሓፍ</span>
             </div>
             <div className="text-[11px] text-stone-500 mt-0.5">

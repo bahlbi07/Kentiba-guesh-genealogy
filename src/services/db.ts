@@ -209,6 +209,21 @@ export async function removeDeletedPersonId(id: string): Promise<void> {
   }
 }
 
+export async function removeDeletedRelationshipId(id: string): Promise<void> {
+  if (!id) return;
+  try {
+    const current = await getDeletedRelationshipIds();
+    const filtered = current.filter((item) => item !== id);
+    const db = await getDB();
+    await db.put('metadata', { key: 'deletedRelationshipIds', value: filtered });
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(DELETED_RELS_STORAGE_KEY, JSON.stringify(filtered));
+    }
+  } catch {
+    // proceed
+  }
+}
+
 export async function getAllPeople(includeArchived = false): Promise<Person[]> {
   const db = await getDB();
   const all = await db.getAll('people');

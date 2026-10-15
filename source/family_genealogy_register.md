@@ -589,6 +589,25 @@ The phrase appears on the page, followed by the names below after a large blank 
 
 - ሓጎስ
 - ለምለም
+- ማና (ካብ ኣስፎተረ ኪዳነ ሰገነይቲ ኣትየን)
+- መድሂን (ካብ ዮሃንስ ዓዲ ኣመተ ክርስቶስ ኣትየን)
+
+### Source relationship: `ማና ጓል ዓዱዑማር ናብ ኣስፎተረ ኪዳነ ሰገነይቲ ኣትያ ዝወለደቶም ድማ`
+
+- ደስታ
+- ፍረወይኒ
+- ዮርዳኖስ
+- ተስፋልደት
+- ትርሓስ
+- ሳሙኤል
+
+### Source relationship: `መድሂን ጓል ዓዱዑማር ናብ ዮሃንስ ዓዲ ኣመተ ክርስቶስ ኣትያ ዝወለደቶም ድማ`
+
+- ታደሰ
+- ብርሃነ
+- ፍጹም
+- ሃብተ
+- ህይወት
 
 ### Source relationship: `ሓጎስ ዝወለዶም`
 

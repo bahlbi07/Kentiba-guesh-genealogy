@@ -13,8 +13,7 @@ import {
   FileText,
   ArrowUp,
   Tag,
-  Trash2,
-  ArrowUpDown
+  Trash2
 } from 'lucide-react';
 
 interface FamilyExplorerProps {
@@ -790,16 +789,10 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
             <h3 className="text-lg sm:text-xl font-bold text-stone-900 font-ethiopic">
               ውሉዳት ({childrenIds.length})
             </h3>
-            {childrenIds.length > 1 && (
-              <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300 font-ethiopic flex items-center gap-1 shadow-2xs">
-                <ArrowUpDown className="w-3 h-3 text-amber-700" />
-                ካብ ቦኽሪ ናብ ሕሳስ
-              </span>
-            )}
           </div>
           {childrenIds.length > 0 && (
             <span className="text-xs text-stone-500 font-ethiopic shrink-0">
-              {isAdmin ? '▲/▼ ብምጥዋቕ ተዋረድ ቦኽሪ/ሕሳስ ኣስተኻኽል' : 'ጨንፈር ንምርኣይ ነቲ ቀስቲ ተንክፍ'}
+              {isAdmin ? '▲/▼ ብምጥዋቕ ተዋረድ ኣስተኻኽል' : 'ጨንፈር ንምርኣይ ነቲ ቀስቲ ተንክፍ'}
             </span>
           )}
         </div>
@@ -847,8 +840,8 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                             ? 'text-stone-300 cursor-not-allowed'
                             : 'text-amber-700 hover:bg-amber-100 hover:text-amber-900 cursor-pointer active:scale-95'
                         }`}
-                        title="ናብ ላዕሊ ኣደይብ (ናብ ቦኽሪ)"
-                        aria-label={`ናይ ${p.canonicalName} ተዋረድ ናብ ቦኽሪ ኣደይብ`}
+                        title="ናብ ላዕሊ ኣደይብ"
+                        aria-label={`ናይ ${p.canonicalName} ተዋረድ ናብ ላዕሊ ኣደይብ`}
                       >
                         <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
                       </button>
@@ -864,8 +857,8 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                             ? 'text-stone-300 cursor-not-allowed'
                             : 'text-amber-700 hover:bg-amber-100 hover:text-amber-900 cursor-pointer active:scale-95'
                         }`}
-                        title="ናብ ታሕቲ ኣውርድ (ናብ ሕሳስ)"
-                        aria-label={`ናይ ${p.canonicalName} ተዋረድ ናብ ሕሳስ ኣውርድ`}
+                        title="ናብ ታሕቲ ኣውርድ"
+                        aria-label={`ናይ ${p.canonicalName} ተዋረድ ናብ ታሕቲ ኣውርድ`}
                       >
                         <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
                       </button>
@@ -892,37 +885,12 @@ export const FamilyExplorer: React.FC<FamilyExplorerProps> = ({
                       <User className={depth === 1 ? 'w-5 h-5' : depth === 2 ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      {/* Name Row: STRICT ZERO TRUNCATION, WRAPS NATURALLY + BIRTH ORDER BADGE */}
+                      {/* Name Row: STRICT ZERO TRUNCATION, WRAPS NATURALLY */}
                       <div className="flex items-start justify-between gap-1 min-w-0 flex-wrap">
                         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                           <span className="font-black text-stone-900 font-ethiopic text-sm sm:text-base group-hover:text-amber-800 transition-colors break-words whitespace-normal leading-snug">
                             {p.canonicalName}
                           </span>
-                          {/* Birth Order Badge: ቦኽሪ, 2ይ, 3ይ ... ሕሳስ */}
-                          {totalSiblings > 1 && (
-                            <span
-                              className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-md shrink-0 border font-ethiopic ${
-                                childIndex === 0
-                                  ? 'bg-amber-100 text-amber-950 border-amber-300 shadow-2xs'
-                                  : childIndex === totalSiblings - 1
-                                  ? 'bg-sky-50 text-sky-950 border-sky-300 shadow-2xs'
-                                  : 'bg-stone-100 text-stone-700 border-stone-200'
-                              }`}
-                              title={
-                                childIndex === 0
-                                  ? 'ቦኽሪ (ቀዳማይ ውሉድ)'
-                                  : childIndex === totalSiblings - 1
-                                  ? 'ሕሳስ (ናይ መወዳእታ ውሉድ)'
-                                  : `${childIndex + 1}ይ ውሉድ`
-                              }
-                            >
-                              {childIndex === 0
-                                ? 'ቦኽሪ'
-                                : childIndex === totalSiblings - 1
-                                ? 'ሕሳስ'
-                                : `${childIndex + 1}ይ`}
-                            </span>
-                          )}
                         </div>
                         {depth > 1 && (
                           <span className="text-[10px] sm:text-[10.5px] font-black text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded-md shrink-0 border border-amber-200/80 font-ethiopic ml-1.5 self-start">

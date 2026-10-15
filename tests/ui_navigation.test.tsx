@@ -1854,14 +1854,14 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     );
 
     // Option 1: Confirm recorded spouse
-    expect(screen.getByText(/ኦፕሽን 1:/)).toBeDefined();
+    expect(screen.getByText(/ምርጫ 1:/)).toBeDefined();
     expect(screen.getByText(/«ሊዝ ሓሊቦ ወልደጊርጊስ» ኣጽዲቕካ ቀጽል/)).toBeDefined();
     const opt1Btn = screen.getByRole('button', { name: /ኣጽዲቕካ ቀጽል/ });
     fireEvent.click(opt1Btn);
     expect(onUseExisting).toHaveBeenCalledWith('ሊዝ ሓሊቦ ወልደጊርጊስ');
 
     // Option 2: Custom spouse manual entry
-    expect(screen.getByText(/ኦፕሽን 2:/)).toBeDefined();
+    expect(screen.getByText(/ምርጫ 2:/)).toBeDefined();
     expect(screen.getByText(/ካልእ መጻምድቲ ባዕልኻ ጽሓፍ/)).toBeDefined();
     const opt2Btn = screen.getByRole('button', { name: /ካልእ መጻምድቲ ባዕልኻ ጽሓፍ/ });
     fireEvent.click(opt2Btn);
@@ -2147,7 +2147,7 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     expect(tibe?.spouseNote).not.toContain('ዓሊተና');
   });
 
-  it('37. FamilyExplorer: supports Admin child reordering from firstborn (ቦኽሪ) to youngest (ሕሳስ) with Up/Down buttons and badges', () => {
+  it('37. FamilyExplorer: supports Admin child reordering with clean Up/Down buttons without birth order badges', () => {
     const mockReorder = vi.fn();
     const createPerson = (id: string, name: string, order?: number): Person => ({
       id,
@@ -2194,14 +2194,14 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
       />
     );
 
-    // Verify birth order badges
-    expect(screen.getByText('ቦኽሪ')).toBeDefined();
-    expect(screen.getByText('2ይ')).toBeDefined();
-    expect(screen.getByText('ሕሳስ')).toBeDefined();
-    expect(screen.getByText(/ካብ ቦኽሪ ናብ ሕሳስ/)).toBeDefined();
+    // Verify birth order badges and pill are cleanly removed as requested
+    expect(screen.queryByText('ቦኽሪ')).toBeNull();
+    expect(screen.queryByText('2ይ')).toBeNull();
+    expect(screen.queryByText('ሕሳስ')).toBeNull();
+    expect(screen.queryByText(/ካብ ቦኽሪ ናብ ሕሳስ/)).toBeNull();
 
     // Click move up on second child (ውሉድ ክልተ)
-    const upBtns = screen.getAllByRole('button', { name: /ተዋረድ ናብ ቦኽሪ ኣደይብ/ });
+    const upBtns = screen.getAllByRole('button', { name: /ተዋረድ ናብ ላዕሊ ኣደይብ/ });
     expect(upBtns.length).toBe(3);
     fireEvent.click(upBtns[1]);
 
@@ -2246,6 +2246,77 @@ describe('UI Navigation, Tree Interaction, and Safety Verification', () => {
     const abrehet = INITIAL_PEOPLE.find((p) => p.id === 'pers_p16_321');
     expect(abrehet).toBeDefined();
     expect(abrehet?.status).toBe('verified');
+  });
+
+  it('39. Authoritative dataset: Branch Tibe Mana and Medhin lineages with verified spouses and children', async () => {
+    const { INITIAL_PEOPLE, INITIAL_RELATIONSHIPS } = await import('../src/data/initialGenealogyData');
+
+    // 1. Mana daughter of Adeumer
+    const mana = INITIAL_PEOPLE.find((p) => p.id === 'pers_tibe_adeumer_06_mana');
+    expect(mana).toBeDefined();
+    expect(mana?.canonicalName).toBe('ማና');
+    expect(mana?.branch).toBe('ትዕበ');
+    expect(mana?.spouseNote).toContain('ኣስፎተረ ኪዳነ');
+    expect(mana?.spouseNote).toContain('ሰገነይቲ');
+
+    // Mana's spouse
+    const asfotere = INITIAL_PEOPLE.find((p) => p.id === 'pers_partner_tibe_mana_asfotere_kidane');
+    expect(asfotere).toBeDefined();
+    expect(asfotere?.canonicalName).toBe('ኣስፎተረ ኪዳነ');
+    expect(asfotere?.notes).toContain('ሰገነይቲ');
+
+    // Mana's union
+    const manaUnion = INITIAL_RELATIONSHIPS.find(
+      (r) => r.fromPersonId === 'pers_tibe_adeumer_06_mana' && r.toPersonId === 'pers_partner_tibe_mana_asfotere_kidane'
+    );
+    expect(manaUnion).toBeDefined();
+    expect(manaUnion?.type).toBe('partner_or_union');
+
+    // Mana's 6 children: ደስታ፣ ፍረወይኒ፣ ዮርዳኖስ፣ ተስፋልደት፣ ትርሓስ፣ ሳሙኤል
+    const manaKidsRels = INITIAL_RELATIONSHIPS.filter(
+      (r) => r.fromPersonId === 'pers_tibe_adeumer_06_mana' && r.type === 'parent_child'
+    );
+    expect(manaKidsRels.length).toBe(6);
+    const manaKids = manaKidsRels.map((r) => INITIAL_PEOPLE.find((p) => p.id === r.toPersonId)?.canonicalName);
+    expect(manaKids).toContain('ደስታ');
+    expect(manaKids).toContain('ፍረወይኒ');
+    expect(manaKids).toContain('ዮርዳኖስ');
+    expect(manaKids).toContain('ተስፋልደት');
+    expect(manaKids).toContain('ትርሓስ');
+    expect(manaKids).toContain('ሳሙኤል');
+
+    // 2. Medhin daughter of Adeumer
+    const medhin = INITIAL_PEOPLE.find((p) => p.id === 'pers_tibe_adeumer_04_medhin');
+    expect(medhin).toBeDefined();
+    expect(medhin?.canonicalName).toBe('መድሂን');
+    expect(medhin?.branch).toBe('ትዕበ');
+    expect(medhin?.spouseNote).toContain('ዮሃንስ');
+    expect(medhin?.spouseNote).toContain('ዓዲ ኣመተ ክርስቶስ');
+
+    // Medhin's spouse
+    const yohannes = INITIAL_PEOPLE.find((p) => p.id === 'pers_partner_tibe_medhin_yohannes');
+    expect(yohannes).toBeDefined();
+    expect(yohannes?.canonicalName).toBe('ዮሃንስ');
+    expect(yohannes?.notes).toContain('ዓዲ ኣመተ ክርስቶስ');
+
+    // Medhin's union
+    const medhinUnion = INITIAL_RELATIONSHIPS.find(
+      (r) => r.fromPersonId === 'pers_tibe_adeumer_04_medhin' && r.toPersonId === 'pers_partner_tibe_medhin_yohannes'
+    );
+    expect(medhinUnion).toBeDefined();
+    expect(medhinUnion?.type).toBe('partner_or_union');
+
+    // Medhin's 5 children: ታደሰ ፣ ብርሃነ፣ ፍጹም፣ ሃብተ፣ ህይወት
+    const medhinKidsRels = INITIAL_RELATIONSHIPS.filter(
+      (r) => r.fromPersonId === 'pers_tibe_adeumer_04_medhin' && r.type === 'parent_child'
+    );
+    expect(medhinKidsRels.length).toBe(5);
+    const medhinKids = medhinKidsRels.map((r) => INITIAL_PEOPLE.find((p) => p.id === r.toPersonId)?.canonicalName);
+    expect(medhinKids).toContain('ታደሰ');
+    expect(medhinKids).toContain('ብርሃነ');
+    expect(medhinKids).toContain('ፍጹም');
+    expect(medhinKids).toContain('ሃብተ');
+    expect(medhinKids).toContain('ህይወት');
   });
 });
 
